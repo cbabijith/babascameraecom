@@ -4,16 +4,21 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
-interface Suggestion { id: string; name: string; slug: string }
+interface Suggestion {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 export function SearchBox() {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const hasSearchQuery = query.trim().length >= 2;
+  const visibleSuggestions = hasSearchQuery ? suggestions : [];
+
   useEffect(() => {
-    if (query.trim().length < 2) {
-      setSuggestions([]);
-      return;
-    }
+    if (!hasSearchQuery) return;
+
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       const response = await fetch(
@@ -28,7 +33,7 @@ export function SearchBox() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [hasSearchQuery, query]);
 
   return (
     <div className="relative ml-auto hidden min-w-52 max-w-sm flex-1 md:block">
@@ -48,9 +53,9 @@ export function SearchBox() {
           className="focus-ring h-10 min-w-0 flex-1 bg-transparent px-3 text-sm"
         />
       </form>
-      {suggestions.length ? (
+      {visibleSuggestions.length ? (
         <div className="absolute inset-x-0 top-12 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 shadow-xl">
-          {suggestions.map((suggestion) => (
+          {visibleSuggestions.map((suggestion) => (
             <Link
               key={suggestion.id}
               href={`/products/${suggestion.slug}`}

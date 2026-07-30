@@ -1,6 +1,17 @@
 # Baba's Camera Storefront
 
-Customer-facing Next.js storefront for Baba's Camera. It runs on port `3000` and uses Supabase Auth, Drizzle/PostgreSQL catalog data, server-side cart/checkout logic, Razorpay payment helpers, and the shared UI package.
+Customer-facing Next.js 16 storefront for Baba's Camera. It runs on port `3000`
+and uses React 19, Supabase Auth, Drizzle/PostgreSQL catalog data, server-side
+cart/checkout logic, Razorpay payment helpers, and the shared UI package.
+
+## Runtime and tooling
+
+- Next.js `16.2.12` with the App Router and default Turbopack builds.
+- React and React DOM `19.2.8`.
+- TypeScript `6.0.3`, the newest stable release supported by the current
+  TypeScript ESLint parser.
+- ESLint `9.39.5`, Tailwind CSS `4.3.3`, and Vitest `4.1.10`.
+- Node.js `20.9.0` or newer and Bun `1.3.14`.
 
 ## Local URL
 
@@ -28,11 +39,16 @@ Required values are documented in `.env.example`:
 
 Keep all non-`NEXT_PUBLIC_` credentials server-only.
 
-## Current UI State
+## Homepage architecture
 
-The home page (`/`) has been restored to the older Baba's Camera look using the preserved storefront assets and the current product/catalog data path.
+The homepage uses an aggregated public HTTP API:
 
-Important truth: the full storefront UI has not been restored yet. Product listing, product detail, cart, checkout, auth, and account pages still use the newer implementation.
+`page.tsx -> validated API client -> /api/storefront/home -> handler -> service -> repository -> PostgreSQL`
+
+The initial homepage catalogue does not use browser-side fetching or direct
+database access from React components. See
+[`src/features/home/README.md`](./src/features/home/README.md) for its contract,
+caching, security, and media rules.
 
 ## Main Routes
 
@@ -83,14 +99,8 @@ bun run --cwd apps/web build
 - Copy variable names from [`.env.railway.example`](./.env.railway.example);
   keep all real credentials in Railway's Variables settings.
 
-Known validation state:
+## Remaining external verification
 
-- Web type-check, lint, tests, and production build passed after the home page restoration.
-- `/` returned `200` locally and contained the restored old-home markers/assets.
-
-## Next Storefront Work
-
-- Restore old UI/UX for product listing, product detail, cart, checkout, auth, and account pages if the requirement is full legacy visual parity.
 - Complete COD order lifecycle testing.
 - Configure Razorpay test keys and certify live test checkout.
 - Configure Resend/Supabase SMTP and verify email delivery.

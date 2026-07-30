@@ -3,6 +3,7 @@ node_modules/
 .turbo/
 .next/
 .next-legacy/
+.next-home-verification/
 out/
 dist/
 build/

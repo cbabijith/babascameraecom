@@ -49,9 +49,9 @@
     "@tailwindcss/postcss": "4.3.3",
     "drizzle-kit": "0.31.10",
     "drizzle-orm": "0.45.2",
+    "postcss": "8.5.25",
     "postgres": "3.4.9",
     "tailwindcss": "4.3.3",
-    "turbo": "2.10.7",
-    "typescript": "5.9.3"
+    "turbo": "2.10.7"
   }
 }

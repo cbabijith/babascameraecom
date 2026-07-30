@@ -6,7 +6,10 @@ const CART_SESSION_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 
 const protectedPrefixes = ["/account", "/wishlist"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/api/storefront/home") {
+    return NextResponse.next();
+  }
   const existingCartSession = request.cookies.get(CART_SESSION_COOKIE)?.value;
   const newCartSession =
     existingCartSession && CART_SESSION_PATTERN.test(existingCartSession)
@@ -43,17 +46,9 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (
-    !user &&
-    protectedPrefixes.some((prefix) =>
-      request.nextUrl.pathname.startsWith(prefix),
-    )
-  ) {
+  if (!user && protectedPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
     const login = new URL("/auth/login", request.url);
-    login.searchParams.set(
-      "next",
-      `${request.nextUrl.pathname}${request.nextUrl.search}`,
-    );
+    login.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
     const redirectResponse = NextResponse.redirect(login);
     if (newCartSession) {
       redirectResponse.cookies.set(CART_SESSION_COOKIE, newCartSession, {
@@ -79,7 +74,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };

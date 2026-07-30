@@ -1,15 +1,16 @@
 import { Skeleton } from "@babascamera/ui";
+import { HomepageSectionSkeleton } from "@/features/home/components/homepage-section-skeleton";
 
 export default function Loading() {
   return (
-    <div className="page-shell space-y-6 py-12" aria-busy="true">
-      <Skeleton className="h-12 w-2/3" />
-      <Skeleton className="h-72 w-full rounded-3xl" />
-      <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-64 rounded-2xl" />
-        ))}
-      </div>
+    <div
+      className="page-shell space-y-14 py-6 sm:space-y-20 sm:py-10"
+      aria-busy="true"
+      aria-label="Loading storefront"
+    >
+      <Skeleton className="aspect-[4/5] w-full rounded-3xl sm:aspect-[16/6]" />
+      <HomepageSectionSkeleton />
+      <HomepageSectionSkeleton />
     </div>
   );
 }

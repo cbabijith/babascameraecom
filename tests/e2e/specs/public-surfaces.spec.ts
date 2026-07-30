@@ -4,18 +4,51 @@ const storefrontBaseUrl = "http://127.0.0.1:3100";
 const adminBaseUrl = "http://127.0.0.1:3101";
 
 test.describe("public readiness and Auth boundaries", () => {
-  test("storefront home is healthy with its database-backed public shell", async ({ page }) => {
+  test("storefront home and aggregate public API are healthy", async ({ page, request }) => {
+    const consoleErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
     const response = await page.goto(storefrontBaseUrl);
 
     expect(response?.status()).toBe(200);
     expect(response?.headers()["content-type"]).toContain("text/html");
     await expect(page).toHaveTitle(/Baba's Camera/i);
-    await expect(
-      page.getByRole("heading", {
-        level: 1,
-        name: /capture every story/i,
-      }),
-    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Baba's Camera home" })).toBeVisible();
+    await expect(page.locator("footer")).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+    ).toBe(true);
+    expect(consoleErrors.filter((message) => /hydration|uncaught/i.test(message))).toEqual([]);
+
+    const apiResponse = await request.get(
+      `${storefrontBaseUrl}/api/storefront/home?sectionLimit=8`,
+    );
+    expect(apiResponse.status()).toBe(200);
+    expect(apiResponse.headers()["cache-control"]).toContain("s-maxage=60");
+    const payload = await apiResponse.json();
+    expect(payload.success).toBe(true);
+    expect(payload.meta.currency).toBe("INR");
+    expect(JSON.stringify(payload)).not.toMatch(
+      /costPrice|supplier|internalName|serviceRole|inventoryHistory/i,
+    );
+
+    const nextBanner = page.getByRole("button", { name: "Next banner" });
+    if (await nextBanner.count()) {
+      await nextBanner.click();
+    }
+
+    for (const selector of [
+      'a[href^="/categories/"]',
+      'a[href^="/products/"]',
+      'a[href^="/brands/"]',
+    ]) {
+      const link = page.locator(selector).first();
+      if (await link.count()) {
+        const href = await link.getAttribute("href");
+        expect(href).toMatch(/^\/(?:categories|products|brands)\/[a-z0-9-]+$/);
+      }
+    }
   });
 
   test("storefront sign-in and registration surfaces render", async ({ page }) => {

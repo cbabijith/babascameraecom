@@ -1,14 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, Search, ShoppingBag, UserRound } from "lucide-react";
+import { headers } from "next/headers";
 import { Button } from "@babascamera/ui";
-import { getCartOwner } from "@/lib/cart-session";
-import {
-  getCartCount,
-  isUserCartOwner,
-  listBrands,
-  listCategories,
-} from "@/lib/data/storefront";
+import { fetchCartSummary } from "@/features/cart/api/get-cart-summary";
+import { getStorefrontOrigin } from "@/lib/api/server-origin";
 import { SearchBox } from "./search-box";
 
 const navigation = [
@@ -19,12 +15,19 @@ const navigation = [
 ];
 
 export async function SiteHeader() {
-  const owner = await getCartOwner();
-  const [cartCount, categories, brands] = await Promise.all([
-    getCartCount(owner),
-    listCategories(),
-    listBrands(),
-  ]);
+  let cartCount = 0;
+  let authenticated = false;
+  const requestHeaders = await headers();
+  try {
+    const summary = await fetchCartSummary(
+      await getStorefrontOrigin(),
+      requestHeaders.get("cookie") ?? "",
+    );
+    cartCount = summary.count;
+    authenticated = summary.authenticated;
+  } catch (error) {
+    console.error("Storefront header cart summary failed", error);
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -43,48 +46,9 @@ export async function SiteHeader() {
         <nav className="hidden flex-1 items-center gap-5 text-sm font-medium lg:flex">
           {navigation.map((item) => (
             <div key={item.href} className="group relative">
-              <Link
-                href={item.href}
-                className="transition hover:text-[#E94560]"
-              >
+              <Link href={item.href} className="transition hover:text-[#E94560]">
                 {item.label}
               </Link>
-              {item.label === "All products" ? (
-                <div className="invisible absolute left-0 top-6 z-50 grid w-[36rem] grid-cols-2 gap-7 rounded-2xl border border-slate-200 bg-white p-6 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Categories
-                    </p>
-                    <div className="mt-3 grid gap-2">
-                      {categories.slice(0, 8).map((category) => (
-                        <Link
-                          key={category.id}
-                          href={`/categories/${category.slug}`}
-                          className="hover:text-[#E94560]"
-                        >
-                          {category.name}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Brands
-                    </p>
-                    <div className="mt-3 grid gap-2">
-                      {brands.slice(0, 8).map((brand) => (
-                        <Link
-                          key={brand.id}
-                          href={`/brands/${brand.slug}`}
-                          className="hover:text-[#E94560]"
-                        >
-                          {brand.name}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
             </div>
           ))}
         </nav>
@@ -113,10 +77,7 @@ export async function SiteHeader() {
             </Link>
           </Button>
           <Button variant="ghost" size="icon" asChild>
-            <Link
-              href={isUserCartOwner(owner) ? "/account" : "/auth/login"}
-              aria-label="Account"
-            >
+            <Link href={authenticated ? "/account" : "/auth/login"} aria-label="Account">
               <UserRound className="h-5 w-5" />
             </Link>
           </Button>

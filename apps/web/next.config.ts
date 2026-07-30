@@ -1,17 +1,19 @@
 import type { NextConfig } from "next";
 
+const additionalMediaPatterns = (process.env.STOREFRONT_MEDIA_HOSTS ?? "")
+  .split(",")
+  .map((hostname) => hostname.trim().toLowerCase())
+  .filter((hostname) => /^[a-z0-9.-]+$/.test(hostname))
+  .map((hostname) => ({
+    protocol: "https" as const,
+    hostname,
+    pathname: "/**",
+  }));
+
 const nextConfig: NextConfig = {
+  distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
   poweredByHeader: false,
-  // The workspace runs a stricter dedicated ESLint gate before building.
-  // This avoids Next 15's legacy plugin resolver under Bun duplicating it.
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  transpilePackages: [
-    "@babascamera/config",
-    "@babascamera/db",
-    "@babascamera/ui",
-  ],
+  transpilePackages: ["@babascamera/config", "@babascamera/db", "@babascamera/ui"],
   images: {
     remotePatterns: [
       {
@@ -29,6 +31,7 @@ const nextConfig: NextConfig = {
         hostname: "babasphotostore.blr1.cdn.digitaloceanspaces.com",
         pathname: "/**",
       },
+      ...additionalMediaPatterns,
     ],
     formats: ["image/avif", "image/webp"],
   },
