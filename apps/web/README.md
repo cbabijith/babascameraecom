@@ -76,6 +76,13 @@ bun run --cwd apps/web test
 bun run --cwd apps/web build
 ```
 
+## Production Deployment
+
+- Railway: follow [`../../docs/RAILWAY_WEB_DEPLOYMENT.md`](../../docs/RAILWAY_WEB_DEPLOYMENT.md).
+- Railway configuration is defined in [`railway.json`](./railway.json).
+- Copy variable names from [`.env.railway.example`](./.env.railway.example);
+  keep all real credentials in Railway's Variables settings.
+
 Known validation state:
 
 - Web type-check, lint, tests, and production build passed after the home page restoration.
