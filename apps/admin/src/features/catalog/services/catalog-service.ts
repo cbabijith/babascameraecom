@@ -1,5 +1,3 @@
-"use server";
-
 import { randomUUID } from "node:crypto";
 
 import {
@@ -7,6 +5,7 @@ import {
   db,
   eq,
   inArray,
+  isNull,
   productImages,
   products,
   productVariants,
@@ -23,7 +22,6 @@ import {
   type AdminActionResult,
   validationFailure,
 } from "@/lib/actions/result";
-import { requirePermission } from "@/lib/auth/admin";
 import { parseMoney, parseOptionalMoney } from "@/lib/money";
 import {
   PRODUCT_IMAGE_BUCKET,
@@ -35,6 +33,7 @@ import { sanitizeProductDescription } from "@/lib/security/rich-text";
 import { getSupabasePublicConfig } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { formBoolean, formInteger, optionalText, slugify } from "@/lib/utils";
+import type { CategoryListItem } from "@/features/catalog/types";
 
 const uuid = z.string().uuid();
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -42,21 +41,32 @@ const booleanEntry = z.enum(["true", "false", "1", "0", "on"]).optional();
 const requiredBooleanEntry = z.enum(["true", "false", "1", "0", "on"]);
 const idFormSchema = z.object({ id: uuid });
 const productImageFormSchema = z.object({ productId: uuid, imageId: uuid });
+const categoryReorderSchema = z.object({
+  parentId: z.union([uuid, z.literal("")]),
+  categoryIds: z.string().optional(),
+  orderedCategoryIds: z.string().optional(),
+});
+const brandReorderSchema = z.object({ brandIds: z.string() });
 const productFormSchema = z.object({
   id: uuid.optional(),
   name: z.string().trim().min(1).max(180),
   slug: z.string(),
-  sku: z.string().trim().min(1).max(120),
+  sku: z.string().trim().max(120),
   categoryId: uuid,
-  brandId: uuid,
+  brandId: z.union([uuid, z.literal("")]),
   shortDescription: z.string().max(400),
   description: z.string().max(50_000),
   mrp: z.string().min(1),
   salePrice: z.string().min(1),
   costPrice: z.string(),
+  gstRate: z.string(),
+  priceIncludesGst: booleanEntry,
   stock: z.string().regex(/^\d+$/),
   lowStockThreshold: z.string().regex(/^\d+$/),
   weight: z.string(),
+  shippingFee: z.string(),
+  warranty: z.string().max(500),
+  youtubeUrl: z.string().max(2_000),
   metaTitle: z.string().max(180),
   metaDescription: z.string().max(400),
   isActive: booleanEntry,
@@ -66,12 +76,13 @@ const productFormSchema = z.object({
 const lookupFormSchema = z.object({
   id: uuid.optional(),
   name: z.string().trim().min(1).max(120),
-  slug: z.string(),
-  description: z.string().max(1_000),
+  slug: z.string().optional(),
+  description: z.string().max(1_000).optional(),
   isActive: booleanEntry,
   imageUrl: z.string().optional(),
   logoUrl: z.string().optional(),
   parentId: z.union([uuid, z.literal("")]).optional(),
+  removeImage: booleanEntry,
 });
 
 const variantSchema = z.object({
@@ -87,6 +98,14 @@ function validatedSlug(value: FormDataEntryValue | null, fallback: string) {
   const slug = slugify(String(value ?? "") || fallback);
   if (!slugPattern.test(slug)) throw new AdminActionError("Slug must contain lowercase letters, numbers, and hyphens.");
   return slug;
+}
+
+function generatedProductSku(name: string) {
+  const base = slugify(name)
+    .replaceAll("-", "")
+    .slice(0, 32)
+    .toUpperCase() || "PRODUCT";
+  return `AUTO-${base}-${randomUUID().slice(0, 8).toUpperCase()}`;
 }
 
 function boundedText(value: FormDataEntryValue | null, label: string, maximum: number) {
@@ -141,6 +160,10 @@ function parseProductForm(formData: FormData) {
     const mrp = parseMoney(input.mrp);
     const salePrice = parseMoney(input.salePrice);
     if (salePrice.paise > mrp.paise) throw new AdminActionError("Sale price cannot exceed MRP.");
+    const gstRate = parseOptionalMoney(input.gstRate)?.decimal ?? null;
+    if (gstRate !== null && Number(gstRate) > 100) {
+      throw new AdminActionError("GST cannot exceed 100%.");
+    }
     const weightValue = input.weight.trim() || null;
     const parsedWeight = weightValue ? parseMoney(weightValue) : null;
     if (parsedWeight && parsedWeight.paise > 999_999) {
@@ -148,6 +171,7 @@ function parseProductForm(formData: FormData) {
     }
     const weight = parsedWeight?.decimal ?? null;
     if (weight === "0.00") throw new AdminActionError("Weight must be greater than zero.");
+    const sku = input.sku.trim() || generatedProductSku(input.name);
     return {
       data: {
         id: input.id,
@@ -157,14 +181,19 @@ function parseProductForm(formData: FormData) {
           description: sanitizeProductDescription(input.description) || null,
           shortDescription: optionalText(input.shortDescription),
           categoryId: input.categoryId,
-          brandId: input.brandId,
-          sku: input.sku,
+          brandId: input.brandId || null,
+          sku,
           mrp: mrp.decimal,
           salePrice: salePrice.decimal,
           costPrice: parseOptionalMoney(input.costPrice)?.decimal ?? null,
+          gstRate,
+          priceIncludesGst: formBoolean(input.priceIncludesGst ?? null),
           stock: formInteger(input.stock, "Stock"),
           lowStockThreshold: formInteger(input.lowStockThreshold, "Low-stock threshold"),
           weight,
+          shippingFee: parseOptionalMoney(input.shippingFee)?.decimal ?? null,
+          warranty: optionalText(input.warranty),
+          youtubeUrl: publicUrl(input.youtubeUrl, "YouTube URL"),
           isFeatured: formBoolean(input.isFeatured ?? null),
           isActive: formBoolean(input.isActive ?? null),
           metaTitle: optionalText(input.metaTitle),
@@ -278,16 +307,28 @@ function parseIdList(value: string, maximum: number) {
   return parsed.data;
 }
 
-export async function saveProductAction(
+function sameIds(left: string[], right: string[]) {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((id) => rightSet.has(id));
+}
+
+export async function saveProduct(
   formData: FormData,
 ): Promise<AdminActionResult<{ id: string; redirectTo: string }>> {
-  await requirePermission("catalog");
   const parsed = parseProductForm(formData);
   if ("result" in parsed) return parsed.result;
   const { id: idEntry, values, variants } = parsed.data;
   const productId = idEntry ?? randomUUID();
   try {
     const files = imageFiles(formData);
+    const skuOwner = await db.query.products.findFirst({
+      where: (table, { eq: equals }) => equals(table.sku, values.sku),
+      columns: { id: true },
+    });
+    if (skuOwner && skuOwner.id !== productId) {
+      throw new AdminActionError("SKU already exists.");
+    }
     await db.transaction(async (tx) => {
       if (idEntry) {
         const [updated] = await tx.update(products).set(values).where(eq(products.id, productId)).returning({ id: products.id });
@@ -335,8 +376,7 @@ export async function saveProductAction(
   }
 }
 
-export async function toggleProductAction(formData: FormData): Promise<AdminActionResult> {
-  await requirePermission("catalog");
+export async function setProductActive(formData: FormData): Promise<AdminActionResult> {
   const parsed = z.object({ id: uuid, isActive: requiredBooleanEntry }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   try {
@@ -353,8 +393,26 @@ export async function toggleProductAction(formData: FormData): Promise<AdminActi
   }
 }
 
-export async function bulkSetProductsActiveAction(formData: FormData): Promise<AdminActionResult> {
-  await requirePermission("catalog");
+export async function uploadProductImagesMutation(formData: FormData): Promise<AdminActionResult> {
+  const parsed = z.object({ productId: uuid }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return validationFailure(parsed.error);
+  try {
+    const product = await db.query.products.findFirst({
+      where: (table, { eq: equals }) => equals(table.id, parsed.data.productId),
+      columns: { id: true },
+    });
+    if (!product) throw new AdminActionError("Product not found.");
+    const files = imageFiles(formData);
+    if (!files.length) throw new AdminActionError("Choose at least one image.");
+    await persistNewImages(parsed.data.productId, files);
+    revalidatePath(`/products/${parsed.data.productId}`);
+    return actionSuccess(null);
+  } catch (error) {
+    return actionFailureFromError(error, "Product images could not be uploaded.", "Product image upload failed.");
+  }
+}
+
+export async function bulkSetProductsActive(formData: FormData): Promise<AdminActionResult> {
   const parsed = z.object({
     productIds: z.string(),
     isActive: requiredBooleanEntry,
@@ -376,24 +434,56 @@ export async function bulkSetProductsActiveAction(formData: FormData): Promise<A
   }
 }
 
-export async function bulkDeleteProductsAction(formData: FormData): Promise<AdminActionResult> {
-  await requirePermission("catalog");
+export async function bulkDeleteProducts(formData: FormData): Promise<AdminActionResult> {
   const parsed = z.object({ productIds: z.string() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   try {
     const ids = parseIdList(parsed.data.productIds, 100);
+    await deleteProductsByIds(ids);
+    revalidatePath("/products");
+    return actionSuccess(null);
+  } catch (error) {
+    return actionFailureFromError(error, "Selected products could not be deleted.", "Bulk product deletion failed.");
+  }
+}
+
+export async function deleteProduct(formData: FormData): Promise<AdminActionResult> {
+  const parsed = idFormSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return validationFailure(parsed.error);
+  try {
+    await deleteProductsByIds([parsed.data.id]);
+    revalidatePath("/products");
+    revalidatePath(`/products/${parsed.data.id}`);
+    return actionSuccess(null);
+  } catch (error) {
+    return actionFailureFromError(error, "Product could not be deleted.", "Product deletion failed.");
+  }
+}
+
+async function deleteProductsByIds(ids: string[]) {
     const images = await db.query.productImages.findMany({
       where: (table, { inArray: inValues }) => inValues(table.productId, ids),
       columns: { url: true },
     });
     await db.transaction(async (tx) => {
+      const existing = await tx.query.products.findMany({
+        where: (table, { inArray: inValues }) => inValues(table.id, ids),
+        columns: { id: true },
+      });
+      if (existing.length !== ids.length) {
+        throw new AdminActionError("One or more products were not found.");
+      }
       const reservation = await tx.query.inventoryReservations.findFirst({
         where: (table, { inArray: inValues }) => inValues(table.productId, ids),
         columns: { id: true },
       });
-      if (reservation) {
+      const orderItem = await tx.query.orderItems.findFirst({
+        where: (table, { inArray: inValues }) => inValues(table.productId, ids),
+        columns: { id: true },
+      });
+      if (reservation || orderItem) {
         throw new AdminActionError(
-          "Products with order inventory history cannot be deleted. Disable them instead.",
+          "Products with order or inventory history cannot be deleted. Disable them instead.",
         );
       }
       await tx.delete(products).where(inArray(products.id, ids));
@@ -411,15 +501,9 @@ export async function bulkDeleteProductsAction(formData: FormData): Promise<Admi
         console.error("Product rows were deleted, but some Storage objects could not be removed.", error);
       }
     }
-    revalidatePath("/products");
-    return actionSuccess(null);
-  } catch (error) {
-    return actionFailureFromError(error, "Selected products could not be deleted.", "Bulk product deletion failed.");
-  }
 }
 
-export async function setPrimaryImageAction(formData: FormData): Promise<AdminActionResult> {
-  await requirePermission("catalog");
+export async function setPrimaryProductImage(formData: FormData): Promise<AdminActionResult> {
   const parsed = productImageFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   const { productId, imageId } = parsed.data;
@@ -440,8 +524,7 @@ export async function setPrimaryImageAction(formData: FormData): Promise<AdminAc
   }
 }
 
-export async function deleteProductImageAction(formData: FormData): Promise<AdminActionResult> {
-  await requirePermission("catalog");
+export async function deleteProductImage(formData: FormData): Promise<AdminActionResult> {
   const parsed = productImageFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   const { productId, imageId } = parsed.data;
@@ -472,8 +555,7 @@ export async function deleteProductImageAction(formData: FormData): Promise<Admi
   }
 }
 
-export async function reorderProductImagesAction(formData: FormData): Promise<AdminActionResult> {
-  await requirePermission("catalog");
+export async function reorderProductImages(formData: FormData): Promise<AdminActionResult> {
   const parsed = z.object({
     productId: uuid,
     imageIds: z.string(),
@@ -483,6 +565,13 @@ export async function reorderProductImagesAction(formData: FormData): Promise<Ad
   try {
     const ids = parseIdList(parsed.data.imageIds, 50);
     await db.transaction(async (tx) => {
+      const existing = await tx.query.productImages.findMany({
+        where: (table, { eq: equals }) => equals(table.productId, productId),
+        columns: { id: true },
+      });
+      if (!sameIds(ids, existing.map((image) => image.id))) {
+        throw new AdminActionError("Image order is stale. Refresh and try again.");
+      }
       for (const [index, id] of ids.entries()) {
         await tx.update(productImages).set({ position: 1_000_000 + index }).where(and(eq(productImages.id, id), eq(productImages.productId, productId)));
       }
@@ -500,17 +589,39 @@ export async function reorderProductImagesAction(formData: FormData): Promise<Ad
 function lookupValues(input: z.infer<typeof lookupFormSchema>) {
   return {
     name: input.name,
-    slug: validatedSlug(input.slug, input.name),
-    description: optionalText(input.description),
+    slug: validatedSlug(input.slug ?? null, input.name),
+    description: optionalText(input.description ?? null),
     isActive: formBoolean(input.isActive ?? null),
     updatedAt: new Date(),
   };
 }
 
-export async function saveCategoryAction(
+async function readCategoryListItem(categoryId: string): Promise<CategoryListItem> {
+  const row = await db.query.categories.findFirst({
+    where: (table, { eq: equals }) => equals(table.id, categoryId),
+    with: {
+      parent: { columns: { name: true } },
+      products: { columns: { id: true } },
+    },
+  });
+  if (!row) throw new AdminActionError("Category not found.");
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    description: row.description,
+    imageUrl: row.imageUrl,
+    parentId: row.parentId,
+    parentName: row.parent?.name ?? null,
+    sortOrder: row.sortOrder,
+    isActive: row.isActive,
+    productCount: row.products.length,
+  };
+}
+
+export async function saveCategory(
   formData: FormData,
-): Promise<AdminActionResult<{ id: string }>> {
-  await requirePermission("catalog");
+): Promise<AdminActionResult<CategoryListItem>> {
   const parsed = lookupFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   const input = parsed.data;
@@ -526,6 +637,7 @@ export async function saveCategoryAction(
     const lookup = lookupValues(input);
     const parentId = input.parentId || null;
     const requestedImageUrl = publicUrl(input.imageUrl ?? null, "Category image URL");
+    const removeImage = formBoolean(input.removeImage ?? null);
     if (input.id && parentId === categoryId) {
       throw new AdminActionError("A category cannot be its own parent.");
     }
@@ -556,13 +668,22 @@ export async function saveCategoryAction(
     const values = {
       ...lookup,
       parentId,
-      imageUrl: uploaded?.url ?? requestedImageUrl,
+      imageUrl: removeImage ? null : uploaded?.url ?? requestedImageUrl ?? existing?.imageUrl ?? null,
     };
     try {
       if (input.id) {
         await db.update(categories).set(values).where(eq(categories.id, categoryId));
       } else {
-        await db.insert(categories).values({ id: categoryId, ...values });
+        const siblings = await db.query.categories.findMany({
+          where: (table, { isNull: isNullValue, eq: equals }) =>
+            parentId ? equals(table.parentId, parentId) : isNullValue(table.parentId),
+          columns: { sortOrder: true },
+        });
+        await db.insert(categories).values({
+          id: categoryId,
+          ...values,
+          sortOrder: siblings.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1,
+        });
       }
     } catch (error) {
       if (uploaded) await removeManagedImages([uploaded.path]);
@@ -573,22 +694,78 @@ export async function saveCategoryAction(
       if (oldPath) await removeManagedImages([oldPath]);
     }
     revalidatePath("/categories");
-    return actionSuccess({ id: categoryId });
+    return actionSuccess(await readCategoryListItem(categoryId));
   } catch (error) {
     return actionFailureFromError(error, "Category could not be saved.", "Category save failed.");
   }
 }
 
-export async function deleteCategoryAction(formData: FormData): Promise<AdminActionResult> {
-  await requirePermission("catalog");
+export async function setCategoryActive(formData: FormData): Promise<AdminActionResult<CategoryListItem>> {
+  const parsed = z.object({ id: uuid, isActive: requiredBooleanEntry }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return validationFailure(parsed.error);
+  try {
+    const [updated] = await db
+      .update(categories)
+      .set({ isActive: formBoolean(parsed.data.isActive), updatedAt: new Date() })
+      .where(eq(categories.id, parsed.data.id))
+      .returning({ id: categories.id });
+    if (!updated) throw new AdminActionError("Category not found.");
+    revalidatePath("/categories");
+    return actionSuccess(await readCategoryListItem(updated.id));
+  } catch (error) {
+    return actionFailureFromError(error, "Category status could not be changed.", "Category status update failed.");
+  }
+}
+
+export async function reorderCategories(formData: FormData): Promise<AdminActionResult> {
+  const parsed = categoryReorderSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return validationFailure(parsed.error);
+  const parentId = parsed.data.parentId || null;
+  try {
+    const ids = parseIdList(parsed.data.orderedCategoryIds ?? parsed.data.categoryIds ?? "", 500);
+    await db.transaction(async (tx) => {
+      const siblings = await tx.query.categories.findMany({
+        where: (table, { eq: equals, isNull: isNullValue }) =>
+          parentId ? equals(table.parentId, parentId) : isNullValue(table.parentId),
+        columns: { id: true },
+      });
+      const siblingIds = siblings.map((item) => item.id);
+      if (!sameIds(ids, siblingIds)) {
+        throw new AdminActionError("Category order is stale. Refresh and try again.");
+      }
+      for (const [index, id] of ids.entries()) {
+        await tx
+          .update(categories)
+          .set({ sortOrder: index, updatedAt: new Date() })
+          .where(and(eq(categories.id, id), parentId ? eq(categories.parentId, parentId) : isNull(categories.parentId)));
+      }
+    });
+    revalidatePath("/categories");
+    return actionSuccess(null);
+  } catch (error) {
+    return actionFailureFromError(error, "Category order could not be saved.", "Category reordering failed.");
+  }
+}
+
+export async function deleteCategory(formData: FormData): Promise<AdminActionResult> {
   const parsed = idFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   try {
     const category = await db.query.categories.findFirst({
       where: (table, { eq: equals }) => equals(table.id, parsed.data.id),
       columns: { imageUrl: true },
+      with: {
+        children: { columns: { id: true } },
+        products: { columns: { id: true } },
+      },
     });
     if (!category) throw new AdminActionError("Category not found.");
+    if (category.products.length) {
+      throw new AdminActionError("Categories with products cannot be deleted. Move or remove the products first.");
+    }
+    if (category.children.length) {
+      throw new AdminActionError("Categories with child categories cannot be deleted. Move or delete child categories first.");
+    }
     await db.delete(categories).where(eq(categories.id, parsed.data.id));
     const path = category.imageUrl ? managedStoragePath(category.imageUrl) : null;
     if (path) await removeManagedImages([path]);
@@ -599,10 +776,9 @@ export async function deleteCategoryAction(formData: FormData): Promise<AdminAct
   }
 }
 
-export async function saveBrandAction(
+export async function saveBrand(
   formData: FormData,
 ): Promise<AdminActionResult<{ id: string }>> {
-  await requirePermission("catalog");
   const parsed = lookupFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   const input = parsed.data;
@@ -623,11 +799,18 @@ export async function saveBrandAction(
       : null;
     const values = {
       ...lookup,
-      logoUrl: uploaded?.url ?? requestedLogoUrl,
+      logoUrl: uploaded?.url ?? requestedLogoUrl ?? existing?.logoUrl ?? null,
     };
     try {
       if (input.id) await db.update(brands).set(values).where(eq(brands.id, brandId));
-      else await db.insert(brands).values({ id: brandId, ...values });
+      else {
+        const existingBrands = await db.query.brands.findMany({ columns: { position: true } });
+        await db.insert(brands).values({
+          id: brandId,
+          ...values,
+          position: existingBrands.reduce((max, item) => Math.max(max, item.position), -1) + 1,
+        });
+      }
     } catch (error) {
       if (uploaded) await removeManagedImages([uploaded.path]);
       throw error;
@@ -643,8 +826,7 @@ export async function saveBrandAction(
   }
 }
 
-export async function deleteBrandAction(formData: FormData): Promise<AdminActionResult> {
-  await requirePermission("catalog");
+export async function deleteBrand(formData: FormData): Promise<AdminActionResult> {
   const parsed = idFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   try {
@@ -660,5 +842,27 @@ export async function deleteBrandAction(formData: FormData): Promise<AdminAction
     return actionSuccess(null);
   } catch (error) {
     return actionFailureFromError(error, "Brand could not be deleted.", "Brand deletion failed.");
+  }
+}
+
+export async function reorderBrands(formData: FormData): Promise<AdminActionResult> {
+  const parsed = brandReorderSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return validationFailure(parsed.error);
+  try {
+    const ids = parseIdList(parsed.data.brandIds, 500);
+    await db.transaction(async (tx) => {
+      const existing = await tx.query.brands.findMany({ columns: { id: true } });
+      const existingIds = existing.map((item) => item.id);
+      if (!sameIds(ids, existingIds)) {
+        throw new AdminActionError("Brand order is stale. Refresh and try again.");
+      }
+      for (const [index, id] of ids.entries()) {
+        await tx.update(brands).set({ position: index, updatedAt: new Date() }).where(eq(brands.id, id));
+      }
+    });
+    revalidatePath("/brands");
+    return actionSuccess(null);
+  } catch (error) {
+    return actionFailureFromError(error, "Brand order could not be saved.", "Brand reordering failed.");
   }
 }

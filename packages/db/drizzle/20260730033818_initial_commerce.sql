@@ -34,11 +34,13 @@ CREATE TABLE "brands" (
 	"slug" text NOT NULL,
 	"logo_url" text,
 	"description" text,
+	"position" integer DEFAULT 0 NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL,
 	CONSTRAINT "brands_name_unique" UNIQUE("name"),
 	CONSTRAINT "brands_slug_unique" UNIQUE("slug"),
 	CONSTRAINT "brands_name_not_blank" CHECK (length(trim("brands"."name")) > 0),
-	CONSTRAINT "brands_slug_format" CHECK ("brands"."slug" ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$')
+	CONSTRAINT "brands_slug_format" CHECK ("brands"."slug" ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+	CONSTRAINT "brands_position_nonnegative" CHECK ("brands"."position" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "cart_items" (
@@ -72,12 +74,14 @@ CREATE TABLE "categories" (
 	"parent_id" uuid,
 	"image_url" text,
 	"description" text,
+	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL,
 	CONSTRAINT "categories_name_unique" UNIQUE("name"),
 	CONSTRAINT "categories_slug_unique" UNIQUE("slug"),
 	CONSTRAINT "categories_not_own_parent" CHECK ("categories"."parent_id" is null or "categories"."parent_id" <> "categories"."id"),
 	CONSTRAINT "categories_name_not_blank" CHECK (length(trim("categories"."name")) > 0),
-	CONSTRAINT "categories_slug_format" CHECK ("categories"."slug" ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$')
+	CONSTRAINT "categories_slug_format" CHECK ("categories"."slug" ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+	CONSTRAINT "categories_sort_order_nonnegative" CHECK ("categories"."sort_order" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "coupon_redemptions" (
@@ -445,6 +449,7 @@ ALTER TABLE "wishlists" ADD CONSTRAINT "wishlists_product_id_products_id_fk" FOR
 CREATE INDEX "addresses_user_id_idx" ON "addresses" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "addresses_one_default_per_user_idx" ON "addresses" USING btree ("user_id") WHERE "addresses"."is_default" = true;--> statement-breakpoint
 CREATE INDEX "brands_active_idx" ON "brands" USING btree ("is_active");--> statement-breakpoint
+CREATE INDEX "brands_position_idx" ON "brands" USING btree ("position");--> statement-breakpoint
 CREATE INDEX "cart_items_cart_id_idx" ON "cart_items" USING btree ("cart_id");--> statement-breakpoint
 CREATE INDEX "cart_items_product_id_idx" ON "cart_items" USING btree ("product_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "cart_items_product_without_variant_unique" ON "cart_items" USING btree ("cart_id","product_id") WHERE "cart_items"."variant_id" is null;--> statement-breakpoint
@@ -453,6 +458,7 @@ CREATE UNIQUE INDEX "carts_user_id_unique" ON "carts" USING btree ("user_id") WH
 CREATE UNIQUE INDEX "carts_session_id_unique" ON "carts" USING btree ("session_id") WHERE "carts"."session_id" is not null;--> statement-breakpoint
 CREATE INDEX "carts_expires_at_idx" ON "carts" USING btree ("expires_at");--> statement-breakpoint
 CREATE INDEX "categories_parent_id_idx" ON "categories" USING btree ("parent_id");--> statement-breakpoint
+CREATE INDEX "categories_parent_sort_order_idx" ON "categories" USING btree ("parent_id","sort_order");--> statement-breakpoint
 CREATE INDEX "categories_active_idx" ON "categories" USING btree ("is_active");--> statement-breakpoint
 CREATE UNIQUE INDEX "coupon_redemptions_order_unique" ON "coupon_redemptions" USING btree ("order_id");--> statement-breakpoint
 CREATE INDEX "coupon_redemptions_coupon_status_idx" ON "coupon_redemptions" USING btree ("coupon_id","status");--> statement-breakpoint

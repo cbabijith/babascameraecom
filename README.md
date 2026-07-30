@@ -1,159 +1,345 @@
 # Baba's Camera Commerce
 
-Production-oriented camera and photography-gear commerce monorepo for
-`babascamera.com`. It contains a customer storefront, an admin application,
-shared UI/configuration, and a single Drizzle-managed Supabase/PostgreSQL
-schema.
+Production-oriented ecommerce monorepo for Baba's Camera. The project contains a customer storefront, an administrator dashboard, shared UI/config packages, and one Drizzle-managed Supabase PostgreSQL schema.
 
-## Workspace
+The repository is currently built around real Supabase Auth and database access. The storefront home page has been restored to the older Baba's Camera visual direction; the rest of the storefront still uses the newer implementation. The admin panel has a refreshed branded login/admin shell, password visibility control, and Supabase-backed admin authorization.
 
-| Workspace         | Purpose                                                           | Local URL               |
-| ----------------- | ----------------------------------------------------------------- | ----------------------- |
-| `apps/web`        | Next.js 15 customer storefront                                    | `http://localhost:3000` |
-| `apps/admin`      | Next.js 15 admin dashboard                                        | `http://localhost:3001` |
-| `packages/db`     | Drizzle schema, client, migration, and database contracts         | n/a                     |
-| `packages/ui`     | Shared shadcn-style React components and brand tokens             | n/a                     |
-| `packages/config` | Shared TypeScript, ESLint, Prettier, Tailwind, and PostCSS config | n/a                     |
-| `tests/e2e`       | Playwright browser smoke and workflow tests                       | n/a                     |
+## Current Status
 
-The repository is pinned to Bun 1.3.14, Next.js 15.5.22, TypeScript 5.9.3,
-Tailwind CSS 4.3.3, Drizzle ORM 0.45.2, and Drizzle Kit 0.31.10. Bun 1.3 writes
-the current text-based `bun.lock`; the older `bun.lockb` format is not generated
-by modern Bun.
+| Area | Status | Notes |
+| --- | --- | --- |
+| Repository | Pushed to GitHub `main` | `git@github.com:cbabijith/babascameraecom.git` |
+| Storefront app | Working locally on port `3000` | Home page uses old-style Baba's Camera UI; other pages are current implementation |
+| Admin app | Working locally on port `3001` | Branded login, logo, sidebar, topbar, password reveal, admin auth guard |
+| Supabase database | Migrated and validated | Drizzle migration creates commerce tables, RLS, storage bucket, auth trigger |
+| Admin user | Verified in Supabase | Admin access is controlled by `public.users.role = 'admin'` and active status |
+| Seed/test data | Present in Supabase | Canon brand, Cameras > DSLR category, Canon EOS 90D product, variants, images, test coupon |
+| Razorpay | Code exists, live flow not certified | Test keys/webhook configuration are required for a real payment test |
+| Resend/email | Outbox code exists, provider not certified | Resend domain/API/SMTP must be configured before real delivery |
+| End-to-end checkout | Partially verified | Cart/coupon data path verified; real Razorpay order flow still needs provider keys |
 
-## Prerequisites
+## Workspace Map
 
-- Bun 1.3.14
-- A Supabase project
-- A direct or project-qualified Supabase PostgreSQL pooler URL
-- Razorpay test keys for an actual online-payment test
-- A verified Resend sending domain for real email delivery
-- Docker only if you want to run the optional local Supabase stack
+| Workspace | Purpose | Local URL |
+| --- | --- | --- |
+| `apps/web` | Customer storefront built with Next.js App Router | `http://localhost:3000` |
+| `apps/admin` | Admin dashboard built with Next.js App Router | `http://localhost:3001` |
+| `packages/db` | Drizzle schema, database client, migrations, contracts | n/a |
+| `packages/ui` | Shared shadcn-style UI primitives and styles | n/a |
+| `packages/config` | Shared lint, TypeScript, PostCSS, Tailwind config | n/a |
+| `tests/e2e` | Playwright smoke/workflow tests | n/a |
 
-Never expose `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
-`RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, or `RESEND_API_KEY` to a
-browser or commit them.
+## Technology Stack
 
-## Install and configure
+- Runtime/package manager: Bun `1.3.14`
+- Framework: Next.js `16.2.11` for admin, Next.js `15.5.22` for storefront
+- Language: TypeScript `5.9.3`
+- Styling: Tailwind CSS `4.3.3`
+- Database ORM: Drizzle ORM `0.45.2`
+- Migrations: Drizzle Kit `0.31.10`
+- Database/Auth/Storage: Supabase
+- Tables: TanStack Table v8 through shadcn-style table components
+- Forms: React Hook Form, Zod, shadcn-style form components
+- Notifications: Sonner
+- Icons: Lucide React
+- Payments: Razorpay integration code
+- Email: Resend/order outbox integration code
+
+## Brand And Design System
+
+The brand direction is Baba's Camera: premium, editorial, camera-first, and clean.
+
+| Token | Value | Usage |
+| --- | --- | --- |
+| Primary | `#1A1A2E` | Text, hero panels, premium dark surfaces |
+| Accent | `#E94560` | CTAs, active states, sale badges |
+| Surface | `#F8F8F8` | Storefront/admin page backgrounds |
+| Muted text | `#6B7280` | Secondary copy |
+| Success | `#10B981` | Success states |
+| Warning | `#F59E0B` | Warning states |
+| Error | `#EF4444` | Validation/destructive states |
+
+Typography target:
+
+- Display: `Playfair Display`
+- Body/UI: `Inter`
+- Mono: `JetBrains Mono`
+
+Storefront design language:
+
+- Editorial grid.
+- Generous whitespace.
+- Product photography centered.
+- Minimal decoration.
+- Old home page visual direction restored on `/`.
+
+Admin design language:
+
+- Dark collapsible sidebar: `#0F172A`.
+- White/light content area.
+- Breadcrumb topbar.
+- Avatar and notification control.
+- DataTable pattern for tabular modules.
+- React Hook Form and Zod for forms.
+- Skeleton loaders and Sonner notifications.
+
+## Applications
+
+### Storefront: `apps/web`
+
+Primary customer-facing routes:
+
+- `/` old-style home page restored with Baba's Camera assets.
+- `/products` product listing.
+- `/products/[slug]` product detail.
+- `/categories`, `/categories/[slug]`.
+- `/brands`, `/brands/[slug]`.
+- `/cart`.
+- `/checkout`.
+- `/checkout/success/[orderNumber]`.
+- `/account`, `/account/orders`.
+- `/auth/*` customer auth routes.
+- `/wishlist`.
+- `/search`.
+- Static information routes such as `/contact`, `/privacy`, `/terms`, `/shipping`, `/returns`.
+
+Working areas:
+
+- Product catalog reads from Supabase/Drizzle.
+- Home page displays existing Baba's Camera visual assets and live catalog data where available.
+- Cart supports adding/updating products and variants.
+- Coupon application path is implemented server-side.
+- Customer auth uses Supabase Auth.
+- Order/account pages exist.
+
+Known storefront gaps:
+
+- Only the home page has been restored to the old UI/UX. Other storefront pages still use the newer UI.
+- Real Razorpay success/failure flow must be tested with valid Razorpay test keys.
+- Email confirmation/order email delivery needs provider-side setup.
+
+### Admin: `apps/admin`
+
+Primary admin routes:
+
+- `/login`.
+- `/dashboard`.
+- `/products`, `/products/new`, `/products/[id]`, `/products/[id]/edit`.
+- `/categories`.
+- `/brands`.
+- `/orders`, `/orders/[id]`.
+- `/customers`, `/customers/[id]`.
+- `/users`.
+- `/coupons`.
+- `/reviews`.
+- `/settings`.
+- `/unauthorized`.
+- `GET /api/health`.
+- `GET /api/orders/[id]/invoice`.
+- `POST /api/admin/orders/[id]/refund`.
+
+Admin modules:
+
+- Dashboard metrics and recent orders.
+- Products with variants and images.
+- Categories, including parent/child structure.
+- Brands with logo upload/URL support.
+- Orders and order-status updates.
+- Customers.
+- Users and admin promotion.
+- Coupons.
+- Reviews.
+- Settings.
+- Invoice route.
+- Refund API.
+
+Admin UI updates completed:
+
+- Baba's Camera logo copied from storefront assets into `apps/admin/public`.
+- Login screen redesigned with brand panel and real logo.
+- Password field now has show/hide control.
+- Submit button gives instant pending feedback while Supabase/admin checks run.
+- Sidebar now uses the Baba's logo, stronger active state, better profile block, and cleaner layout.
+- Topbar now has improved breadcrumb styling, notification button, avatar styling, and search placeholder.
+
+Admin authentication model:
+
+- Login uses Supabase Auth email/password.
+- After Supabase login, server code verifies the matching row in `public.users`.
+- Access is allowed only when the profile is active and `role = 'admin'`.
+- Non-admin authenticated sessions are signed out and shown an access error.
+- Already-authorized admins visiting `/login` are sent directly to the requested page or `/dashboard`.
+- Protected dashboard routes use middleware and server-side `requireAdmin` checks.
+- Server actions also call permission guards before mutating data.
+- No service-role key is used in the admin frontend.
+
+## Database Specification
+
+The database is owned by `packages/db` and Drizzle. Drizzle is the migration authority.
+
+Important tables:
+
+- `users`: Supabase-auth-linked customer/admin profiles.
+- `addresses`: customer shipping addresses.
+- `brands`: catalog brands.
+- `categories`: hierarchical catalog categories.
+- `products`: catalog products, pricing, stock, SEO metadata.
+- `product_images`: ordered product images with primary-image constraint.
+- `product_variants`: product options with SKU, additional price, stock.
+- `carts`: guest or user cart owner.
+- `cart_items`: cart line items.
+- `orders`: order totals, customer snapshot, payment and fulfilment state.
+- `order_items`: immutable purchased item snapshots.
+- `order_status_history`: admin/customer-visible order timeline.
+- `coupons`: percentage/flat coupon rules.
+- `coupon_redemptions`: reserved/applied/released coupon usage.
+- `reviews`: product reviews and approval state.
+- `wishlists`: customer product wishlist.
+- `settings`: storefront/admin settings.
+- `payment_events`: Razorpay/webhook/payment event ledger.
+- `refunds`: refund requests and provider state.
+- `newsletter_subscriptions`: newsletter signups.
+- `email_outbox`: transactional email queue.
+- `inventory_reservations`: temporary stock reservations for online payment.
+
+Important enums:
+
+- User roles: `customer`, `admin`.
+- Order status: pending/confirmed/processing/shipped/delivered/cancelled/refunded lifecycle.
+- Payment method: `razorpay`, `cod`.
+- Payment status: `pending`, `paid`, `failed`, `refunded`.
+- Coupon type: `percentage`, `flat`.
+- Coupon redemption status: `reserved`, `applied`, `released`.
+- Payment event outcome: `pending`, `processed`, `ignored`, `failed`.
+- Refund status: `pending`, `processing`, `succeeded`, `failed`, `cancelled`.
+- Email outbox status: `pending`, `processing`, `sent`, `failed`.
+- Inventory reservation status: `reserved`, `consumed`, `released`.
+
+Database invariants:
+
+- `public.users.id` links to `auth.users.id`.
+- Product and variant stock cannot be negative.
+- Sale price cannot exceed MRP.
+- Order totals must equal subtotal minus discount plus shipping.
+- Order item totals must equal quantity times unit price.
+- Carts have exactly one owner: either a user id or guest session id.
+- Orders have at most one owner: user id or guest session hash.
+- Coupon usage cannot exceed configured limits.
+- One primary product image per product.
+- Role and active-state updates are restricted.
+- RLS is enabled on application tables.
+- Product image storage has public reads and admin-only writes.
+
+## Commerce Rules
+
+- The browser never decides product price, discount, shipping, stock, or payment state.
+- Server code recalculates totals from the database.
+- Money is handled as exact decimal/integer paise at boundaries.
+- COD means payment is pending, not paid.
+- Razorpay success must be verified by signature before marking payment paid.
+- Webhook events must be replay-safe.
+- Refund requests are idempotent.
+- Customer/order snapshots are immutable after order creation.
+- Admin actions validate `FormData` with Zod and return serializable action results.
+- Uploaded product media is checked by type, size, and magic bytes.
+- Product rich text is sanitized.
+
+## Environment Configuration
+
+Do not commit real secrets. Local env files are ignored.
+
+Root setup:
 
 ```bash
 bun install
-cp .env.example .env
+copy .env.example .env
 ```
 
-Fill `.env` with real local/test values. The Next.js browser clients require
-`NEXT_PUBLIC_SUPABASE_URL` plus either `NEXT_PUBLIC_SUPABASE_ANON_KEY` or
-`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Server integrations use the unprefixed
-secrets.
-
-For app-local development you may copy the applicable public/server values to
-`apps/web/.env.local` and `apps/admin/.env.local`. In Vercel, configure the
-variables separately for each project instead of relying on a checked-in file.
-
-### Apply the database
-
-Drizzle is the only migration authority. Do not create a second set of SQL
-migrations under `supabase/migrations`.
+App-local setup:
 
 ```bash
-bun run db:generate
-bun run db:check
-bun run db:migrate
-bun run --cwd packages/db db:validate
+copy apps\web\.env.example apps\web\.env.local
+copy apps\admin\.env.example apps\admin\.env.local
 ```
 
-`db:migrate` deliberately fails when `DATABASE_URL` is absent, contains a
-placeholder password, or points at an unverified hosted project. For hosted
-Supabase set the non-secret `SUPABASE_PROJECT_REF`. This project uses the
-project-qualified IPv4 transaction-mode pooler on port 6543 for both migration
-and runtime connections. The migration client is constrained to one connection
-and prepared statements are disabled for pooler compatibility.
+Required public values:
 
-The initial migration:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_STOREFRONT_URL` for admin preview links
 
-- creates the commerce tables, checks, indexes, relations, order-number
-  sequence, full-text product index, and default non-secret settings;
-- links `public.users.id` to `auth.users.id` and creates the new-user trigger;
-- enables RLS and narrow grants on every application table;
-- prevents customers from changing their own role or active state;
-- creates the public `product-images` bucket with a 5 MiB limit and JPEG, PNG,
-  and WebP allowlist;
-- grants public reads and admin-only writes for product media.
+Required server values:
 
-### Configure Supabase Auth
+- `DATABASE_URL`
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
+- `CRON_SECRET`
 
-1. Enable Email/Password and Google in Supabase Authentication providers.
-2. Keep email confirmation enabled.
-3. Add these redirect URLs:
-   - `http://localhost:3000/auth/callback`
-   - `https://babascamera.com/auth/callback`
-   - the equivalent Vercel preview callback pattern you explicitly trust
-4. Set the production Site URL to `https://babascamera.com`.
+Never expose these through `NEXT_PUBLIC_*`:
 
-Register the first account through the storefront, then promote it from a
-trusted SQL session:
+- `DATABASE_URL`
+- Supabase service-role key
+- Razorpay secret
+- Razorpay webhook secret
+- Resend API key
+- Cron secret
 
-```sql
-update public.users
-set role = 'admin', updated_at = now()
-where email = 'owner@example.com';
-```
+Security note: credentials were used during local development. Rotate project credentials before production launch if any secret was shared outside a secure password manager.
 
-Do not add a public "make me admin" route or store the admin role only in user
-metadata.
+## Local Development
 
-### Configure Razorpay
-
-Use Test Mode keys while validating the checkout. Configure the webhook URL as:
-
-```text
-https://babascamera.com/api/webhooks/razorpay
-```
-
-Subscribe at minimum to `payment.captured`, `payment.failed`, and
-`refund.created`, and set the same signing secret in
-`RAZORPAY_WEBHOOK_SECRET`. Online orders are created on the server; amounts,
-stock, coupon eligibility, and shipping are recalculated from the database.
-Checkout and webhook signatures are verified before payment state changes.
-
-### Configure Resend
-
-Verify `babascamera.com` in Resend, create a server API key, and set:
-
-```text
-RESEND_API_KEY=...
-RESEND_FROM_EMAIL=orders@babascamera.com
-```
-
-Order events first enter the database email outbox with a deterministic dedupe
-key. Delivery retries therefore do not duplicate the commerce transaction.
-
-Supabase Auth sends confirmation, password-reset, and OTP messages through its
-own mailer. In the Supabase dashboard, configure **Authentication -> SMTP
-Settings** with the verified Resend SMTP credentials and use an approved sender
-such as `auth@babascamera.com`. The `RESEND_API_KEY` above remains server-only
-and is used by the storefront order-email outbox.
-
-## Develop
-
-Start both applications:
+Run both apps:
 
 ```bash
 bun run dev
 ```
 
-Or run one surface:
+Run only storefront:
 
 ```bash
 bun run dev:web
+```
+
+Run only admin:
+
+```bash
 bun run dev:admin
 ```
 
-The storefront uses port 3000. The admin package pins port 3001.
+Local URLs:
 
-## Quality gates
+- Storefront: `http://localhost:3000`
+- Admin: `http://localhost:3001`
+- Admin login: `http://localhost:3001/login`
 
-Run the requested checks from the repository root:
+## Database Commands
+
+From the repository root:
+
+```bash
+bun run db:generate
+bun run db:check
+bun run db:validate
+bun run db:migrate
+```
+
+From `packages/db`:
+
+```bash
+bun db:generate
+bun db:check
+bun db:validate
+bun db:migrate
+```
+
+`db:migrate` requires a real `DATABASE_URL`. It should fail instead of silently migrating a fallback database.
+
+## Quality Gates
+
+Run from the repository root:
 
 ```bash
 bun turbo run type-check
@@ -162,109 +348,117 @@ bun turbo run test
 bun turbo run build
 ```
 
-Database checks:
+Or use the root aggregate:
 
 ```bash
-cd packages/db
-bun db:generate
-bun db:check
-bun db:validate
-bun db:migrate
+bun run check
 ```
 
-The first three can run without cloud credentials. `db:migrate` requires the
-target Supabase `DATABASE_URL`; it must not silently migrate a fallback
-database.
+Admin checks recently passed:
 
-Browser tests:
+- Type check passed.
+- Lint passed.
+- 29 admin tests passed.
+- Admin production build passed.
 
-```bash
-bun run --cwd tests/e2e e2e
-```
+Previously verified full-repo checks:
 
-Real Razorpay, Resend, Google OAuth, and hosted Supabase delivery can only be
-certified with their corresponding test credentials and provider-side
-configuration. Unit tests and deterministic adapters cover signatures,
-calculation, validation, idempotency, and failure handling without pretending
-to contact those providers.
+- Type-check, lint, and test passed across the monorepo.
+- 61 unit tests passed across database, web, and admin.
+- Drizzle migration validation passed.
 
-## Required manual acceptance flow
+## Manual Acceptance Flow
 
-Use a clean browser session and Razorpay Test Mode.
+Use a clean browser session and the Supabase/Razorpay test environment.
 
-1. Open `/auth/register`, register a customer, confirm the email, and verify
-   that `public.users` contains the same UUID as `auth.users`.
-2. Promote that account with the trusted SQL statement above. Sign in at
-   `http://localhost:3001/login` and verify `/dashboard` loads.
-3. In `/brands`, create **Canon**.
-4. In `/categories`, create parent **Cameras**, then child **DSLR**.
-5. In `/products/new`, create an active product assigned to Canon/DSLR with:
-   - MRP, sale price, cost price, stock, threshold, and weight;
-   - three JPEG/PNG/WebP images, one marked primary and reordered;
-   - two variants with distinct SKUs and stock.
-6. Sign out of admin. On the storefront product page, select a variant and add
-   it to the cart. Confirm quantity, price, stock ceiling, and cart badge.
-7. Back in admin `/coupons`, create a valid test coupon. Apply it in `/cart`
-   and confirm the server-calculated discount and shipping total.
-8. Choose Razorpay in `/checkout`. In Test Mode use card
-   `4111 1111 1111 1111`, any future expiry, and any three-digit CVV. Complete
-   the mock bank success step. Confirm the success page, paid/confirmed state,
-   stock change, cart clearing, one status-history row, and one confirmation
-   outbox entry.
-9. In admin `/orders/[id]`, change the order to **shipped**, add carrier and
-   tracking details, and download/print the invoice.
-10. In storefront `/account/orders/[orderNumber]`, confirm the shipped status,
-    timeline, and tracking details.
+1. Start storefront on `http://localhost:3000`.
+2. Start admin on `http://localhost:3001`.
+3. Register a customer on the storefront.
+4. Confirm the user exists in Supabase Auth and `public.users`.
+5. Promote the user to admin from a trusted admin path or SQL session.
+6. Sign in to admin at `/login`.
+7. Create brand `Canon`.
+8. Create category `Cameras`, then child category `DSLR`.
+9. Create a product with:
+   - Canon brand.
+   - DSLR category.
+   - MRP, sale price, cost price, stock, threshold, and weight.
+   - Three JPEG/PNG/WebP product images.
+   - Two variants with distinct SKUs and stock.
+10. Create a test coupon in admin.
+11. On storefront, open the product detail page.
+12. Select a variant and add it to cart.
+13. Apply the coupon in cart/checkout.
+14. Place a Razorpay test order using card `4111 1111 1111 1111`.
+15. Confirm order success page and database order/payment state.
+16. In admin, change order status to `shipped` and add tracking details.
+17. In storefront account orders, confirm the shipped status is visible.
 
-Repeat checkout with COD and confirm it produces
-`paymentMethod='cod'`, `paymentStatus='pending'`, and `status='confirmed'`.
-Also test a declined Razorpay attempt, a duplicate webhook delivery, an expired
-reservation, an out-of-stock race, an invalid coupon, an unauthorized admin
-request, and a full refund.
+Additional acceptance cases:
 
-## Deployment
+- COD checkout creates `paymentMethod = 'cod'` and `paymentStatus = 'pending'`.
+- Invalid coupon is rejected.
+- Out-of-stock cart/checkout is blocked.
+- Non-admin user cannot access admin routes.
+- Duplicate webhook does not duplicate state changes.
+- Refund path is idempotent.
 
-Create two Vercel projects from the same repository:
+## A To Z Project Journey
 
-| Project    | Root directory | Domain                  |
-| ---------- | -------------- | ----------------------- |
-| Storefront | `apps/web`     | `babascamera.com`       |
-| Admin      | `apps/admin`   | `admin.babascamera.com` |
+1. Monorepo foundation was created with Bun workspaces.
+2. Shared packages were added for database, UI, and configuration.
+3. Drizzle schema was designed as the single database authority.
+4. Supabase was selected for Auth, Postgres, Storage, and RLS.
+5. Customer and admin profile model was connected to Supabase Auth.
+6. Core commerce tables were created: catalog, carts, orders, coupons, payments, refunds, email outbox, inventory reservations.
+7. RLS, database checks, indexes, constraints, and storage policies were added.
+8. Storefront catalog routes were implemented.
+9. Cart, checkout, coupon, and order logic were implemented server-side.
+10. Razorpay signature/refund/payment helper code was added.
+11. Resend/email outbox structure was added.
+12. Admin dashboard modules were implemented for products, brands, categories, orders, customers, users, coupons, reviews, settings, invoices, and refunds.
+13. Product image handling was built with Supabase Storage and server validation.
+14. Admin actions were standardized with Zod validation and serializable action results.
+15. Tests were added for money parsing, auth return paths, payment signatures, checkout/cart rules, rich-text security, image upload security, refund behavior, and order transitions.
+16. Database migration was applied and validated against the Supabase project.
+17. Live test catalog data was created: Canon, Cameras > DSLR, Canon EOS 90D, variants, images, and coupon.
+18. GitHub remote was configured and the project was pushed to `main`.
+19. The storefront old-style home page was restored using preserved legacy assets and current live data.
+20. The admin panel was refreshed with Baba's Camera branding, logo, better sidebar/topbar, password reveal, and stronger login flow.
+21. Current documentation was expanded into this specification.
 
-Use Bun for install/build commands and keep the lockfile committed. Configure
-all production secrets in Vercel project settings. The admin project needs
-Supabase public auth values and `DATABASE_URL`; the storefront additionally
-needs Razorpay and Resend server values. Never expose the service-role key or
-Razorpay key secret through `NEXT_PUBLIC_*`.
+## Deployment Plan
 
-The storefront's `vercel.json` invokes `/api/internal/jobs` every five minutes
-for reservation expiry, refunds, and email-outbox delivery. Set the same
-high-entropy `CRON_SECRET` in the storefront Vercel project; Vercel supplies it
-as a bearer token to cron requests. Sub-daily schedules require a Vercel plan
-that supports them. On other plans, run the same authenticated endpoint from a
-reliable external scheduler at an equivalent interval.
+Recommended deployment:
 
-Before a production deployment:
+| Surface | Root directory | Production domain |
+| --- | --- | --- |
+| Storefront | `apps/web` | `babascamera.com` |
+| Admin | `apps/admin` | `admin.babascamera.com` |
 
-1. run every quality gate;
-2. apply the checked Drizzle migration to the intended Supabase project;
-3. configure Auth redirects, Google OAuth, Razorpay webhook, and Resend DNS;
-4. verify test-mode checkout and refund end to end;
-5. switch to live provider keys only after that acceptance passes.
+Before deployment:
 
-## Commerce invariants
+1. Rotate any credentials that were shared during development.
+2. Configure Supabase Auth providers and redirect URLs.
+3. Apply Drizzle migration to the intended Supabase project.
+4. Configure Supabase Storage policies and product image bucket.
+5. Configure Razorpay test keys and webhook.
+6. Configure Resend domain, sender, API key, and Supabase SMTP if using email confirmations.
+7. Add all env vars in the hosting provider.
+8. Run type-check, lint, tests, build, and manual acceptance flow.
+9. Certify Razorpay test checkout/refund.
+10. Switch to live provider keys only after test-mode acceptance passes.
 
-- The browser never decides chargeable prices, discount, shipping, or stock.
-- Money is parsed as exact integer paise at application boundaries.
-- Product and variant stock cannot become negative.
-- Pending online checkout uses expiring inventory reservations; consume and
-  release operations are idempotent.
-- Order items and shipping/customer fields are immutable snapshots.
-- Payment state and fulfilment state are separate.
-- COD is an amount due, never a successful online payment.
-- Checkout callback and webhook signatures are verified server-side.
-- Provider event IDs, refunds, coupons, emails, and order creation have replay
-  guards.
-- Customer, admin, and public access are enforced both in server code and RLS.
-- Product HTML is sanitized before display and image uploads are checked by
-  content signature, type, size, randomized path, and storage policy.
+## Known Gaps And Next Work
+
+Highest priority:
+
+1. Restore the old UI/UX beyond the home page if the whole storefront must match the previous design.
+2. Complete a full COD order lifecycle test.
+3. Add real Razorpay test keys and certify online checkout.
+4. Configure Resend/Supabase SMTP and verify email delivery.
+5. Run Playwright against the complete customer/admin journey.
+6. Review mobile layouts on storefront product/cart/checkout/account pages.
+7. Add production deployment env vars and provider settings.
+
+Do not claim these are complete until they are verified live.

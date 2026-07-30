@@ -2,11 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // The workspace runs `bun run lint` as a dedicated, stricter gate. Next 15's
-  // legacy in-build ESLint loader cannot resolve Bun's isolated transitive peers.
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   transpilePackages: ["@babascamera/db", "@babascamera/ui"],
   serverExternalPackages: ["postgres"],
   experimental: {

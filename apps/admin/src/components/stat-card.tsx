@@ -13,14 +13,14 @@ export function StatCard({
   icon: LucideIcon;
 }) {
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardContent className="flex items-start justify-between p-5">
+    <Card className="rounded-lg border-[var(--admin-border)] shadow-none">
+      <CardContent className="flex items-start justify-between p-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
-          <p className="mt-2 text-3xl font-black tracking-tight">{value}</p>
-          <p className="mt-1 text-xs text-slate-500">{helper}</p>
+          <p className="text-sm font-medium text-[var(--admin-muted)]">{label}</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-[var(--admin-text)]">{value}</p>
+          <p className="mt-1 text-xs text-[var(--admin-muted)]">{helper}</p>
         </div>
-        <span className="grid size-11 place-items-center rounded-2xl bg-slate-950 text-amber-400">
+        <span className="grid size-8 place-items-center rounded-md border border-[var(--admin-border)] bg-white text-[var(--admin-muted)]">
           <Icon className="size-5" />
         </span>
       </CardContent>

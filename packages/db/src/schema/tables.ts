@@ -87,12 +87,15 @@ export const brands = pgTable(
     slug: text("slug").notNull().unique(),
     logoUrl: text("logo_url"),
     description: text("description"),
+    position: integer("position").default(0).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
   },
   (table) => [
+    index("brands_position_idx").on(table.position),
     index("brands_active_idx").on(table.isActive),
     check("brands_name_not_blank", sql`length(trim(${table.name})) > 0`),
     check("brands_slug_format", sql`${table.slug} ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'`),
+    check("brands_position_nonnegative", sql`${table.position} >= 0`),
   ],
 );
 
@@ -107,10 +110,12 @@ export const categories = pgTable(
     }),
     imageUrl: text("image_url"),
     description: text("description"),
+    sortOrder: integer("sort_order").default(0).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
   },
   (table) => [
     index("categories_parent_id_idx").on(table.parentId),
+    index("categories_parent_sort_order_idx").on(table.parentId, table.sortOrder),
     index("categories_active_idx").on(table.isActive),
     check(
       "categories_not_own_parent",
@@ -118,6 +123,7 @@ export const categories = pgTable(
     ),
     check("categories_name_not_blank", sql`length(trim(${table.name})) > 0`),
     check("categories_slug_format", sql`${table.slug} ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'`),
+    check("categories_sort_order_nonnegative", sql`${table.sortOrder} >= 0`),
   ],
 );
 
@@ -132,16 +138,19 @@ export const products = pgTable(
     categoryId: uuid("category_id")
       .notNull()
       .references(() => categories.id, { onDelete: "restrict" }),
-    brandId: uuid("brand_id")
-      .notNull()
-      .references(() => brands.id, { onDelete: "restrict" }),
+    brandId: uuid("brand_id").references(() => brands.id, { onDelete: "set null" }),
     sku: text("sku").notNull().unique(),
     mrp: numeric("mrp", { precision: 10, scale: 2 }).notNull(),
     salePrice: numeric("sale_price", { precision: 10, scale: 2 }).notNull(),
     costPrice: numeric("cost_price", { precision: 10, scale: 2 }),
+    gstRate: numeric("gst_rate", { precision: 5, scale: 2 }),
+    priceIncludesGst: boolean("price_includes_gst").default(true).notNull(),
     stock: integer("stock").default(0).notNull(),
     lowStockThreshold: integer("low_stock_threshold").default(5).notNull(),
     weight: numeric("weight", { precision: 6, scale: 2 }),
+    shippingFee: numeric("shipping_fee", { precision: 10, scale: 2 }),
+    warranty: text("warranty"),
+    youtubeUrl: text("youtube_url"),
     isFeatured: boolean("is_featured").default(false).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     metaTitle: text("meta_title"),
@@ -162,9 +171,21 @@ export const products = pgTable(
       "products_cost_price_nonnegative",
       sql`${table.costPrice} is null or ${table.costPrice} >= 0`,
     ),
+    check(
+      "products_gst_rate_range",
+      sql`${table.gstRate} is null or (${table.gstRate} >= 0 and ${table.gstRate} <= 100)`,
+    ),
     check("products_stock_nonnegative", sql`${table.stock} >= 0`),
     check("products_low_stock_threshold_nonnegative", sql`${table.lowStockThreshold} >= 0`),
     check("products_weight_positive", sql`${table.weight} is null or ${table.weight} > 0`),
+    check(
+      "products_shipping_fee_nonnegative",
+      sql`${table.shippingFee} is null or ${table.shippingFee} >= 0`,
+    ),
+    check(
+      "products_youtube_url_http",
+      sql`${table.youtubeUrl} is null or ${table.youtubeUrl} ~ '^https?://'`,
+    ),
   ],
 );
 

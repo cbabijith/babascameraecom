@@ -6,7 +6,7 @@ import { useFormStatus } from "react-dom";
 
 export function SubmitButton({
   children,
-  pendingLabel = "Saving…",
+  pendingLabel = "Saving...",
   ...props
 }: ButtonProps & { pendingLabel?: string }) {
   const { pending } = useFormStatus();

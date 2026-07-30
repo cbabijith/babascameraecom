@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
-import { ProductForm } from "@/components/product-form";
-import { ProductImageManager } from "@/components/product-image-manager";
-import { getCatalogOptions, getProduct } from "@/lib/data";
+import { ProductForm } from "@/features/catalog/components/product-form";
+import { getCatalogOptions, getProduct } from "@/features/catalog/server/products";
 
 export const dynamic = "force-dynamic";
 
@@ -17,15 +16,19 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     slug: product.slug,
     sku: product.sku,
     categoryId: product.categoryId,
-    brandId: product.brandId,
+    brandId: product.brandId ?? "",
     shortDescription: product.shortDescription ?? "",
     description: product.description ?? "",
     mrp: product.mrp,
     salePrice: product.salePrice,
-    costPrice: product.costPrice ?? "",
     stock: product.stock,
     lowStockThreshold: product.lowStockThreshold,
+    gstRate: product.gstRate ?? "",
+    priceIncludesGst: product.priceIncludesGst,
     weight: product.weight ?? "",
+    shippingFee: product.shippingFee ?? "",
+    warranty: product.warranty ?? "",
+    youtubeUrl: product.youtubeUrl ?? "",
     metaTitle: product.metaTitle ?? "",
     metaDescription: product.metaDescription ?? "",
     isActive: product.isActive,
@@ -42,10 +45,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   return (
     <>
       <PageHeader title={product.name} description={`Edit ${product.sku} and its catalogue assets.`} />
-      {product.images.length ? (
-        <ProductImageManager productId={product.id} productName={product.name} images={product.images} />
-      ) : null}
-      <ProductForm product={formProduct} {...options} />
+      <ProductForm product={formProduct} images={product.images} {...options} />
     </>
   );
 }

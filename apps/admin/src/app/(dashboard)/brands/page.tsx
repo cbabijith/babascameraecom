@@ -1,13 +1,13 @@
-import { BrandManager } from "@/components/brand-manager";
 import { PageHeader } from "@/components/page-header";
-import { getBrands } from "@/lib/data";
+import { BrandManager } from "@/features/catalog/components/brand-manager";
+import { getBrands } from "@/features/catalog/server/brands";
 
 export const dynamic = "force-dynamic";
 
 export default async function BrandsPage() {
   return (
     <>
-      <PageHeader title="Brands" description="Manage manufacturer identity and catalogue availability." />
+      <PageHeader title="Brands" description="Manage brand records and display priority." />
       <BrandManager brands={await getBrands()} />
     </>
   );

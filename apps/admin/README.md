@@ -1,10 +1,15 @@
 # Baba's Camera Admin
 
-The admin application is a Next.js 15.5 App Router application on port `3001`.
-It uses Bun, Supabase SSR authentication, the shared Drizzle schema, and the
-shared UI/config packages.
+Next.js `16.2.11` admin dashboard for Baba's Camera commerce operations. It runs on port `3001` and uses Supabase Auth, Drizzle/PostgreSQL, shared UI primitives, React Hook Form, Zod, TanStack Table, and Sonner.
 
-## Local setup
+## Local URL
+
+```text
+http://localhost:3001
+http://localhost:3001/login
+```
+
+## Setup
 
 From the repository root:
 
@@ -14,55 +19,82 @@ copy apps\admin\.env.example apps\admin\.env.local
 bun run dev:admin
 ```
 
-Required runtime values are documented in `.env.example`:
+Required values are documented in `.env.example`:
 
-- Supabase URL and browser-safe publishable key for cookie auth and
-  administrator-authorized Storage uploads.
-- `DATABASE_URL` for server-only Drizzle queries and transactions.
-- `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` for provider-backed refunds.
-- Storefront URL for the preview link.
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or anon key
+- `DATABASE_URL`
+- `NEXT_PUBLIC_STOREFRONT_URL`
+- Razorpay refund credentials when testing provider-backed refunds
 
-No service-role key or Razorpay secret is exposed to the browser.
+Do not put a Supabase service-role key in this app.
 
-## Security model
+## Authentication
 
-Middleware refreshes the Supabase session, verifies the profile in `users`, and
-admits only active `admin` roles. Every read and Server Action repeats an
-administrator permission guard before using the shared database client.
-Customer status changes are constrained to `role = customer`. The dedicated
-`/users` screen can promote an active customer to administrator only after an
-already-authorized administrator confirms the irreversible access change.
-UI mutation actions validate `FormData` with Zod and return the serializable
-`AdminActionResult` contract. Expected validation and business failures are
-shown through Sonner; database and provider errors are logged server-side and
-replaced with safe fallback messages.
+The admin panel uses a two-step authorization model:
 
-Product descriptions are sanitized through a strict HTML allowlist. Product
-images are uploaded to the public `product-images` bucket through authenticated
-Storage RLS. Only JPEG, PNG, and WebP content is accepted; magic bytes must
-match the declared MIME type and each file is limited to 5 MiB.
+1. Supabase Auth verifies the email/password session.
+2. Server code reads `public.users` and allows access only when the profile is active and `role = 'admin'`.
 
-Razorpay refunds use exact integer paise, the documented
-`X-Refund-Idempotency` header, a deterministic order UUID key, response identity
-checks, and reconciliation for in-progress provider refunds. The explicit
-refund API also enforces same-origin requests.
+Behavior:
 
-## Routes
+- Anonymous users are redirected to `/login`.
+- Active admins are allowed into protected dashboard routes.
+- Non-admin authenticated users are signed out and shown an access error.
+- Already-authorized admins visiting `/login` are redirected to the requested page or `/dashboard`.
+- Middleware checks protected navigation.
+- Server components/actions also call admin permission guards before database access.
 
-- `/dashboard`
-- `/products`, `/products/new`, `/products/[id]/edit`
-- `/categories`, `/brands`
-- `/orders`, `/orders/[id]`
-- `/customers`, `/customers/[id]`
-- `/users`
-- `/coupons`, `/reviews`, `/settings`
-- `GET /api/orders/[id]/invoice`
-- `POST /api/admin/orders/[id]/refund`
-- `GET /api/health`
+## UI State
 
-Settings forms upsert the storefront-authoritative keys `store.profile`,
-`shipping.rules`, `cod.rules`, `seo.defaults`, `notifications.toggles`, and
-`homepage.hero`. Payment credentials remain environment-only.
+The admin UI now includes:
+
+- Baba's Camera logo copied from the storefront assets.
+- Branded login screen.
+- Password show/hide button.
+- Instant submit feedback while admin access is verified.
+- Dark collapsible sidebar.
+- Active navigation state with accent color.
+- Topbar with breadcrumb, notification button, and avatar.
+
+## Modules
+
+- Dashboard.
+- Products, product images, variants.
+- Categories.
+- Brands.
+- Orders and order status changes.
+- Customers.
+- Users and admin promotion.
+- Coupons.
+- Reviews.
+- Settings.
+- Invoice generation route.
+- Refund API route.
+- Health route.
+
+## Folder Architecture
+
+The admin app is being moved to feature-driven clean architecture.
+
+Current target structure:
+
+```text
+src/app/                 Route layer only.
+src/features/<feature>/  Feature UI, server actions, schemas, and business logic.
+src/components/          Shared shell and generic admin UI only.
+src/lib/                 Cross-cutting infrastructure and utilities only.
+```
+
+Started feature migration:
+
+- `src/features/auth/components/login-form.tsx`
+- `src/features/auth/server/actions.ts`
+- `src/features/auth/server/admin.ts`
+- `src/features/navigation/navigation-items.ts`
+- `src/features/navigation/components/admin-sidebar-nav.tsx`
+
+Compatibility re-exports remain under `src/lib/auth` so existing modules keep working while the rest of the admin app is migrated safely.
 
 ## Validation
 
@@ -73,7 +105,20 @@ bun run --cwd apps/admin test
 bun run --cwd apps/admin build
 ```
 
-The local suite covers exact money parsing, safe return URLs, rich-text XSS
-defences, image signatures and limits, order transitions, refund headers and
-provider response validation, and refund API origin rejection. Live Supabase
-and Razorpay behavior requires configured test projects and credentials.
+Recently verified:
+
+- Type check passed.
+- Lint passed.
+- 29 admin tests passed.
+- Production build passed.
+- `/login` returns `200`.
+- Unauthenticated `/dashboard` redirects to `/login`.
+
+## Security Notes
+
+- Server actions validate input with Zod.
+- Admin mutations return a serializable action-result contract.
+- Product descriptions are sanitized.
+- Product image uploads validate MIME/type/size/signature.
+- Refund API rejects unsafe cross-origin requests.
+- Razorpay refund calls use exact integer paise and idempotency headers.

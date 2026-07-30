@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/page-header";
-import { ProductForm } from "@/components/product-form";
-import { getCatalogOptions } from "@/lib/data";
+import { ProductForm } from "@/features/catalog/components/product-form";
+import { getCatalogOptions } from "@/features/catalog/server/products";
 
 export const dynamic = "force-dynamic";
 

@@ -1,47 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Baba's Camera Storefront
 
-## Getting Started
+Customer-facing Next.js storefront for Baba's Camera. It runs on port `3000` and uses Supabase Auth, Drizzle/PostgreSQL catalog data, server-side cart/checkout logic, Razorpay payment helpers, and the shared UI package.
 
-Install and run the storefront with Bun:
+## Local URL
+
+```text
+http://localhost:3000
+```
+
+## Setup
+
+From the repository root:
 
 ```bash
 bun install
-bun dev
+copy apps\web\.env.example apps\web\.env.local
+bun run dev:web
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Required values are documented in `.env.example`:
 
-Before starting, copy `.env.example` to a local environment file and configure
-Supabase plus the selected payment provider. Keep every non-`NEXT_PUBLIC_`
-credential server-only.
+- Supabase URL and public key.
+- `DATABASE_URL`.
+- Razorpay keys for online payment tests.
+- Resend values for real email delivery.
+- `CRON_SECRET` for internal job routes.
+
+Keep all non-`NEXT_PUBLIC_` credentials server-only.
+
+## Current UI State
+
+The home page (`/`) has been restored to the older Baba's Camera look using the preserved storefront assets and the current product/catalog data path.
+
+Important truth: the full storefront UI has not been restored yet. Product listing, product detail, cart, checkout, auth, and account pages still use the newer implementation.
+
+## Main Routes
+
+- `/`
+- `/products`
+- `/products/[slug]`
+- `/categories`
+- `/categories/[slug]`
+- `/brands`
+- `/brands/[slug]`
+- `/search`
+- `/cart`
+- `/checkout`
+- `/checkout/success/[orderNumber]`
+- `/account`
+- `/account/orders`
+- `/wishlist`
+- `/auth/*`
+- `/contact`
+- `/privacy`
+- `/terms`
+- `/shipping`
+- `/returns`
+
+## Commerce Behavior
+
+- Catalog, brands, categories, reviews, and product data are read from the database.
+- Cart writes run through server-side logic and respect stock limits.
+- Coupon calculations are server-side.
+- Checkout recalculates product, discount, shipping, and total values from the database.
+- Razorpay signatures are verified before payment state changes.
+- COD remains pending payment.
+- Order data stores immutable snapshots of customer/shipping/product fields.
 
 ## Validation
 
 ```bash
-bun run typecheck
-bun run test
-bun run lint
-bun run build
+bun run --cwd apps/web type-check
+bun run --cwd apps/web lint
+bun run --cwd apps/web test
+bun run --cwd apps/web build
 ```
 
-## Refund processor
+Known validation state:
 
-Refund requests are claimed and sent to Razorpay only by
-`/api/internal/refunds/process`. Configure a scheduler to call that route with
-`Authorization: Bearer <CRON_SECRET>`. Razorpay's signed
-`refund.processed`/`refund.failed` webhooks remain the terminal source of truth.
+- Web type-check, lint, tests, and production build passed after the home page restoration.
+- `/` returned `200` locally and contained the restored old-home markers/assets.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Next Storefront Work
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Restore old UI/UX for product listing, product detail, cart, checkout, auth, and account pages if the requirement is full legacy visual parity.
+- Complete COD order lifecycle testing.
+- Configure Razorpay test keys and certify live test checkout.
+- Configure Resend/Supabase SMTP and verify email delivery.
+- Run Playwright over the complete customer journey.

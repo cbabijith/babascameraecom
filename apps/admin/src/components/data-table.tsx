@@ -25,7 +25,7 @@ export function SortableHeading({
 }) {
   const Icon = direction === "asc" ? ArrowUp : direction === "desc" ? ArrowDown : ArrowUpDown;
   return (
-    <button type="button" onClick={onToggle} className="inline-flex items-center gap-1 font-bold">
+    <button type="button" onClick={onToggle} className="inline-flex items-center gap-1 font-medium text-[var(--admin-muted)] hover:text-[var(--admin-text)]">
       {label}<Icon className="size-3.5" />
     </button>
   );
@@ -63,7 +63,7 @@ export function DataTable<TData>({
     initialState: { pagination: { pageIndex: 0, pageSize: 25 } },
   });
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       {searchable ? <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
         <Input
@@ -73,7 +73,7 @@ export function DataTable<TData>({
           className="pl-9"
         />
       </div> : null}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-[var(--admin-border)] bg-white">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>

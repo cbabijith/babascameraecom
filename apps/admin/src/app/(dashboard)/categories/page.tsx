@@ -1,14 +1,8 @@
-import { CategoryManager } from "@/components/category-manager";
-import { PageHeader } from "@/components/page-header";
-import { getCategories } from "@/lib/data";
+import { CategoryManager } from "@/features/catalog/components/category-manager";
+import { getCategories } from "@/features/catalog/server/categories";
 
 export const dynamic = "force-dynamic";
 
 export default async function CategoriesPage() {
-  return (
-    <>
-      <PageHeader title="Categories" description="Build and maintain the storefront category tree." />
-      <CategoryManager categories={await getCategories()} />
-    </>
-  );
+  return <CategoryManager categories={await getCategories()} />;
 }

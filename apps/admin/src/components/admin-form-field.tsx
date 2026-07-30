@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Badge,
   FormControl,
   FormDescription,
   FormField,
@@ -11,7 +12,8 @@ import {
   Textarea,
   cn,
 } from "@babascamera/ui";
-import type { ComponentProps, ReactNode } from "react";
+import { Check, Search, X } from "lucide-react";
+import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import { useFormContext, type FieldValues } from "react-hook-form";
 
 interface BaseFieldProps {
@@ -137,6 +139,144 @@ export function AdminSelectField({
           <FormMessage />
         </FormItem>
       )}
+    />
+  );
+}
+
+interface SearchSelectOption {
+  value: string;
+  label: string;
+  description?: string;
+  badge?: string;
+  disabled?: boolean;
+}
+
+interface SearchSelectFieldProps extends BaseFieldProps {
+  options: SearchSelectOption[];
+  placeholder: string;
+  searchPlaceholder?: string;
+  emptyLabel?: string;
+  allowEmpty?: boolean;
+  emptyValueLabel?: string;
+}
+
+export function AdminSearchSelectField({
+  name,
+  label,
+  description,
+  className,
+  options,
+  placeholder,
+  searchPlaceholder = "Search...",
+  emptyLabel = "No matches found.",
+  allowEmpty = false,
+  emptyValueLabel = "None",
+}: SearchSelectFieldProps) {
+  const form = useFormContext<FieldValues>();
+  const [query, setQuery] = useState("");
+  const filteredOptions = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return options;
+    return options.filter((option) => (
+      option.label.toLowerCase().includes(normalizedQuery) ||
+      option.description?.toLowerCase().includes(normalizedQuery) ||
+      option.badge?.toLowerCase().includes(normalizedQuery)
+    ));
+  }, [options, query]);
+
+  return (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => {
+        const selected = options.find((option) => option.value === field.value);
+        return (
+          <FormItem className={className}>
+            <div className="flex items-center justify-between gap-3">
+              <FormLabel>{label}</FormLabel>
+              {selected || placeholder ? (
+                <span className={cn(
+                  "max-w-48 truncate text-xs font-semibold",
+                  selected ? "text-slate-500" : "text-slate-400",
+                )}>
+                  {selected?.label ?? placeholder}
+                </span>
+              ) : null}
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center gap-2 border-b px-3 py-2">
+                <Search className="size-4 shrink-0 text-slate-400" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={searchPlaceholder}
+                  className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  type="search"
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    onClick={() => setQuery("")}
+                    aria-label="Clear search"
+                  >
+                    <X className="size-4" />
+                  </button>
+                ) : null}
+              </div>
+              <FormControl>
+                <input type="hidden" name={field.name} value={typeof field.value === "string" ? field.value : ""} />
+              </FormControl>
+              <div className="max-h-64 overflow-auto p-1">
+                {allowEmpty ? (
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition hover:bg-slate-50",
+                      !field.value && "bg-slate-100",
+                    )}
+                    onClick={() => field.onChange("")}
+                  >
+                    <span className="grid size-5 shrink-0 place-items-center rounded-full border">
+                      {!field.value ? <Check className="size-3" /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1 font-semibold text-slate-700">{emptyValueLabel}</span>
+                  </button>
+                ) : null}
+                {filteredOptions.map((option) => {
+                  const isSelected = option.value === field.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={option.disabled}
+                      className={cn(
+                        "flex w-full items-start gap-3 rounded-md px-3 py-2 text-left text-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
+                        isSelected && "bg-slate-100",
+                      )}
+                      onClick={() => field.onChange(option.value)}
+                    >
+                      <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border">
+                        {isSelected ? <Check className="size-3" /> : null}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold text-slate-900">{option.label}</span>
+                        {option.description ? (
+                          <span className="block truncate text-xs text-slate-500">{option.description}</span>
+                        ) : null}
+                      </span>
+                      {option.badge ? <Badge variant="outline">{option.badge}</Badge> : null}
+                    </button>
+                  );
+                })}
+                {!filteredOptions.length ? <p className="px-3 py-6 text-center text-sm text-slate-500">{emptyLabel}</p> : null}
+              </div>
+            </div>
+            {description ? <FormDescription>{description}</FormDescription> : null}
+            <FormMessage />
+          </FormItem>
+        );
+      }}
     />
   );
 }
