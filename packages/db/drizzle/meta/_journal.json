@@ -8,6 +8,13 @@
       "when": 1785382698765,
       "tag": "20260730033818_initial_commerce",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785409200000,
+      "tag": "20260730120000_homepage_banners",
+      "breakpoints": true
     }
   ]
 }

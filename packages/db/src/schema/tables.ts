@@ -19,6 +19,7 @@ import {
   couponTypeEnum,
   emailOutboxStatusEnum,
   inventoryReservationStatusEnum,
+  homeBannerMediaTypeEnum,
   orderStatusEnum,
   paymentEventOutcomeEnum,
   paymentMethodEnum,
@@ -498,6 +499,52 @@ export const settings = pgTable(
     index("settings_group_idx").on(table.group),
     check("settings_key_format", sql`${table.key} ~ '^[a-z][a-z0-9_.-]*$'`),
     check("settings_group_not_blank", sql`length(trim(${table.group})) > 0`),
+  ],
+);
+
+export const homeBanners = pgTable(
+  "home_banners",
+  {
+    ...baseColumns(),
+    internalName: text("internal_name").notNull(),
+    mediaType: homeBannerMediaTypeEnum("media_type").notNull(),
+    desktopMediaUrl: text("desktop_media_url").notNull(),
+    mobileMediaUrl: text("mobile_media_url"),
+    posterUrl: text("poster_url"),
+    altText: text("alt_text").notNull(),
+    headline: text("headline"),
+    subheading: text("subheading"),
+    buttonLabel: text("button_label"),
+    destinationUrl: text("destination_url"),
+    openInNewTab: boolean("open_in_new_tab").default(false).notNull(),
+    position: integer("position").notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    startsAt: timestamp("starts_at", { mode: "date", withTimezone: true }),
+    endsAt: timestamp("ends_at", { mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("home_banners_position_unique").on(table.position),
+    index("home_banners_active_schedule_idx").on(table.isActive, table.startsAt, table.endsAt),
+    check("home_banners_internal_name_not_blank", sql`length(trim(${table.internalName})) > 0`),
+    check("home_banners_desktop_media_url_not_blank", sql`length(trim(${table.desktopMediaUrl})) > 0`),
+    check("home_banners_alt_text_not_blank", sql`length(trim(${table.altText})) > 0`),
+    check("home_banners_position_range", sql`${table.position} between 0 and 4`),
+    check(
+      "home_banners_image_has_mobile",
+      sql`${table.mediaType} <> 'image' or ${table.mobileMediaUrl} is not null`,
+    ),
+    check(
+      "home_banners_video_has_poster",
+      sql`${table.mediaType} <> 'video' or ${table.posterUrl} is not null`,
+    ),
+    check(
+      "home_banners_schedule_order",
+      sql`${table.startsAt} is null or ${table.endsAt} is null or ${table.endsAt} > ${table.startsAt}`,
+    ),
+    check(
+      "home_banners_destination_http_or_relative",
+      sql`${table.destinationUrl} is null or ${table.destinationUrl} ~ '^(https?://|/)'`,
+    ),
   ],
 );
 

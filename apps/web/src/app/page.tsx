@@ -1,4 +1,5 @@
 import { LegacyHome } from "@/components/home/legacy-home";
+import { getActiveHomeBanners } from "@/features/home-banners/server/get-active-home-banners";
 import { getCartOwner } from "@/lib/cart-session";
 import {
   getCartCount,
@@ -13,12 +14,13 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const owner = await getCartOwner();
-  const [bestSellers, fallbackProducts, categories, brands, cartCount] = await Promise.all([
+  const [bestSellers, fallbackProducts, categories, brands, cartCount, banners] = await Promise.all([
     listBestSellingProducts(8),
     listCatalogProducts({ limit: 8 }),
     listCategories(),
     listBrands(),
     getCartCount(owner),
+    getActiveHomeBanners(),
   ]);
 
   return (
@@ -28,6 +30,7 @@ export default async function HomePage() {
       brands={brands}
       cartCount={cartCount}
       accountHref={isUserCartOwner(owner) ? "/account" : "/auth/login"}
+      banners={banners}
     />
   );
 }

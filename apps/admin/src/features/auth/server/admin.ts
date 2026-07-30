@@ -12,10 +12,11 @@ export type Permission =
   | "users"
   | "promotions"
   | "reviews"
+  | "storefront"
   | "settings";
 
 const ADMIN_PERMISSIONS: Permission[] = [
-  "dashboard", "orders", "catalog", "customers", "users", "promotions", "reviews", "settings",
+  "dashboard", "orders", "catalog", "customers", "users", "promotions", "reviews", "storefront", "settings",
 ];
 
 export interface AdminUser {

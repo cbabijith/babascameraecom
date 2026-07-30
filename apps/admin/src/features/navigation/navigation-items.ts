@@ -1,5 +1,6 @@
 import {
   BadgePercent,
+  GalleryHorizontalEnd,
   ChartNoAxesCombined,
   FolderTree,
   PackageCheck,
@@ -44,6 +45,12 @@ export const adminNavigationSections: AdminNavigationSection[] = [
     items: [
       { href: "/customers", label: "Customers", icon: UsersRound },
       { href: "/users", label: "Users & access", icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "Storefront",
+    items: [
+      { href: "/banners", label: "Homepage banners", icon: GalleryHorizontalEnd },
     ],
   },
   {

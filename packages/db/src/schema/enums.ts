@@ -24,6 +24,7 @@ export const refundStatusValues = [
 ] as const;
 export const emailOutboxStatusValues = ["pending", "processing", "sent", "failed"] as const;
 export const inventoryReservationStatusValues = ["reserved", "consumed", "released"] as const;
+export const homeBannerMediaTypeValues = ["image", "video"] as const;
 
 export const userRoleEnum = pgEnum("user_role", userRoleValues);
 export const orderStatusEnum = pgEnum("order_status", orderStatusValues);
@@ -41,6 +42,10 @@ export const inventoryReservationStatusEnum = pgEnum(
   "inventory_reservation_status",
   inventoryReservationStatusValues,
 );
+export const homeBannerMediaTypeEnum = pgEnum(
+  "home_banner_media_type",
+  homeBannerMediaTypeValues,
+);
 
 export type UserRole = (typeof userRoleValues)[number];
 export type OrderStatus = (typeof orderStatusValues)[number];
@@ -52,3 +57,4 @@ export type PaymentEventOutcome = (typeof paymentEventOutcomeValues)[number];
 export type RefundStatus = (typeof refundStatusValues)[number];
 export type EmailOutboxStatus = (typeof emailOutboxStatusValues)[number];
 export type InventoryReservationStatus = (typeof inventoryReservationStatusValues)[number];
+export type HomeBannerMediaType = (typeof homeBannerMediaTypeValues)[number];

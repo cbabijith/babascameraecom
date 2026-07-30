@@ -8,13 +8,13 @@ const migrationFiles = (await readdir(migrationDirectory))
   .filter((fileName) => fileName.endsWith(".sql"))
   .sort();
 
-if (migrationFiles.length !== 1) {
+if (migrationFiles.length !== 2) {
   throw new Error(
-    `Expected one authoritative Drizzle SQL migration, found ${migrationFiles.length}: ${migrationFiles.join(", ")}`,
+    `Expected the authoritative base and homepage banner migrations, found ${migrationFiles.length}: ${migrationFiles.join(", ")}`,
   );
 }
 
-const [migrationFile] = migrationFiles;
+const [migrationFile, bannerMigrationFile] = migrationFiles;
 
 if (migrationFile === undefined || !migrationFile.endsWith("_initial_commerce.sql")) {
   throw new Error(
@@ -23,6 +23,8 @@ if (migrationFile === undefined || !migrationFile.endsWith("_initial_commerce.sq
 }
 
 const migrationSql = await readFile(`${migrationDirectory}/${migrationFile}`, "utf8");
+const bannerMigrationSql = await readFile(`${migrationDirectory}/${bannerMigrationFile}`, "utf8");
+const allMigrationSql = `${migrationSql}\n--> statement-breakpoint\n${bannerMigrationSql}`;
 const requiredFragments = [
   'CREATE TABLE "users"',
   'CREATE TABLE "inventory_reservations"',
@@ -40,10 +42,14 @@ const requiredFragments = [
   '"orders_at_most_one_owner"',
   'BEFORE INSERT ON "public"."order_items"',
   "Privilege assertion failed: authenticated has table-wide users UPDATE",
+  'CREATE TABLE "home_banners"',
+  "'home-banners'",
+  "41943040",
+  "home_banners_storage_admin_insert",
 ];
 
 for (const fragment of requiredFragments) {
-  if (!migrationSql.includes(fragment)) {
+  if (!allMigrationSql.includes(fragment)) {
     throw new Error(`Migration contract is missing: ${fragment}`);
   }
 }
@@ -100,7 +106,7 @@ try {
     ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
   `);
 
-  const statements = migrationSql
+  const statements = allMigrationSql
     .split("--> statement-breakpoint")
     .map((statement) => statement.trim())
     .filter((statement) => statement.length > 0);
@@ -130,6 +136,7 @@ try {
         'coupons',
         'email_outbox',
         'inventory_reservations',
+        'home_banners',
         'newsletter_subscriptions',
         'order_items',
         'order_status_history',
@@ -146,8 +153,8 @@ try {
       ])
   `);
 
-  if (tableResult.rows[0]?.count !== 22) {
-    throw new Error(`Expected 22 commerce tables, found ${tableResult.rows[0]?.count ?? 0}.`);
+  if (tableResult.rows[0]?.count !== 23) {
+    throw new Error(`Expected 23 commerce tables, found ${tableResult.rows[0]?.count ?? 0}.`);
   }
 
   const profileId = crypto.randomUUID();

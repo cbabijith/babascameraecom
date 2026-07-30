@@ -10,6 +10,8 @@ import {
 import type { CatalogProduct } from "@/lib/data/storefront";
 import { formatMoney } from "@/lib/format";
 import { productImageUrl } from "@/lib/storage";
+import { HomeBannerCarousel } from "@/features/home-banners/components/home-banner-carousel";
+import type { StorefrontHomeBanner } from "@/features/home-banners/types";
 
 interface Category {
   id: string;
@@ -31,6 +33,7 @@ interface LegacyHomeProps {
   brands: Brand[];
   cartCount: number;
   accountHref: string;
+  banners: StorefrontHomeBanner[];
 }
 
 function categoryFallback(slug: string) {
@@ -332,6 +335,7 @@ export function LegacyHome({
   brands,
   cartCount,
   accountHref,
+  banners,
 }: LegacyHomeProps) {
   return (
     <div className="legacy-home-page min-h-screen bg-white text-black">
@@ -344,20 +348,7 @@ export function LegacyHome({
       <main className="pb-4">
         <div className="space-y-8 pb-5 sm:space-y-10">
           <section className="legacy-constrained pt-5 sm:pt-8">
-            <Link
-              href="/products"
-              aria-label="Shop the Sony FX3 cinema line"
-              className="relative block aspect-[3/1] min-h-[230px] overflow-hidden rounded-[28px] bg-[#06162a]"
-            >
-              <Image
-                src="/herPage1.png"
-                alt="Sony FX3 cinema camera offer"
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover"
-              />
-            </Link>
+            <HomeBannerCarousel banners={banners} />
           </section>
 
           {categories.length ? (
