@@ -1,224 +1,244 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- Brand media uses administrator-defined runtime URLs. */
-
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Form, Input, Label, toast } from "@babascamera/ui";
-import type { DragEndEvent } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
-import { ImageIcon, Pencil, Plus, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
-import type { z } from "zod";
-
-import { StatusBadge } from "@/components/status-badge";
-import { brandClientSchema } from "@/features/catalog/schemas/brand";
-import type { BrandListItem } from "@/features/catalog/types";
-import { catalogApi } from "@/features/catalog/api/catalog-api-client";
 import {
-  AdminCheckboxField,
-  AdminInputField,
-} from "@/components/admin-form-field";
-import { SortableDragHandle, SortableList, SortableListItem } from "@/components/sortable-list";
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  toast,
+} from "@babascamera/ui";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { Plus, Search, Tags } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 
-type Brand = BrandListItem;
-const schema = brandClientSchema;
-type Values = z.infer<typeof schema>;
+import {
+  AdminResourceEmptyState,
+  AdminResourceSurface,
+} from "@/components/ui/admin-resource";
+import { AdminPageHeader } from "@/components/ui/admin-page";
 
-function SortableBrandCard({
-  item,
-  disabled,
-  pendingDeleteId,
-  onEdit,
-  onDelete,
-}: {
-  item: Brand;
-  disabled: boolean;
-  pendingDeleteId: string | null;
-  onEdit: (brand: Brand) => void;
-  onDelete: (brand: Brand) => void;
-}) {
-  return (
-    <SortableListItem
-      id={item.id}
-      disabled={disabled}
-      className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-    >
-      <div className="flex items-start gap-3">
-        <SortableDragHandle label={`Reorder ${item.name}`} disabled={disabled} />
-        <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-100 text-slate-400">
-          {item.logoUrl ? <img src={item.logoUrl} alt="" className="h-full w-full object-contain p-2" /> : <ImageIcon className="size-5" />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate font-black text-slate-950">{item.name}</h2>
-          <p className="text-xs text-slate-500">{item.productCount} products</p>
-        </div>
-        <StatusBadge status={item.isActive ? "active" : "inactive"} />
-      </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <Button size="sm" variant="outline" onClick={() => onEdit(item)} disabled={disabled}>
-          <Pencil className="size-4" /> Edit
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          disabled={item.productCount > 0 || pendingDeleteId === item.id || disabled}
-          title={item.productCount > 0 ? "Remove products from this brand before deleting." : "Delete brand"}
-          aria-label={`Delete ${item.name}`}
-          onClick={() => onDelete(item)}
-        >
-          <Trash2 className="size-4" />
-        </Button>
-      </div>
-    </SortableListItem>
-  );
+import { brandsApi } from "../api/brands-api-client";
+import type { BrandListItem, BrandStatusFilter } from "../types";
+import { BrandDeleteDialog } from "./brand-delete-dialog";
+import { BrandForm } from "./brand-form";
+import { brandCounts, filterBrands, reorderBrandsLocally } from "./brand-list-model";
+import { BrandReorderToolbar } from "./brand-reorder-toolbar";
+import { BrandResourceList } from "./brand-resource-list";
+import { BrandToolbar } from "./brand-toolbar";
+
+function statusFromUrl(value: string | null): BrandStatusFilter {
+  return value === "active" || value === "inactive" ? value : "all";
 }
 
-export function BrandManager({ brands }: { brands: Brand[] }) {
-  const router = useRouter();
+export function BrandManager({ brands }: { brands: BrandListItem[] }) {
+  const searchParams = useSearchParams();
   const [localBrands, setLocalBrands] = useState(brands);
-  const [editing, setEditing] = useState<Brand | null | undefined>();
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [isRefreshing, startRefresh] = useTransition();
-  const [isReordering, startReorder] = useTransition();
-  const logoRef = useRef<HTMLInputElement>(null);
-  const form = useForm<Values>({ resolver: zodResolver(schema) });
-  useEffect(() => setLocalBrands(brands), [brands]);
-  const orderedBrands = useMemo(
-    () => [...localBrands].sort((left, right) => left.position - right.position || left.name.localeCompare(right.name)),
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
+  const [status, setStatus] = useState<BrandStatusFilter>(() => statusFromUrl(searchParams.get("status")));
+  const [editing, setEditing] = useState<BrandListItem | null | undefined>(undefined);
+  const [deleting, setDeleting] = useState<BrandListItem | null>(null);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
+  const [reorderMode, setReorderMode] = useState(false);
+  const [orderSnapshot, setOrderSnapshot] = useState<BrandListItem[] | null>(null);
+  const [isSavingOrder, startSavingOrder] = useTransition();
+  const [isDeleting, startDeleting] = useTransition();
+  const deferredQuery = useDeferredValue(query);
+
+  useEffect(() => {
+    if (reorderMode) return;
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams();
+      if (query.trim()) params.set("q", query.trim());
+      if (status !== "all") params.set("status", status);
+      window.history.replaceState(null, "", params.size ? `/brands?${params}` : "/brands");
+    }, 240);
+    return () => window.clearTimeout(timeout);
+  }, [query, reorderMode, status]);
+
+  const ordered = useMemo(
+    () => [...localBrands].sort((a, b) => a.position - b.position || a.name.localeCompare(b.name)),
     [localBrands],
   );
-  const open = (item: Brand | null) => {
-    setEditing(item);
-    if (logoRef.current) logoRef.current.value = "";
-    form.reset({
-      name: item?.name ?? "",
-      isActive: item?.isActive ?? true,
+  const visibleBrands = useMemo(
+    () => filterBrands(ordered, deferredQuery, status),
+    [deferredQuery, ordered, status],
+  );
+  const counts = useMemo(() => brandCounts(localBrands), [localBrands]);
+  const hasFilters = query.trim() !== "" || status !== "all";
+  const busy = isSavingOrder || isDeleting;
+
+  const upsert = useCallback((brand: BrandListItem) => {
+    setLocalBrands((current) => {
+      const exists = current.some((item) => item.id === brand.id);
+      return exists
+        ? current.map((item) => item.id === brand.id ? brand : item)
+        : [...current, brand];
     });
-  };
-  const submit = form.handleSubmit(async (values) => {
-    const payload = new FormData();
-    if (editing) payload.set("id", editing.id);
-    Object.entries(values).forEach(([key, value]) => payload.set(key, String(value)));
-    const logo = logoRef.current?.files?.[0];
-    if (logo) payload.set("logo", logo);
-    try {
-      const result = editing
-        ? await catalogApi.updateBrand<{ id: string }>(editing.id, payload)
-        : await catalogApi.createBrand<{ id: string }>(payload);
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Brand saved.");
-      setEditing(undefined);
-      startRefresh(() => router.refresh());
-    } catch (error) {
-      console.error("Brand save request failed.", error);
-      toast.error("Brand could not be saved.");
+    setEditing(undefined);
+  }, []);
+
+  const toggleActive = useCallback(async (brand: BrandListItem) => {
+    if (pendingIds.has(brand.id)) return;
+    const previous = brand;
+    const optimistic = { ...brand, isActive: !brand.isActive };
+    setPendingIds((current) => new Set(current).add(brand.id));
+    setLocalBrands((current) => current.map((item) => item.id === brand.id ? optimistic : item));
+    const result = await brandsApi.setStatus(brand.id, optimistic.isActive);
+    setPendingIds((current) => {
+      const next = new Set(current);
+      next.delete(brand.id);
+      return next;
+    });
+    if (!result.success) {
+      setLocalBrands((current) => current.map((item) => item.id === brand.id ? previous : item));
+      toast.error(result.error);
+      return;
     }
-  });
-  const onDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = orderedBrands.findIndex((item) => item.id === active.id);
-    const newIndex = orderedBrands.findIndex((item) => item.id === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-    const previous = localBrands;
-    const reordered = arrayMove(orderedBrands, oldIndex, newIndex);
-    const nextPositions = new Map(reordered.map((item, index) => [item.id, index]));
-    setLocalBrands(previous.map((item) => ({ ...item, position: nextPositions.get(item.id) ?? item.position })));
-    startReorder(async () => {
-      const payload = new FormData();
-      payload.set("brandIds", JSON.stringify(reordered.map((item) => item.id)));
-      try {
-        const result = await catalogApi.reorderBrands(payload);
-        if (!result.success) {
-          setLocalBrands(previous);
-          toast.error(result.error);
-          return;
-        }
-        toast.success("Brand order saved.");
-      } catch (error) {
-        console.error("Brand reorder request failed.", error);
-        setLocalBrands(previous);
-        toast.error("Brand order could not be saved.");
+    setLocalBrands((current) => current.map((item) => item.id === brand.id ? result.data : item));
+    toast.success(result.data.isActive ? "Brand activated." : "Brand deactivated.");
+  }, [pendingIds]);
+
+  const startReorderMode = () => {
+    setOrderSnapshot(ordered);
+    setReorderMode(true);
+  };
+  const cancelReorder = () => {
+    if (orderSnapshot) setLocalBrands(orderSnapshot);
+    setOrderSnapshot(null);
+    setReorderMode(false);
+  };
+  const finishReorder = () => {
+    const previous = orderSnapshot;
+    startSavingOrder(async () => {
+      const result = await brandsApi.reorder(ordered.map((brand) => brand.id));
+      if (!result.success) {
+        if (previous) setLocalBrands(previous);
+        toast.error(result.error);
+        return;
       }
+      setOrderSnapshot(null);
+      setReorderMode(false);
+      toast.success("Brand order saved.");
     });
   };
-  const deleteBrand = async (item: Brand) => {
-    if (!window.confirm(`Delete ${item.name}?`)) return;
-    setPendingDeleteId(item.id);
-    try {
-      const result = await catalogApi.deleteBrand(item.id);
+  const handleDragEnd = (event: DragEndEvent) => {
+    if (!event.over || event.active.id === event.over.id) return;
+    setLocalBrands((current) => reorderBrandsLocally(current, String(event.active.id), String(event.over?.id)));
+  };
+
+  const confirmDelete = () => {
+    if (!deleting) return;
+    const target = deleting;
+    startDeleting(async () => {
+      const result = await brandsApi.remove(target.id);
       if (!result.success) {
         toast.error(result.error);
         return;
       }
+      setLocalBrands((current) => current
+        .filter((brand) => brand.id !== target.id)
+        .sort((a, b) => a.position - b.position)
+        .map((brand, position) => ({ ...brand, position })));
+      setDeleting(null);
       toast.success("Brand deleted.");
-      startRefresh(() => router.refresh());
-    } catch (error) {
-      console.error("Brand deletion request failed.", error);
-      toast.error("Brand could not be deleted.");
-    } finally {
-      setPendingDeleteId(null);
-    }
+    });
   };
+
   return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-black text-slate-950">Catalogue brands</h2>
-          <p className="text-sm text-slate-500">Create manufacturer records before assigning them to products.</p>
-        </div>
-        <Button onClick={() => open(null)} disabled={isRefreshing || isReordering}>
-          <Plus className="size-4" /> Add brand
-        </Button>
-      </div>
-      <SortableList
-        id="catalog-brand-order"
-        itemIds={orderedBrands.map((item) => item.id)}
-        strategy="rect"
-        onDragEnd={onDragEnd}
-        disabled={isRefreshing || isReordering}
-      >
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {orderedBrands.map((item) => (
-            <SortableBrandCard
-              key={item.id}
-              item={item}
-              disabled={isRefreshing || isReordering}
-              pendingDeleteId={pendingDeleteId}
-              onEdit={open}
-              onDelete={deleteBrand}
-            />
-          ))}
-        </div>
-      </SortableList>
-      <Dialog open={editing !== undefined} onOpenChange={(value) => { if (!value) setEditing(undefined); }}>
-        <DialogContent>
+    <section className="grid w-full min-w-0 gap-4">
+      <AdminPageHeader
+        title="Brands"
+        description="Manage product manufacturers and brand ordering."
+        secondaryActions={
+          <Button type="button" size="sm" disabled={reorderMode} onClick={() => setEditing(null)}>
+            <Plus className="size-4" /> Add brand
+          </Button>
+        }
+      />
+
+      <AdminResourceSurface>
+        {reorderMode ? (
+          <BrandReorderToolbar saving={isSavingOrder} onCancel={cancelReorder} onDone={finishReorder} />
+        ) : (
+          <BrandToolbar
+            counts={counts}
+            disabled={busy}
+            query={query}
+            status={status}
+            onQueryChange={setQuery}
+            onStatusChange={setStatus}
+            onReorder={startReorderMode}
+            reorderDisabled={hasFilters || localBrands.length < 2}
+          />
+        )}
+
+        {localBrands.length === 0 ? (
+          <AdminResourceEmptyState
+            icon={<Tags className="size-8" />}
+            title="Add your first brand"
+            description="Create manufacturers before assigning them to products."
+            action={<Button type="button" size="sm" onClick={() => setEditing(null)}><Plus className="size-4" /> Add brand</Button>}
+          />
+        ) : visibleBrands.length === 0 ? (
+          <AdminResourceEmptyState
+            icon={<Search className="size-7" />}
+            title="No brands found"
+            description="Adjust your search or selected status."
+            action={<Button type="button" size="sm" variant="outline" onClick={() => { setQuery(""); setStatus("all"); }}>Clear filters</Button>}
+          />
+        ) : (
+          <BrandResourceList
+            brands={reorderMode ? ordered : visibleBrands}
+            disabled={busy}
+            pendingIds={pendingIds}
+            reorderMode={reorderMode}
+            onDelete={setDeleting}
+            onDragEnd={handleDragEnd}
+            onEdit={setEditing}
+            onToggleActive={toggleActive}
+          />
+        )}
+
+        {localBrands.length > 0 && visibleBrands.length > 0 ? (
+          <div className="border-t border-slate-200 px-3 py-2 text-xs text-slate-500">
+            Showing {visibleBrands.length} brand{visibleBrands.length === 1 ? "" : "s"}
+          </div>
+        ) : null}
+      </AdminResourceSurface>
+
+      <Dialog open={editing !== undefined} onOpenChange={(open) => { if (!open) setEditing(undefined); }}>
+        <DialogContent className="max-h-[calc(100vh-2rem)] max-w-xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit brand" : "New brand"}</DialogTitle>
-            <DialogDescription>Enter the brand name and upload its logo.</DialogDescription>
+            <DialogTitle>{editing ? "Edit brand" : "Add brand"}</DialogTitle>
+            <DialogDescription>Set the brand name, logo, and storefront availability.</DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={submit} className="grid gap-4">
-              <AdminInputField name="name" label="Name" />
-              <div className="grid gap-2">
-                <Label htmlFor="brand-logo">Brand logo</Label>
-                <Input id="brand-logo" ref={logoRef} type="file" accept="image/jpeg,image/png,image/webp" />
-                <p className="text-xs text-slate-500">JPEG, PNG, or WebP; 5 MiB maximum.</p>
-              </div>
-              <AdminCheckboxField name="isActive" label="Active" />
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Saving..." : "Save brand"}
-              </Button>
-            </form>
-          </Form>
+          {editing !== undefined ? (
+            <BrandForm
+              key={editing?.id ?? "new"}
+              brand={editing}
+              onCancel={() => setEditing(undefined)}
+              onSaved={upsert}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
-    </>
+
+      <BrandDeleteDialog
+        brand={deleting}
+        pending={isDeleting}
+        onCancel={() => setDeleting(null)}
+        onConfirm={confirmDelete}
+      />
+    </section>
   );
 }

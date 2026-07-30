@@ -181,7 +181,7 @@ function storagePath(url: string | null) {
   }
 }
 
-async function removeMediaUrls(urls: Array<string | null>) {
+async function removeMediaUrls(urls: (string | null)[]) {
   const paths = [...new Set(urls.map(storagePath).filter((path): path is string => Boolean(path)))];
   if (!paths.length) return;
   const { error } = await (await createClient()).storage.from(HOME_BANNER_BUCKET).remove(paths);

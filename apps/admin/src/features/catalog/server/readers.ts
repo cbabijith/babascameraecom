@@ -322,21 +322,3 @@ export async function getCategories() {
     productCount: row.products.length,
   }));
 }
-
-export async function getBrands() {
-  await requirePermission("catalog");
-  const rows = await db.query.brands.findMany({
-    with: { products: { columns: { id: true } } },
-    orderBy: (table, { asc }) => [asc(table.position), asc(table.name)],
-  });
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    description: row.description,
-    logoUrl: row.logoUrl,
-    position: row.position,
-    isActive: row.isActive,
-    productCount: row.products.length,
-  }));
-}

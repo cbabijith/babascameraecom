@@ -41,7 +41,7 @@ import { createClient } from "@/lib/supabase/client";
 
 import { homeBannerApi } from "../api/home-banner-api-client";
 import { getBannerStatus } from "../tables/banner-list-model";
-import type { HomeBanner, UploadedBannerMedia } from "../types";
+import type { HomeBanner } from "../types";
 
 type MediaRole = "desktop" | "mobile" | "poster";
 

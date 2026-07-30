@@ -31,6 +31,13 @@ export interface BrandListItem {
   productCount: number;
 }
 
+export type BrandStatusFilter = "all" | "active" | "inactive";
+
+export interface BrandListQuery {
+  q: string;
+  status: BrandStatusFilter;
+}
+
 export interface ProductListItem {
   id: string;
   name: string;

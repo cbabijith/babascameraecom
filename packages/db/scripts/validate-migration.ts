@@ -383,6 +383,7 @@ try {
   }
 
   const contractResult = await database.query<{
+    banner_bucket_ok: boolean;
     bucket_ok: boolean;
     default_ok: boolean;
     rls_count: number;
@@ -396,6 +397,13 @@ try {
         FROM storage.buckets
         WHERE id = 'product-images'
       ) AS bucket_ok,
+      (
+        SELECT public
+          AND file_size_limit = 41943040
+          AND allowed_mime_types = ARRAY['image/webp', 'video/mp4']::text[]
+        FROM storage.buckets
+        WHERE id = 'home-banners'
+      ) AS banner_bucket_ok,
       (
         SELECT column_default LIKE '%next_order_number%'
         FROM information_schema.columns
@@ -412,7 +420,7 @@ try {
           AND class.relname = ANY (ARRAY[
             'addresses', 'brands', 'cart_items', 'carts', 'categories',
             'coupon_redemptions', 'coupons', 'email_outbox',
-            'inventory_reservations', 'newsletter_subscriptions', 'order_items',
+            'home_banners', 'inventory_reservations', 'newsletter_subscriptions', 'order_items',
             'order_status_history', 'orders', 'payment_events', 'product_images',
             'product_variants', 'products', 'refunds', 'reviews', 'settings',
             'users', 'wishlists'
@@ -424,8 +432,9 @@ try {
 
   if (
     contract?.bucket_ok !== true ||
+    contract.banner_bucket_ok !== true ||
     contract.default_ok !== true ||
-    contract.rls_count !== 22 ||
+    contract.rls_count !== 23 ||
     contract.settings_count !== 6
   ) {
     throw new Error(`Post-migration contract assertion failed: ${JSON.stringify(contract)}`);
@@ -631,7 +640,7 @@ try {
   }
 
   console.log(
-    `Validated ${migrationFile}: ${statements.length} statements, 22 RLS tables, role behavior verified.`,
+    `Validated ${migrationFiles.join(" + ")}: ${statements.length} statements, 23 RLS tables, role behavior verified.`,
   );
 } finally {
   await database.close();

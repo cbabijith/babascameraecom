@@ -14,9 +14,13 @@
     "test:api": "bun test src/features/catalog/tests/contract",
     "test:contract": "bun test src/features/catalog/tests/contract",
     "test:catalog": "bun test src/features/catalog",
+    "test:brands": "bun test src/features/catalog/schemas/brand.test.ts src/features/catalog/repositories/brands-repository.test.ts src/features/catalog/components/brand-list-model.test.ts src/features/catalog/tests/unit/brand-logo-service.test.ts src/features/catalog/tests/unit/catalog-api-client.test.ts src/features/catalog/tests/contract/brands-api-response.test.ts",
+    "test:brands-api": "bun test src/features/catalog/tests/unit/catalog-api-client.test.ts src/features/catalog/tests/contract/brands-api-response.test.ts",
+    "test:brands-security": "bun test src/features/catalog/schemas/brand.test.ts src/features/catalog/repositories/brands-repository.test.ts src/features/catalog/tests/unit/brand-logo-service.test.ts src/features/catalog/tests/contract/brands-api-response.test.ts",
     "test:watch": "bun test --watch src",
     "check": "bun run typecheck && bun run lint && bun test",
-    "check:catalog": "bun run typecheck && bun run test:catalog && bun run lint && bun run build"
+    "check:catalog": "bun run typecheck && bun run test:catalog && bun run lint && bun run build",
+    "check:brands": "bun run typecheck && bun run test:brands && bun run lint && bun run build"
   },
   "dependencies": {
     "@babascamera/db": "workspace:*",

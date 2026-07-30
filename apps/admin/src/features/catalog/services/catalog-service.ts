@@ -9,7 +9,6 @@ import {
   productImages,
   products,
   productVariants,
-  brands,
   categories,
 } from "@babascamera/db";
 import { revalidatePath } from "next/cache";
@@ -46,7 +45,6 @@ const categoryReorderSchema = z.object({
   categoryIds: z.string().optional(),
   orderedCategoryIds: z.string().optional(),
 });
-const brandReorderSchema = z.object({ brandIds: z.string() });
 const productFormSchema = z.object({
   id: uuid.optional(),
   name: z.string().trim().min(1).max(180),
@@ -773,96 +771,5 @@ export async function deleteCategory(formData: FormData): Promise<AdminActionRes
     return actionSuccess(null);
   } catch (error) {
     return actionFailureFromError(error, "Category could not be deleted.", "Category deletion failed.");
-  }
-}
-
-export async function saveBrand(
-  formData: FormData,
-): Promise<AdminActionResult<{ id: string }>> {
-  const parsed = lookupFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return validationFailure(parsed.error);
-  const input = parsed.data;
-  const brandId = input.id ?? randomUUID();
-  try {
-    const existing = input.id
-      ? await db.query.brands.findFirst({
-        where: (table, { eq: equals }) => equals(table.id, brandId),
-        columns: { logoUrl: true },
-      })
-      : null;
-    if (input.id && !existing) throw new AdminActionError("Brand not found.");
-    const lookup = lookupValues(input);
-    const requestedLogoUrl = publicUrl(input.logoUrl ?? null, "Brand logo URL");
-    const uploadFile = optionalUpload(formData, "logo");
-    const uploaded = uploadFile
-      ? (await uploadProductImages(`brands/${brandId}`, [uploadFile]))[0]
-      : null;
-    const values = {
-      ...lookup,
-      logoUrl: uploaded?.url ?? requestedLogoUrl ?? existing?.logoUrl ?? null,
-    };
-    try {
-      if (input.id) await db.update(brands).set(values).where(eq(brands.id, brandId));
-      else {
-        const existingBrands = await db.query.brands.findMany({ columns: { position: true } });
-        await db.insert(brands).values({
-          id: brandId,
-          ...values,
-          position: existingBrands.reduce((max, item) => Math.max(max, item.position), -1) + 1,
-        });
-      }
-    } catch (error) {
-      if (uploaded) await removeManagedImages([uploaded.path]);
-      throw error;
-    }
-    if (existing?.logoUrl && existing.logoUrl !== values.logoUrl) {
-      const oldPath = managedStoragePath(existing.logoUrl);
-      if (oldPath) await removeManagedImages([oldPath]);
-    }
-    revalidatePath("/brands");
-    return actionSuccess({ id: brandId });
-  } catch (error) {
-    return actionFailureFromError(error, "Brand could not be saved.", "Brand save failed.");
-  }
-}
-
-export async function deleteBrand(formData: FormData): Promise<AdminActionResult> {
-  const parsed = idFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return validationFailure(parsed.error);
-  try {
-    const brand = await db.query.brands.findFirst({
-      where: (table, { eq: equals }) => equals(table.id, parsed.data.id),
-      columns: { logoUrl: true },
-    });
-    if (!brand) throw new AdminActionError("Brand not found.");
-    await db.delete(brands).where(eq(brands.id, parsed.data.id));
-    const path = brand.logoUrl ? managedStoragePath(brand.logoUrl) : null;
-    if (path) await removeManagedImages([path]);
-    revalidatePath("/brands");
-    return actionSuccess(null);
-  } catch (error) {
-    return actionFailureFromError(error, "Brand could not be deleted.", "Brand deletion failed.");
-  }
-}
-
-export async function reorderBrands(formData: FormData): Promise<AdminActionResult> {
-  const parsed = brandReorderSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return validationFailure(parsed.error);
-  try {
-    const ids = parseIdList(parsed.data.brandIds, 500);
-    await db.transaction(async (tx) => {
-      const existing = await tx.query.brands.findMany({ columns: { id: true } });
-      const existingIds = existing.map((item) => item.id);
-      if (!sameIds(ids, existingIds)) {
-        throw new AdminActionError("Brand order is stale. Refresh and try again.");
-      }
-      for (const [index, id] of ids.entries()) {
-        await tx.update(brands).set({ position: index, updatedAt: new Date() }).where(eq(brands.id, id));
-      }
-    });
-    revalidatePath("/brands");
-    return actionSuccess(null);
-  } catch (error) {
-    return actionFailureFromError(error, "Brand order could not be saved.", "Brand reordering failed.");
   }
 }

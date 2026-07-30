@@ -49,6 +49,7 @@ import {
   AdminSearchSelectField,
 } from "@/components/admin-form-field";
 import { SortableDragHandle, SortableList, SortableListItem } from "@/components/sortable-list";
+import { AdminPageHeader } from "@/components/ui/admin-page";
 import {
   buildCategoryTreeRows,
   filterCategoryRows,
@@ -772,14 +773,14 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
 
   return (
     <section className="grid w-full min-w-0 gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Categories</h1>
-        </div>
-        <Button type="button" size="sm" onClick={() => openCreate()}>
-          <Plus className="size-4" /> Add category
-        </Button>
-      </header>
+      <AdminPageHeader
+        title="Categories"
+        secondaryActions={
+          <Button type="button" size="sm" onClick={() => openCreate()}>
+            <Plus className="size-4" /> Add category
+          </Button>
+        }
+      />
 
       <div className="w-full min-w-0 rounded-lg border border-slate-200 bg-white">
         <div className="grid w-full min-w-0 gap-3 p-3">

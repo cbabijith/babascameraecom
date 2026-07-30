@@ -44,11 +44,6 @@ export const catalogApi = {
   reorderCategories: (body: FormData) => request<null>("/categories/reorder", { method: "POST", body }),
   setCategoryStatus: <T>(id: string, body: FormData) => request<T>(`/categories/${id}`, { method: "PATCH", body }),
 
-  createBrand: <T>(body: FormData) => request<T>("/brands", { method: "POST", body }),
-  updateBrand: <T>(id: string, body: FormData) => request<T>(`/brands/${id}`, { method: "PATCH", body }),
-  deleteBrand: (id: string) => request<null>(`/brands/${id}`, { method: "DELETE" }),
-  reorderBrands: (body: FormData) => request<null>("/brands/reorder", { method: "POST", body }),
-
   createProduct: <T>(body: FormData) => request<T>("/products", { method: "POST", body }),
   updateProduct: <T>(id: string, body: FormData) => request<T>(`/products/${id}`, { method: "PATCH", body }),
   deleteProduct: (id: string) => request<null>(`/products/${id}`, { method: "DELETE" }),

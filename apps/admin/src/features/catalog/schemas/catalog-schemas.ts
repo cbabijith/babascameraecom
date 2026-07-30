@@ -21,9 +21,7 @@ export const lookupClientSchema = z.object({
   isActive: z.boolean(),
 });
 
-export const brandClientSchema = lookupClientSchema.omit({ imageUrl: true, parentId: true }).extend({
-  logoUrl: z.string().refine((value) => value === "" || /^https?:\/\//.test(value), "Enter an HTTP or HTTPS URL.").optional(),
-});
+export { brandClientSchema } from "./brand";
 
 export const variantClientSchema = z.object({
   id: z.string().uuid().optional(),
