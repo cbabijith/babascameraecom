@@ -1,0 +1,36 @@
+# Dependencies and generated application output
+node_modules/
+.turbo/
+.next/
+.next-legacy/
+out/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+next-env.d.ts
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+supabase/.branches/
+supabase/.temp/
+
+# Editors and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Deployment state
+.vercel/
+.wrangler/

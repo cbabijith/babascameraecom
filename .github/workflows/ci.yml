@@ -1,0 +1,177 @@
+name: Commerce quality gates
+
+on:
+  push:
+    branches:
+      - development
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: commerce-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+  NEXT_PUBLIC_STOREFRONT_URL: http://127.0.0.1:3000
+  NEXT_PUBLIC_WEB_URL: http://127.0.0.1:3000
+  NEXT_PUBLIC_ADMIN_URL: http://127.0.0.1:3001
+  PRODUCT_IMAGES_BUCKET: product-images
+
+jobs:
+  quality:
+    name: Static checks, unit tests, and builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify generated Drizzle state
+        run: |
+          bun run db:generate
+          bun run db:check
+          git diff --exit-code -- packages/db/drizzle
+
+      - name: Type-check workspaces
+        run: bun run type-check
+
+      - name: Lint workspaces
+        run: bun run lint
+
+      - name: Run unit and offline migration tests
+        run: bun run test
+
+      - name: Build storefront and admin
+        run: bun run build
+
+  database:
+    name: Apply Drizzle migration to local Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Start local Supabase services
+        run: bun run supabase:start
+
+      - name: Export generated local credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          source <(bunx supabase status --output env)
+          test -n "${API_URL:-}"
+          test -n "${ANON_KEY:-}"
+          test -n "${SERVICE_ROLE_KEY:-}"
+          test -n "${DB_URL:-}"
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          echo "::add-mask::$DB_URL"
+          {
+            echo "DATABASE_URL=$DB_URL"
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY"
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Apply the sole Drizzle migration authority
+        run: |
+          bun run db:migrate
+          bun run db:migrate
+          bun run db:validate
+
+      - name: Seed and verify local Auth profiles
+        run: bun run --cwd tests/e2e seed:auth
+
+      - name: Stop local Supabase
+        if: always()
+        run: bun run supabase:stop
+
+  browser:
+    name: Storefront and admin browser smoke tests
+    runs-on: ubuntu-latest
+    needs:
+      - quality
+      - database
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Start local Supabase services
+        run: bun run supabase:start
+
+      - name: Export generated local credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          source <(bunx supabase status --output env)
+          test -n "${API_URL:-}"
+          test -n "${ANON_KEY:-}"
+          test -n "${SERVICE_ROLE_KEY:-}"
+          test -n "${DB_URL:-}"
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          echo "::add-mask::$DB_URL"
+          {
+            echo "DATABASE_URL=$DB_URL"
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY"
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "E2E_SEED_AUTH=true"
+          } >> "$GITHUB_ENV"
+
+      - name: Apply Drizzle migration
+        run: bun run db:migrate
+
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run browser smoke tests
+        run: bun run test:e2e:chromium
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop local Supabase
+        if: always()
+        run: bun run supabase:stop

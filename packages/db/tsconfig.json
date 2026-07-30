@@ -1,0 +1,8 @@
+{
+  "extends": "@babascamera/config/tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["bun", "node"]
+  },
+  "include": ["drizzle.config.ts", "scripts/**/*.ts", "src/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["drizzle", "node_modules"]
+}

@@ -1,0 +1,8 @@
+{
+  "extends": "@babascamera/config/tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["node", "@playwright/test"]
+  },
+  "include": ["*.ts", "specs/**/*.ts"],
+  "exclude": ["node_modules", "playwright-report", "test-results"]
+}

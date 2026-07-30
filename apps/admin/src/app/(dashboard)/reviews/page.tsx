@@ -1,0 +1,14 @@
+import { PageHeader } from "@/components/page-header";
+import { ReviewTable } from "@/components/review-table";
+import { getReviews } from "@/lib/data";
+
+export const dynamic = "force-dynamic";
+
+export default async function ReviewsPage() {
+  return (
+    <>
+      <PageHeader title="Reviews" description="Moderate customer product feedback before publication." />
+      <ReviewTable data={await getReviews()} />
+    </>
+  );
+}

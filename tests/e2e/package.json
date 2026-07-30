@@ -1,0 +1,23 @@
+{
+  "name": "@babascamera/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:list": "playwright test --list",
+    "seed:auth": "bun auth-fixtures.ts"
+  },
+  "devDependencies": {
+    "@babascamera/config": "workspace:*",
+    "@playwright/test": "1.62.0",
+    "@supabase/supabase-js": "2.111.0",
+    "@types/node": "24.10.1",
+    "eslint": "9.39.5",
+    "postgres": "3.4.9",
+    "typescript": "5.9.3"
+  }
+}
