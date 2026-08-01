@@ -10,6 +10,51 @@ import {
   listRelatedProducts,
 } from "@/lib/data/storefront";
 import { productImageUrl } from "@/lib/storage";
+import {
+  AuthDataError,
+  forgotPassword,
+  getUserProfile,
+  googleAuth,
+  loginUser,
+  registerUser,
+  resetPassword,
+  updateUserProfile,
+} from "@/features/auth";
+import {
+  addCartProduct,
+  CartDataError,
+  checkoutCartUser,
+  decrementCartItem,
+  fetchCartItems,
+  incrementCartItem,
+  removeCartItem,
+} from "@/features/cart";
+import {
+  AddressDataError,
+  createUserAddress,
+  deleteUserAddress,
+  getUserAddresses,
+  updateUserAddress,
+} from "@/features/address";
+import {
+  createOrderFromCheckout,
+  fetchOrderById,
+  fetchUserOrders,
+  OrderDataError,
+  uploadProofFile,
+} from "@/features/order";
+import {
+  addToWishlist,
+  fetchWishlist,
+  removeFromWishlist,
+  WishlistDataError,
+} from "@/features/wishlist";
+
+
+
+
+
+
 
 interface LegacyImage {
   _id: string;
@@ -73,6 +118,31 @@ function product(row: Awaited<ReturnType<typeof listCatalogProductsPage>>["produ
 function success(payload: Record<string, unknown>) {
   return NextResponse.json({ success: true, message: "OK", ...payload });
 }
+
+function apiErrorResponse(error: unknown) {
+  if (
+    error instanceof AuthDataError ||
+    error instanceof CartDataError ||
+    error instanceof AddressDataError ||
+    error instanceof OrderDataError ||
+    error instanceof WishlistDataError
+  ) {
+    return NextResponse.json(
+      { success: false, message: error.message },
+      { status: error.status },
+    );
+  }
+
+
+
+
+  const message =
+    error instanceof Error && error.message
+      ? error.message
+      : "Unexpected server error.";
+  return NextResponse.json({ success: false, message }, { status: 500 });
+}
+
 
 function legacySort(value: string | null) {
   switch (value) {
@@ -169,12 +239,42 @@ export async function GET(
   }
 
   if (resource === "banner") {
-    const rows = await getDatabase().select().from(homeBanners).where(eq(homeBanners.isActive, true)).orderBy(asc(homeBanners.position));
-    const banners = rows.map((item) => ({
-      _id: item.id, heading: item.headline ?? "", subHeading: item.subheading ?? "", tagline: "", ctaName: item.buttonLabel ?? "Shop now",
-      type: "Hero", collections: [], status: "Active", visibility: "Show", position: item.position,
-      mediaFile: image(item.desktopMediaUrl, item.altText ?? "Banner"), createdAt: item.createdAt.toISOString(), code: item.id,
-    }));
+    const rows = await getDatabase()
+      .select()
+      .from(homeBanners)
+      .where(eq(homeBanners.isActive, true))
+      .orderBy(asc(homeBanners.position));
+
+    const requestedType = query.get("type");
+
+    let banners = rows.map((item, index) => {
+      let bannerType = "Hero";
+      if (index === 0) bannerType = "Featured_Product_Primary";
+      else if (index === 1) bannerType = "Featured_Product_Secondary";
+
+      return {
+        _id: item.id,
+        heading: item.headline ?? "",
+        subHeading: item.subheading ?? "",
+        tagline: "",
+        ctaName: item.buttonLabel ?? "Shop now",
+        type: requestedType || bannerType,
+        collections: [],
+        status: "Active",
+        visibility: "Show",
+        position: item.position,
+        mediaFile: image(item.desktopMediaUrl, item.altText ?? "Banner"),
+        createdAt: item.createdAt.toISOString(),
+        code: item.id,
+      };
+    });
+
+    if (requestedType === "Featured_Product_Primary") {
+      banners = banners.slice(0, 1);
+    } else if (requestedType === "Featured_Product_Secondary") {
+      banners = banners.length > 1 ? banners.slice(1, 2) : banners.slice(0, 1);
+    }
+
     if (identifier) {
       const found = banners.find((item) => item._id === identifier);
       if (!found) return NextResponse.json({ success: false, message: "Banner not found" }, { status: 404 });
@@ -183,11 +283,245 @@ export async function GET(
     return success({ results: banners, totalCount: banners.length, currentPage: 1, totalPages: 1, latestCount: banners.length });
   }
 
+
   if (resource === "collection") {
     const products = await listBestSellingProducts(8);
     const items = products.map(product);
     return success({ results: items.length ? [{ _id: "featured", name: "Featured gear", value: 0, products: items, status: "Active", position: 0, createdAt: new Date().toISOString() }] : [], currentPage: 1, totalCount: items.length ? 1 : 0, totalPages: 1, latestCount: items.length ? 1 : 0 });
   }
 
+  if (resource === "user" && identifier === "profile") {
+    try {
+      const profile = await getUserProfile();
+      return success({ result: profile });
+    } catch (error) {
+      return apiErrorResponse(error);
+    }
+  }
+
+  if (resource === "cart") {
+    try {
+      const results = await fetchCartItems();
+      return success({ results });
+    } catch (error) {
+      return apiErrorResponse(error);
+    }
+  }
+
+  if (resource === "addressbook" && identifier === "user") {
+    try {
+      const results = await getUserAddresses();
+      return success({
+        results,
+        currentPage: 1,
+        latestCount: results.length,
+        totalCount: results.length,
+        totalPages: 1,
+      });
+    } catch (error) {
+      return apiErrorResponse(error);
+    }
+  }
+
+  if (resource === "order") {
+    try {
+      if (identifier === "user") {
+        const results = await fetchUserOrders();
+        return success({
+          results,
+          currentPage: 1,
+          latestCount: results.length,
+          totalCount: results.length,
+          totalPages: 1,
+        });
+      }
+      if (identifier) {
+        const result = await fetchOrderById(identifier);
+        return success({ result });
+      }
+    } catch (error) {
+      return apiErrorResponse(error);
+    }
+  }
+
+  if (resource === "wishlist") {
+    try {
+      const results = await fetchWishlist();
+      return success({
+        results,
+        totalCount: results.length,
+      });
+    } catch (error) {
+      return apiErrorResponse(error);
+    }
+  }
+
   return NextResponse.json({ success: false, message: "Endpoint not available" }, { status: 404 });
 }
+
+
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> },
+) {
+  try {
+    const { path } = await context.params;
+    const [resource, identifier] = path;
+
+    if (resource === "user" && identifier === "register") {
+      const body = await request.json().catch(() => ({}));
+      const result = await registerUser(body);
+      return success({ result });
+    }
+
+    if (resource === "user" && identifier === "login") {
+      const body = await request.json().catch(() => ({}));
+      const result = await loginUser(body);
+      return success({ result });
+    }
+
+    if (resource === "user" && (identifier === "g-auth" || identifier === "g-auth-signup")) {
+      const result = await googleAuth();
+      return success({ result });
+    }
+
+    if (resource === "cart" && identifier === "product" && path[2]) {
+      const result = await addCartProduct(path[2]);
+      return success({ result });
+    }
+
+    if (resource === "addressbook" && identifier === "user") {
+      const body = await request.json().catch(() => ({}));
+      const result = await createUserAddress(body);
+      return success({ result });
+    }
+
+    if (resource === "file") {
+      const formData = await request.formData();
+      const file = formData.get("file");
+      if (!(file instanceof File)) {
+        return NextResponse.json(
+          { success: false, message: "A proof file is required." },
+          { status: 400 },
+        );
+      }
+      const result = await uploadProofFile(file);
+      return success({ result, data: result, _id: result._id });
+    }
+
+    if (resource === "order" && (identifier === "user" || identifier === "buy-now")) {
+      const body = await request.json().catch(() => ({}));
+      const result = await createOrderFromCheckout(body, identifier === "buy-now");
+      return success({ result, order: result });
+    }
+
+    if (resource === "wishlist" && identifier) {
+      const result = await addToWishlist(identifier);
+      return success({ result });
+    }
+
+    return NextResponse.json({ success: false, message: "Endpoint not available" }, { status: 404 });
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
+
+
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> },
+) {
+  try {
+    const { path } = await context.params;
+    const [resource, identifier] = path;
+
+    if (resource === "user" && identifier === "login") {
+      const body = await request.json().catch(() => ({}));
+      const result = await loginUser(body);
+      return success({ result });
+    }
+
+    if (resource === "user" && (identifier === "forget-password" || identifier === "forgot-password")) {
+      const body = await request.json().catch(() => ({}));
+      const res = await forgotPassword(body);
+      return success({ message: res.message });
+    }
+
+    if (resource === "user" && identifier === "reset-password") {
+      const body = await request.json().catch(() => ({}));
+      const res = await resetPassword(body);
+      return success({ message: res.message });
+    }
+
+    if (resource === "user" && identifier === "profile") {
+      const body = await request.json().catch(() => ({}));
+      const res = await updateUserProfile(body);
+      return success(res);
+    }
+
+    if (resource === "cart" && identifier === "increment" && path[2]) {
+      const result = await incrementCartItem(path[2]);
+      return success({ result });
+    }
+
+    if (resource === "cart" && identifier === "decrement" && path[2]) {
+      const result = await decrementCartItem(path[2]);
+      return success({ result: result ?? undefined });
+    }
+
+    if (resource === "cart" && identifier === "checkout" && path[2] === "user") {
+      const res = await checkoutCartUser();
+      return success(res);
+    }
+
+    if (resource === "addressbook" && identifier) {
+      const body = await request.json().catch(() => ({}));
+      const result = await updateUserAddress(identifier, body);
+      return success({ result });
+    }
+
+    return NextResponse.json({ success: false, message: "Endpoint not available" }, { status: 404 });
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> },
+) {
+  try {
+    const { path } = await context.params;
+    const [resource, identifier] = path;
+
+    if (resource === "cart" && identifier) {
+      await removeCartItem(identifier);
+      return success({ message: "Cart item removed." });
+    }
+
+    if (resource === "addressbook" && (identifier === "user" ? path[2] : identifier)) {
+      const targetId = identifier === "user" ? path[2] : identifier;
+      if (targetId) {
+        await deleteUserAddress(targetId);
+        return success({ message: "Address deleted." });
+      }
+    }
+
+    if (resource === "wishlist" && (identifier === "user" ? path[2] : identifier)) {
+      const targetId = identifier === "user" ? path[2] : identifier;
+      if (targetId) {
+        await removeFromWishlist(targetId);
+        return success({ message: "Item removed from wishlist." });
+      }
+    }
+
+    return NextResponse.json({ success: false, message: "Endpoint not available" }, { status: 404 });
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
+
+
+
+
+

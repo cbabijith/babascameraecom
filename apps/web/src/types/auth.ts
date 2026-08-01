@@ -5,22 +5,22 @@
 // ========================
 
 export interface RegisterPayload {
-  email: string;
-  password: string;
-  name?: string; // optional
+	email: string;
+	password: string;
+	name?: string; // optional
 }
 
 export interface RegisterResponse {
-  success: boolean;
-  message: string;
-  result: {
-    token: string;
-    user?: {
-      id: string;
-      email: string;
-      name: string;
-    };
-  };
+	success: boolean;
+	message: string;
+	result: {
+		token: string;
+		user?: {
+			id: string;
+			email: string;
+			name: string;
+		};
+	};
 }
 
 // ========================
@@ -28,24 +28,24 @@ export interface RegisterResponse {
 // ========================
 
 export interface LoginPayload {
-  email: string;
-  password: string;
+	email: string;
+	password: string;
 }
 
 // types/auth.ts
 export interface LoginResponse {
-  success: boolean;
-  message: string;
-  result: {
-    token: string;
-    user?: {
-      id: string;
-      email: string;
-      name?: string;
-      userType?: string;
-      status?: string;
-    };
-  };
+	success: boolean;
+	message: string;
+	result: {
+		token: string;
+		user?: {
+			id: string;
+			email: string;
+			name?: string;
+			userType?: string;
+			status?: string;
+		};
+	};
 }
 
 
@@ -54,18 +54,20 @@ export interface LoginResponse {
 // ========================
 
 export interface User {
-  id: string;
-  email: string;
-  name?: string;
-  userType?: string;
-  status?: string;
+	id: string;
+	email: string;
+	name?: string;
+	userType?: string;
+	status?: string;
+	phone?: string;
+
 }
 
 export interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  token: string | null;
-  loading: boolean;
+	isAuthenticated: boolean;
+	user: User | null;
+	token: string | null;
+	loading: boolean;
 }
 
 // ========================
@@ -73,25 +75,25 @@ export interface AuthState {
 // ========================
 
 export interface ForgotPasswordPayload {
-  email: string;
+	email: string;
 }
 
 export interface ForgotPasswordResponse {
-  success: boolean;
-  message: string;
+	success: boolean;
+	message: string;
 }
 
 // types/auth.ts
 export interface ResetPasswordPayload {
-  email: string;
-  otp: string;
-  password: string;
+	email: string;
+	otp: string;
+	password: string;
 }
 
 
 export interface ResetPasswordResponse {
-  success: boolean;
-  message: string;
+	success: boolean;
+	message: string;
 }
 
 // ========================
@@ -99,16 +101,16 @@ export interface ResetPasswordResponse {
 // ========================
 
 export interface ValidationError {
-  field: string;
-  message: string;
+	field: string;
+	message: string;
 }
 
 export interface FormErrors {
-  email?: string;
-  password?: string;
-  confirmPassword?: string;
-  name?: string;
-  general?: string;
+	email?: string;
+	password?: string;
+	confirmPassword?: string;
+	name?: string;
+	general?: string;
 }
 
 // ========================
@@ -116,8 +118,8 @@ export interface FormErrors {
 // ========================
 
 export interface ApiError {
-  success: false;
-  message: string;
-  errors?: ValidationError[];
-  statusCode?: number;
+	success: false;
+	message: string;
+	errors?: ValidationError[];
+	statusCode?: number;
 }

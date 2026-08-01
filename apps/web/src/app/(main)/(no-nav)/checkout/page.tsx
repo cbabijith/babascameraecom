@@ -341,7 +341,7 @@ const CheckoutPageContent: React.FC = () => {
     async function checkProfile() {
       try {
         const prof = await getUserProfile();
-        if (!ignore) setProfileReady(Boolean(prof?.name && prof?.phone));
+        if (!ignore) setProfileReady(Boolean(prof?.name));
       } catch {
         if (!ignore) setProfileReady(false);
       }

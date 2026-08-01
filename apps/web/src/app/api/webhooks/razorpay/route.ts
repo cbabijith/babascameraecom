@@ -141,16 +141,16 @@ export async function POST(request: Request) {
       const [pendingRefund] = localRefund
         ? []
         : await getDatabase()
-            .select()
-            .from(refunds)
-            .where(
-              and(
-                eq(refunds.providerPaymentId, providerPaymentId),
-                inArray(refunds.status, ["pending", "processing"]),
-              ),
-            )
-            .orderBy(refunds.createdAt)
-            .limit(1);
+          .select()
+          .from(refunds)
+          .where(
+            and(
+              eq(refunds.providerPaymentId, providerPaymentId),
+              inArray(refunds.status, ["pending", "processing"]),
+            ),
+          )
+          .orderBy(refunds.createdAt)
+          .limit(1);
       const matched = localRefund ?? pendingRefund;
       if (!matched) {
         await finishEvent(eventId, "ignored");
