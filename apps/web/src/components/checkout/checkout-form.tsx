@@ -47,7 +47,7 @@ interface AddressOption {
 }
 
 interface RazorpaySuccess {
-  razorpay_order_id: string;
+  razorpay_order_id?: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
 }
@@ -57,19 +57,13 @@ type RazorpayCheckout = new (options: {
   amount: number;
   currency: string;
   name: string;
-  description: string;
-  order_id: string;
+  description?: string;
+  order_id?: string;
   prefill?: { name?: string; email?: string; contact?: string };
-  handler: (response: RazorpaySuccess) => void | Promise<void>;
+  handler?: (response: RazorpaySuccess) => void | Promise<void>;
   modal?: { ondismiss?: () => void };
   theme?: { color: string };
 }) => { open: () => void };
-
-declare global {
-  interface Window {
-    Razorpay?: RazorpayCheckout;
-  }
-}
 
 const emptyGuest = {
   email: "",
@@ -232,7 +226,8 @@ export function CheckoutForm({
       const prefillName = customer?.name || guest?.fullName;
       const prefillEmail = customer?.email || guest?.email;
       const prefillPhone = customer?.phone || guest?.phone;
-      new window.Razorpay({
+      const Razorpay = window.Razorpay as unknown as RazorpayCheckout;
+      new Razorpay({
         key: checkout.keyId,
         amount: result.order.totalPaise,
         currency: result.order.currency,

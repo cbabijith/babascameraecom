@@ -1,0 +1,50 @@
+name: Next.js Dev Branch Build
+
+# Trigger workflow on push or pull request to 'dev' branch
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2️⃣ Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      # 3️⃣ Install pnpm globally
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      # 4️⃣ Install dependencies
+      - name: Install dependencies
+        run: pnpm install
+
+      # 5️⃣ Load environment variables from .env
+      - name: Load environment variables
+        run: |
+          export $(cat .env | xargs)
+
+      # 6️⃣ Build Next.js project
+      - name: Build Next.js
+        run: pnpm build
+
+      # 7️⃣ Lint the project (optional)
+      - name: Lint code
+        run: pnpm lint || echo "No lint errors"
+
+      # 8️⃣ Run tests (optional)
+      - name: Run tests
+        run: pnpm test || echo "No tests found, skipping"

@@ -20,6 +20,7 @@ import {
   lte,
   newsletterSubscriptions,
   notInArray,
+  or,
   orderItems,
   orders,
   productImages,
@@ -336,9 +337,10 @@ export async function listBestSellingProducts(limit = 8) {
 }
 
 export async function getCatalogProduct(
-  slug: string,
+  identifier: string,
 ): Promise<ProductDetail | null> {
   const database = getDatabase();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
   const [row] = await database
     .select({
       id: products.id,
@@ -371,7 +373,14 @@ export async function getCatalogProduct(
     .from(products)
     .leftJoin(brands, eq(products.brandId, brands.id))
     .leftJoin(categories, eq(products.categoryId, categories.id))
-    .where(and(eq(products.slug, slug), eq(products.isActive, true)))
+    .where(
+      and(
+        isUuid
+          ? or(eq(products.slug, identifier), eq(products.id, identifier))
+          : eq(products.slug, identifier),
+        eq(products.isActive, true),
+      ),
+    )
     .limit(1);
   if (!row) return null;
 
