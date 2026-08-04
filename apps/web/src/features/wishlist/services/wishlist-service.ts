@@ -5,12 +5,13 @@ import {
   desc,
   eq,
   getDatabase,
-  or,
-  products as productsTable,
-  wishlists as wishlistsTable,
+  wishlists,
 } from "@babascamera/db";
-import { getOptionalUser, requireUser } from "@/lib/auth/session";
-import type { WishlistItem } from "@/instances/wishlistInstance";
+import { getOptionalUser } from "@/lib/auth/session";
+import {
+  listCatalogProducts,
+  type CatalogProduct,
+} from "@/features/catalog/services/catalog-service";
 
 export class WishlistDataError extends Error {
   readonly status: number;
@@ -22,189 +23,100 @@ export class WishlistDataError extends Error {
   }
 }
 
-function shapeWishlistItem(
-  row: typeof wishlistsTable.$inferSelect & {
-    product?: typeof productsTable.$inferSelect | null;
-  },
-  user: { id: string; email?: string; user_metadata?: { full_name?: string } },
-): WishlistItem {
-  const prod = row.product;
-  const salePrice = Number(prod?.salePrice || prod?.mrp || 0);
-
-  return {
-    _id: row.id,
-    user: {
-      _id: user.id,
-      name: user.user_metadata?.full_name ?? "User",
-      phone: "",
-      code: user.id.substring(0, 8),
-    },
-    product: prod
-      ? {
-          _id: prod.id,
-          id: prod.id,
-          name: prod.name,
-          slug: prod.slug,
-          description: prod.description ?? "",
-          shortDescription: prod.shortDescription ?? "",
-          mrp: String(prod.mrp),
-          salePrice: String(prod.salePrice),
-          price: {
-            actualPrice: salePrice,
-            salePrice,
-            discountPrice: 0,
-            gst: 0,
-            taxStatus: "Inclusive",
-          },
-          quantity: prod.stock,
-          stock: prod.stock,
-          images: [],
-          category: { id: "cat_1", name: "Category", slug: "category" },
-          brand: { id: "brand_1", name: "Brand", slug: "brand" },
-          isFeatured: false,
-          averageRating: 5,
-          reviewCount: 0,
-          status: "Active",
-          createdAt: prod.createdAt.toISOString(),
-          updatedAt: prod.updatedAt.toISOString(),
-        }
-      : row.productId,
-    createdAt: row.createdAt.toISOString(),
-  } as unknown as WishlistItem;
+export async function toggleWishlistProduct(
+  userId: string,
+  productId: string,
+) {
+  const database = getDatabase();
+  const [existing] = await database
+    .select({ id: wishlists.id })
+    .from(wishlists)
+    .where(
+      and(eq(wishlists.userId, userId), eq(wishlists.productId, productId)),
+    )
+    .limit(1);
+  if (existing) {
+    await database.delete(wishlists).where(eq(wishlists.id, existing.id));
+    return false;
+  }
+  await database.insert(wishlists).values({ userId, productId });
+  return true;
 }
 
-export async function fetchWishlist(): Promise<WishlistItem[]> {
+export async function listWishlistProducts(
+  userId: string,
+): Promise<CatalogProduct[]> {
+  const ids = await getDatabase()
+    .select({ productId: wishlists.productId })
+    .from(wishlists)
+    .where(eq(wishlists.userId, userId))
+    .orderBy(desc(wishlists.createdAt));
+  if (!ids.length) return [];
+  const productsById = await listCatalogProducts({ limit: 60 });
+  const wanted = new Set(ids.map((row) => row.productId));
+  return productsById.filter((product) => wanted.has(product.id));
+}
+
+/* ---------------- High-level API mapping helpers ---------------- */
+
+export async function fetchWishlist() {
   try {
     const user = await getOptionalUser();
     if (!user) return [];
-
-    const db = getDatabase();
-    const rows = await db
-      .select({
-        wishlist: wishlistsTable,
-        product: productsTable,
-      })
-      .from(wishlistsTable)
-      .innerJoin(productsTable, eq(wishlistsTable.productId, productsTable.id))
-      .where(eq(wishlistsTable.userId, user.id))
-      .orderBy(desc(wishlistsTable.createdAt));
-
-    return rows.map((r) =>
-      shapeWishlistItem(
-        {
-          ...r.wishlist,
-          product: r.product,
-        },
-        user,
-      ),
-    );
+    const products = await listWishlistProducts(user.id);
+    return products.map((prod) => ({
+      _id: prod.id,
+      product: {
+        _id: prod.id,
+        name: prod.name,
+        slug: prod.slug,
+        images: prod.image ? [{ key: prod.image }] : [],
+        price: { salePrice: Number(prod.salePrice), actualPrice: Number(prod.mrp) },
+      },
+      createdAt: new Date().toISOString(),
+    }));
   } catch (error: unknown) {
     throw new WishlistDataError(
-      error instanceof Error ? error.message : "Failed to load wishlist",
+      error instanceof Error ? error.message : "Failed to fetch wishlist",
       500,
       error,
     );
   }
 }
 
-export async function addToWishlist(productId: string): Promise<WishlistItem> {
-  if (!productId) {
-    throw new WishlistDataError("Product ID is required", 400);
-  }
-
+export async function addToWishlist(productId: string) {
+  if (!productId) throw new WishlistDataError("Product ID is required", 400);
   try {
-    const user = await requireUser("/wishlist");
-    const db = getDatabase();
-
-    const [existing] = await db
-      .select({
-        wishlist: wishlistsTable,
-        product: productsTable,
-      })
-      .from(wishlistsTable)
-      .innerJoin(productsTable, eq(wishlistsTable.productId, productsTable.id))
-      .where(
-        and(
-          eq(wishlistsTable.userId, user.id),
-          eq(wishlistsTable.productId, productId),
-        ),
-      )
-      .limit(1);
-
-    if (existing) {
-      return shapeWishlistItem(
-        {
-          ...existing.wishlist,
-          product: existing.product,
-        },
-        user,
-      );
-    }
-
-    const [created] = await db
-      .insert(wishlistsTable)
-      .values({
-        userId: user.id,
-        productId,
-      })
-      .returning();
-
-    if (!created) {
-      throw new WishlistDataError("Unable to add product to wishlist", 500);
-    }
-
-    const [prod] = await db
-      .select()
-      .from(productsTable)
-      .where(eq(productsTable.id, productId))
-      .limit(1);
-
-    return shapeWishlistItem(
-      {
-        ...created,
-        product: prod ?? null,
-      },
-      user,
-    );
+    const user = await getOptionalUser();
+    if (!user) throw new WishlistDataError("Authentication required", 401);
+    await toggleWishlistProduct(user.id, productId);
+    return { success: true };
   } catch (error: unknown) {
     if (error instanceof WishlistDataError) throw error;
     throw new WishlistDataError(
-      error instanceof Error ? error.message : "Failed to add product to wishlist",
+      error instanceof Error ? error.message : "Failed to add to wishlist",
       400,
       error,
     );
   }
 }
 
-export async function removeFromWishlist(idOrProductId: string): Promise<boolean> {
-  if (!idOrProductId) {
-    throw new WishlistDataError("Wishlist or Product ID is required", 400);
-  }
-
+export async function removeFromWishlist(productId: string) {
+  if (!productId) throw new WishlistDataError("Product ID is required", 400);
   try {
-    const user = await requireUser("/wishlist");
-    const db = getDatabase();
-
-    await db
-      .delete(wishlistsTable)
-      .where(
-        and(
-          eq(wishlistsTable.userId, user.id),
-          or(
-            eq(wishlistsTable.id, idOrProductId),
-            eq(wishlistsTable.productId, idOrProductId),
-          ),
-        ),
-      );
-
-    return true;
+    const user = await getOptionalUser();
+    if (!user) throw new WishlistDataError("Authentication required", 401);
+    const database = getDatabase();
+    await database
+      .delete(wishlists)
+      .where(and(eq(wishlists.userId, user.id), eq(wishlists.productId, productId)));
+    return { success: true };
   } catch (error: unknown) {
     if (error instanceof WishlistDataError) throw error;
     throw new WishlistDataError(
-      error instanceof Error ? error.message : "Failed to remove item from wishlist",
+      error instanceof Error ? error.message : "Failed to remove from wishlist",
       400,
       error,
     );
   }
 }
-

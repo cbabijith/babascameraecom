@@ -209,6 +209,8 @@ const CheckoutPageContent: React.FC = () => {
     dispatch(setCheckoutMethod(m));
   };
 
+
+
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
@@ -521,6 +523,8 @@ const CheckoutPageContent: React.FC = () => {
       router.push(`/checkout/bank-transfer`);
       return;
     }
+
+
 
     setIsPlacingOrder(true);
     try {

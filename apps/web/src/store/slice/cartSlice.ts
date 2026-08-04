@@ -37,7 +37,7 @@ interface CartState {
 
 const initialState: CartState = {
   items: [],
-  loading: false,
+  loading: true,
   error: null,
   totalItems: 0,
   totalPrice: 0,
@@ -70,6 +70,29 @@ export const fetchCart = createAsyncThunk<
   void,                            // arg
   { state: RootState; rejectValue: string }
 >('cart/fetchCart', async (_, { getState, rejectWithValue }) => {
+  try {
+    const state = getState();
+    const user = state.auth.user;
+    if (!user) return [];
+    const token = getAuthToken();
+    if (!token) return [];
+
+    const items = await getCart();
+    return Array.isArray(items) ? items : [];
+  } catch (error: unknown) {
+    const msg = getErrorMessage(error, 'Failed to fetch cart');
+    if (msg.toLowerCase().includes('login') || msg.toLowerCase().includes('token')) {
+      return [];
+    }
+    return rejectWithValue(msg);
+  }
+});
+
+export const fetchCartSilent = createAsyncThunk<
+  CartItem[],
+  void,
+  { state: RootState; rejectValue: string }
+>('cart/fetchCartSilent', async (_, { getState, rejectWithValue }) => {
   try {
     const state = getState();
     const user = state.auth.user;
@@ -229,6 +252,9 @@ const cartSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    cartIdle: (state) => {
+      state.loading = false;
+    },
 
     setCheckoutMethod: (state, action: { payload: PaymentMethod }) => {
       state.checkout.method = action.payload;
@@ -280,6 +306,10 @@ const cartSlice = createSlice({
         } else {
           state.error = msg;
         }
+      })
+      .addCase(fetchCartSilent.fulfilled, (state, action) => {
+        state.items = Array.isArray(action.payload) ? action.payload : [];
+        recomputeTotals(state);
       })
 
       // add
@@ -395,7 +425,7 @@ export const selectBuyNowContext = (state: RootState) => state.cart.checkout.buy
 
 
 /* ---------- actions & reducer ---------- */
-export const { clearCart, clearError,setCheckoutMethod,
+export const { clearCart, clearError, cartIdle, setCheckoutMethod,
   setCheckoutAddress,
   startBuyNow,
   backToCartCheckout,

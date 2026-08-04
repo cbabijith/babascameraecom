@@ -69,7 +69,24 @@ export async function signInAction(
 export async function signUpAction(
   formData: FormData,
 ): Promise<AuthActionState> {
-  const parsed = registerSchema.safeParse(fields(formData));
+  const fieldsData = fields(formData);
+  const email = fieldsData.email?.trim() ?? "";
+  const password = fieldsData.password ?? "";
+  const emailPrefix = email.includes("@") ? email.split("@")[0] : "User";
+  const nameFromEmail = emailPrefix
+    .replaceAll(".", " ")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const fullName = fieldsData.fullName?.trim() || nameFromEmail;
+  const confirmPassword = fieldsData.confirmPassword || password;
+
+  const parsed = registerSchema.safeParse({
+    ...fieldsData,
+    fullName,
+    email,
+    password,
+    confirmPassword,
+  });
   if (!parsed.success) return validationFailure("Check the form.", parsed.error);
 
   try {
@@ -80,7 +97,7 @@ export async function signUpAction(
       password: parsed.data.password,
       options: {
         emailRedirectTo: `${origin}/auth/callback?next=/account`,
-        data: { full_name: parsed.data.fullName },
+        data: { full_name: fullName },
       },
     });
     if (error) return { ok: false, message: "Unable to create your account." };

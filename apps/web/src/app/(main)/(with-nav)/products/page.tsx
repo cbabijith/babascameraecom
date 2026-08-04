@@ -1,7 +1,7 @@
 import ProductList from "@/components/products/product-list"
 
-// Force dynamic rendering (skip static generation at build time)
-export const dynamic = 'force-dynamic';
+// Revalidate products page cache every 60 seconds (ISR)
+export const revalidate = 60;
 
 export default function ProductsPage() {
   return <ProductList />

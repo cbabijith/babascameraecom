@@ -61,7 +61,7 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
   const bankTransferGifUrl = "/tenorr.gif";
 
   // Expandable details state
-  const [showDetails, setShowDetails] = useState(false); 
+  const [showDetails, setShowDetails] = useState(false);
 
   return (
     <div className={`bg-white border border-[#E4E4E7] p-4 sm:p-5 sticky top-20 mb-4 rounded-[20px] ${className}`}>
@@ -131,12 +131,12 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
       </div>
 
       {/* Payment method selection */}
-       {showPaymentSection && (
+      {showPaymentSection && (
         <div className="mb-4">
           <p className="text-[14px] font-[600] text-[#3A3A3C] mb-2">Select Payment Method</p>
 
           <div className="space-y-2">
-            <label className={`flex items-start gap-3 p-3 rounded-[20px] border ${isRazorpay ? "border-[#EC134A]" : "border-[#E4E4E7]"}`}>
+            <label className={`flex items-start gap-3 p-3 rounded-[20px] border ${isRazorpay ? "border-[#EC134A]" : "border-[#E4E4E7]"} cursor-pointer`}>
               <input
                 type="radio"
                 name="payMethod"
@@ -168,7 +168,7 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
                     loading="eager"
                   />
                 </div>
-                 {/* Text content */}
+                {/* Text content */}
                 <div className="flex-1">
                   <p className="text-[14px] font-[600] text-[#1E293B]">Bank Transfer (Zero Transaction Fee)</p>
                   <p className="text-[12px] text-[#6B7280]">

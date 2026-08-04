@@ -8,7 +8,8 @@ import {
   listCatalogProductsPage,
   listCategories,
   listRelatedProducts,
-} from "@/lib/data/storefront";
+} from "@/features/catalog";
+import { getSpecificDeliverySettings } from "@/lib/data/settings";
 import { productImageUrl } from "@/lib/storage";
 import {
   AuthDataError,
@@ -16,6 +17,7 @@ import {
   getUserProfile,
   googleAuth,
   loginUser,
+  logoutUser,
   registerUser,
   resetPassword,
   updateUserProfile,
@@ -31,6 +33,7 @@ import {
 } from "@/features/cart";
 import {
   AddressDataError,
+  addUserAddress,
   createUserAddress,
   deleteUserAddress,
   getUserAddresses,
@@ -169,15 +172,19 @@ export async function GET(
     if (identifier) {
       const found = categories.find((item) => item.id === identifier || item.slug === identifier);
       if (!found) return NextResponse.json({ success: false, message: "Category not found" }, { status: 404 });
-      return success({ result: {
-        _id: found.id, name: found.name, image: image(found.imageUrl, found.name),
-        status: "Active", visibility: "Show", position: 0, createdAt: new Date().toISOString(), code: found.slug,
-      } });
+      return success({
+        result: {
+          _id: found.id, name: found.name, image: image(found.imageUrl, found.name),
+          status: "Active", visibility: "Show", position: 0, createdAt: new Date().toISOString(), code: found.slug,
+        }
+      });
     }
-    return success({ results: categories.map((item, position) => ({
-      _id: item.id, name: item.name, image: image(item.imageUrl, item.name),
-      status: "Active", visibility: "Show", position, createdAt: new Date().toISOString(), code: item.slug,
-    })), totalCount: categories.length, currentPage: 1, totalPages: 1, latestCount: categories.length });
+    return success({
+      results: categories.map((item, position) => ({
+        _id: item.id, name: item.name, image: image(item.imageUrl, item.name),
+        status: "Active", visibility: "Show", position, createdAt: new Date().toISOString(), code: item.slug,
+      })), totalCount: categories.length, currentPage: 1, totalPages: 1, latestCount: categories.length
+    });
   }
 
   if (resource === "brand") {
@@ -218,13 +225,22 @@ export async function GET(
         },
       });
     }
-    const categories = await listCategories();
-    const brands = await listBrands();
     const categoryValue = query.get("category");
     const brandValue = query.get("brand");
     const search = query.get("search");
-    const categorySlug = categories.find((item) => item.id === categoryValue || item.slug === categoryValue)?.slug;
-    const brandSlug = brands.find((item) => item.id === brandValue || item.slug === brandValue)?.slug;
+
+    let categorySlug: string | undefined;
+    let brandSlug: string | undefined;
+
+    if (categoryValue) {
+      const categories = await listCategories();
+      categorySlug = categories.find((item) => item.id === categoryValue || item.slug === categoryValue)?.slug;
+    }
+
+    if (brandValue) {
+      const brands = await listBrands();
+      brandSlug = brands.find((item) => item.id === brandValue || item.slug === brandValue)?.slug;
+    }
     const page = Math.max(Number(query.get("page")) || 1, 1);
     const limit = Math.min(Math.max(Number(query.get("limit")) || 20, 1), 60);
     const result = await listCatalogProductsPage({
@@ -326,7 +342,12 @@ export async function GET(
   if (resource === "order") {
     try {
       if (identifier === "user") {
-        const results = await fetchUserOrders();
+        const status = query.get("status") ?? undefined;
+        const from = query.get("from") ?? undefined;
+        const to = query.get("to") ?? undefined;
+        const search = query.get("search") ?? undefined;
+
+        const results = await fetchUserOrders({ status, from, to, search });
         return success({
           results,
           currentPage: 1,
@@ -356,7 +377,17 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({ success: false, message: "Endpoint not available" }, { status: 404 });
+  if (resource === "settings") {
+    try {
+      const scope = query.get("scope") || query.get("type") || "Delivery";
+      const result = await getSpecificDeliverySettings(scope);
+      return success({ result });
+    } catch (error) {
+      return apiErrorResponse(error);
+    }
+  }
+
+  return NextResponse.json({ success: false, message: "Endpoint not available" + resource + "/" + identifier }, { status: 404 });
 }
 
 
@@ -385,6 +416,23 @@ export async function POST(
       return success({ result });
     }
 
+    if (resource === "user" && (identifier === "forgot-password" || identifier === "forget-password")) {
+      const body = await request.json().catch(() => ({}));
+      const res = await forgotPassword(body);
+      return success({ message: res.message });
+    }
+
+    if (resource === "user" && identifier === "reset-password") {
+      const body = await request.json().catch(() => ({}));
+      const res = await resetPassword(body);
+      return success({ message: res.message });
+    }
+
+    if (resource === "user" && identifier === "logout") {
+      const res = await logoutUser();
+      return success(res);
+    }
+
     if (resource === "cart" && identifier === "product" && path[2]) {
       const result = await addCartProduct(path[2]);
       return success({ result });
@@ -392,7 +440,7 @@ export async function POST(
 
     if (resource === "addressbook" && identifier === "user") {
       const body = await request.json().catch(() => ({}));
-      const result = await createUserAddress(body);
+      const result = await addUserAddress(body);
       return success({ result });
     }
 
@@ -420,7 +468,7 @@ export async function POST(
       return success({ result });
     }
 
-    return NextResponse.json({ success: false, message: "Endpoint not available" }, { status: 404 });
+    return NextResponse.json({ success: false, message: "Endpoint not available" + resource + "/" + identifier }, { status: 404 });
   } catch (error) {
     return apiErrorResponse(error);
   }
@@ -480,7 +528,7 @@ export async function PATCH(
       return success({ result });
     }
 
-    return NextResponse.json({ success: false, message: "Endpoint not available" }, { status: 404 });
+    return NextResponse.json({ success: false, message: "Endpoint not available" + resource + "/" + identifier }, { status: 404 });
   } catch (error) {
     return apiErrorResponse(error);
   }
@@ -493,6 +541,11 @@ export async function DELETE(
   try {
     const { path } = await context.params;
     const [resource, identifier] = path;
+
+    if (resource === "user" && identifier === "logout") {
+      const res = await logoutUser();
+      return success(res);
+    }
 
     if (resource === "cart" && identifier) {
       await removeCartItem(identifier);
@@ -515,7 +568,7 @@ export async function DELETE(
       }
     }
 
-    return NextResponse.json({ success: false, message: "Endpoint not available" }, { status: 404 });
+    return NextResponse.json({ success: false, message: "Endpoint not available" + resource + "/" + identifier }, { status: 404 });
   } catch (error) {
     return apiErrorResponse(error);
   }

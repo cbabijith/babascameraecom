@@ -14,7 +14,9 @@ export function formatDate(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);
   return new Intl.DateTimeFormat("en-IN", {
     dateStyle: "medium",
-  }).format(date);
+  })
+    .format(date)
+    .replace(/-/g, " ");
 }
 
 export function titleCase(value: string): string {

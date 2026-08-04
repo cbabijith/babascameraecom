@@ -95,27 +95,27 @@ function mapStatus(apiStatus?: string): OrderStatus {
 
   // Map variants/aliases to your canonical keys used across UI
   switch (compact) {
-    case "PENDING":            return "PENDING";
-    case "PLACED":             return "PLACED";
-    case "CONFIRMED":          return "CONFIRMED";
-    case "COMPLETED":          return "CONFIRMED";       // if backend ever sends COMPLETED
-    case "DISPATCHED":         return "DISPATCHED";
-    case "PACKED":             return "PACKED";
-    case "SHIPPED":            return "SHIPPED";
-    case "OUTFORDELIVERY":     return "OUT_OF_DELIVERY";  // tolerate OUT_FOR_DELIVERY / OUT-FOR-DELIVERY
-    case "DELIVERED":          return "DELIVERED";
+    case "PENDING": return "PENDING";
+    case "PLACED": return "PLACED";
+    case "CONFIRMED": return "CONFIRMED";
+    case "COMPLETED": return "CONFIRMED";       // if backend ever sends COMPLETED
+    case "DISPATCHED": return "DISPATCHED";
+    case "PACKED": return "PACKED";
+    case "SHIPPED": return "SHIPPED";
+    case "OUTFORDELIVERY": return "OUT_OF_DELIVERY";  // tolerate OUT_FOR_DELIVERY / OUT-FOR-DELIVERY
+    case "DELIVERED": return "DELIVERED";
     case "CANCELLED":
-    case "CANCELED":           return "CANCELLED";
-    case "RETURNED":           return "RETURNED";
-    case "REFUNDED":           return "REFUNDED";
+    case "CANCELED": return "CANCELLED";
+    case "RETURNED": return "RETURNED";
+    case "REFUNDED": return "REFUNDED";
     case "FAILED":
-    case "PAYMENTFAILED":      return "FAILED";
-    default:                   return "PLACED";          // ultra-safe fallback
+    case "PAYMENTFAILED": return "FAILED";
+    default: return "PLACED";          // ultra-safe fallback
   }
 }
 
 function priceFromRow(row: PriceRow): number {
-  return safeNumber(row.totalPrice); 
+  return safeNumber(row.totalPrice);
 }
 
 function mapItemsFromProducts(rows: ApiOrderProduct[] | undefined): OrderItem[] {
@@ -132,9 +132,9 @@ function mapItemsFromProducts(rows: ApiOrderProduct[] | undefined): OrderItem[] 
         brand: r.product?.brand ? { name: r.product.brand.name } : undefined,
       },
       name,
-       price: priceFromRow(r),                 // ← totalPrice (unchanged)
+      price: priceFromRow(r),                 // ← totalPrice (unchanged)
       salePrice: safeNumber(r.salePrice),     // ← NEW
-      actualPrice: safeNumber(r.actualPrice), 
+      actualPrice: safeNumber(r.actualPrice),
       bullets: [],
       quantity: safeNumber(r.quantity, 1),
       brandName,
@@ -167,6 +167,7 @@ function toOrderFromApi(o: ApiOrder): Order {
     invoiceCode: o.invoiceCode,
     user: (o as Partial<Order>)?.user ?? undefined,
     payment: (o as Partial<Order>)?.payment ?? undefined,
+    paymentMethod: o.paymentMethod,
     orderStatus: mapStatus(o.orderStatus),
     orderPaymentStatus: o.orderPaymentStatus,
     placedAt: o.createdAt,
@@ -358,15 +359,15 @@ export const fetchInvoiceFile = async (
       { responseType: "arraybuffer" }
     );
 
-  const status = response.status ?? 200
-  if (status !== 200) {
-    const ct = response.headers?.["content-type"] || ""
-    if (ct.includes("application/json") || ct.includes("text/")) {
-      const txt = await blobToTextSafe(new Blob([response.data]))
-      throw new Error(txt || `HTTP ${status} while generating invoice`)
+    const status = response.status ?? 200
+    if (status !== 200) {
+      const ct = response.headers?.["content-type"] || ""
+      if (ct.includes("application/json") || ct.includes("text/")) {
+        const txt = await blobToTextSafe(new Blob([response.data]))
+        throw new Error(txt || `HTTP ${status} while generating invoice`)
+      }
+      throw new Error(`HTTP ${status} while generating invoice`)
     }
-    throw new Error(`HTTP ${status} while generating invoice`)
-  }
 
     const contentDisposition = response.headers?.["content-disposition"] as string | undefined;
     let filename: string | undefined;

@@ -4,10 +4,8 @@ import Categories from "@/components/home/categories"
 import TopSellers from "@/components/home/top-sellers"
 import BrandsWeLove from "@/components/home/brands-we-love"
 
-// These sections read live catalog and banner data through the compatibility
-// API. Rendering them per request prevents a production build from baking an
-// empty homepage when no local HTTP server exists during compilation.
-export const dynamic = "force-dynamic";
+// Revalidate static homepage cache every 60 seconds (ISR)
+export const revalidate = 60;
 
 // Below-fold components - lazy loaded
 const BannerSection = nextDynamic(() => import("@/components/home/banner-section"));

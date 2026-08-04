@@ -34,6 +34,7 @@ import type { DeliverySettings } from "@/types/settings";
 import { apiClient } from "@/lib/apiClient";
 
 import UPIQRCodeCard from "@/components/payments/UPIQRCodeCard";
+import { validateProofFileHeader, ProofValidationError } from "@/features/order/schemas/proof-schema";
 
 /* ---------- helpers ---------- */
 const toNumber = (v: unknown): number => {
@@ -239,20 +240,17 @@ function BankTransferInner() {
     const f = e.target.files?.[0] ?? null;
     if (!f) return;
 
-    const okTypes = [
-      "image/png",
-      "image/jpeg",
-      "image/jpg",
-      "image/webp",
-      "application/pdf",
-      "image/heic",
-      "image/heif",
-    ];
-    if (!okTypes.includes(f.type)) {
-      toast.error("Unsupported file", { description: "Upload PNG/JPG/WebP/PDF." });
-      return;
+    try {
+      validateProofFileHeader(f);
+      setSelectedFile(f);
+    } catch (err) {
+      if (err instanceof ProofValidationError) {
+        toast.error("Invalid proof file", { description: err.message });
+      } else {
+        toast.error("File error", { description: "Please upload a valid image or PDF file." });
+      }
+      e.target.value = "";
     }
-    setSelectedFile(f);
   };
 
   const uploadProof = async (file: File): Promise<string | null> => {

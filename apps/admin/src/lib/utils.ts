@@ -11,7 +11,9 @@ export function formatDate(value: Date | string | null | undefined, includeTime 
     month: "short",
     year: "numeric",
     ...(includeTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-  }).format(date);
+  })
+    .format(date)
+    .replace(/-/g, " ");
 }
 
 export function slugify(value: string) {

@@ -35,11 +35,11 @@ function BrandsWeLoveSkeleton() {
 // Server Component - fetches data server-side
 async function BrandsWeLoveContent() {
   const brands = await getActiveBrandsWithProductsServer();
-  
+
   if (brands.length === 0) {
     return null;
   }
-  
+
   return <BrandsWeLoveClient brands={brands} />;
 }
 

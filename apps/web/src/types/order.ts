@@ -24,7 +24,7 @@ export type OrderImage = { key?: string };
 export type OrderProductMini = {
   _id?: string;
   name?: string;
-  slug?: string; 
+  slug?: string;
   images?: OrderImage[];
   brand?: { name?: string };
 };
@@ -33,9 +33,9 @@ export type OrderItem = {
   quantity: number;
   product: OrderProductMini | string;
   name?: string;
-  price?: number;        
-  salePrice?: number;    
-  actualPrice?: number;  
+  price?: number;
+  salePrice?: number;
+  actualPrice?: number;
   bullets?: string[];
   brandName?: string;
 };
@@ -92,6 +92,8 @@ export interface Order {
   /** Status fields */
   orderStatus: OrderStatus;
   orderPaymentStatus?: string;
+  paymentMethod?: string;
+
 
   /** Timestamps */
   placedAt?: string;
@@ -141,7 +143,7 @@ export type ApiBrand = {
 export type ApiProdCore = {
   _id: string;
   name: string;
-   slug?: string; 
+  slug?: string;
   images?: ApiImage[];
   code: string;
   brand?: ApiBrand;
@@ -177,6 +179,7 @@ export type ApiOrder = {
 
   orderStatus: string;
   orderPaymentStatus?: string;
+  paymentMethod?: string;
 
   createdAt: string;
 
@@ -253,6 +256,6 @@ export type CreateOrderResult = {
 };
 
 export type CreateOrderApiResponse = ApiResponse & {
-  result?: ApiOrder | { order: ApiOrder; transaction?: ApiTransaction }; 
-  data?:   ApiOrder | { order: ApiOrder; transaction?: ApiTransaction }; 
+  result?: ApiOrder | { order: ApiOrder; transaction?: ApiTransaction };
+  data?: ApiOrder | { order: ApiOrder; transaction?: ApiTransaction };
 };

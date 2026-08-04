@@ -10,6 +10,7 @@ import {
   selectCartLoading,
   selectCartError,
   fetchCart,
+  fetchCartSilent,
   incrementCartAsync,
   decrementCartAsync,
   deleteCartAsync,
@@ -76,7 +77,7 @@ const CartPage: React.FC = () => {
   }, [dispatch, userId]);
 
   useEffect(() => {
-    const onFocus = () => dispatch(fetchCart());
+    const onFocus = () => dispatch(fetchCartSilent());
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [dispatch]);
@@ -178,10 +179,49 @@ const CartPage: React.FC = () => {
     return stockQty <= 0 || reqQty > stockQty;
   });
 
+  const isEmptyServerMessage =
+    typeof error === "string" && error.toLowerCase().includes("cart is empty");
+
+  if (loading) {
+    return (
+      <div className="min-h-screen constrained-width">
+        <div className="py-3 sm:pt-6">
+          <AppBreadcrumb
+            items={[
+              { label: "HOME", href: "/" },
+              { label: "CART", href: "/cart" },
+            ]}
+          />
+        </div>
+        <main className="mx-auto pb-8">
+          <div className="mb-8">
+            <h1 className="text-[20px] lg:text-[24px] font-[650] text-[#1E293B] mb-2">
+              Shopping Cart
+            </h1>
+          </div>
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+              <p className="text-gray-600">Loading your cart...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen constrained-width">
-        <main className="mx-auto py-8">
+        <div className="py-3 sm:pt-6">
+          <AppBreadcrumb
+            items={[
+              { label: "HOME", href: "/" },
+              { label: "CART", href: "/cart" },
+            ]}
+          />
+        </div>
+        <main className="mx-auto pb-8">
           <div className="flex flex-col gap-[32px] bg-white rounded-2xl shadow-sm p-[24px] text-center border border-[#E4E4E7]">
             <div>
               <h2 className="text-[22px] lg:text-[32px] font-[650] text-[#000000] mb-2">
@@ -205,29 +245,6 @@ const CartPage: React.FC = () => {
       </div>
     );
   }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen constrained-width">
-        <main className="mx-auto py-8">
-          <div className="mb-8">
-            <h1 className="text-[20px] lg:text-[24px] font-[650] text-[#1E293B] mb-2">
-              Shopping Cart
-            </h1>
-          </div>
-          <div className="flex items-center justify-center py-16">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-              <p className="text-gray-600">Loading your cart...</p>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  const isEmptyServerMessage =
-    typeof error === "string" && error.toLowerCase().includes("cart is empty");
 
   if (error && !isEmptyServerMessage) {
     return (
@@ -314,7 +331,7 @@ const CartPage: React.FC = () => {
                   <CartItemCard
                     key={item?._id}
                     id={item?._id ?? ""}
-                    productSlug={item?.product?.slug}  
+                    productSlug={item?.product?.slug}
                     productId={item?.product?._id ?? ""}
                     name={item?.product?.name ?? "—"}
                     category={item?.product?.category?.name ?? ""} // ← no fallback dash

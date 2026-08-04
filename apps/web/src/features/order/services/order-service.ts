@@ -2,14 +2,18 @@
 
 import {
   addresses,
+  and,
   cartItems as cartItemsTable,
   carts as cartsTable,
   desc,
   eq,
   getDatabase,
+  gte,
   inArray,
+  lte,
   orderItems as orderItemsTable,
   orders as ordersTable,
+  orderStatusValues,
   products as productsTable,
   type ShippingAddressSnapshot,
 } from "@babascamera/db";
@@ -29,10 +33,17 @@ export class OrderDataError extends Error {
   }
 }
 
+export type UserOrderFilters = {
+  status?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+};
+
 export type BankTransferCheckoutPayload = {
   totalOrderPrice?: number;
   shippingAddress: string;
-  method?: "BANK_TRANSFER" | "COD" | "RAZORPAY";
+  method?: "BANK_TRANSFER" | "RAZORPAY" | "bank_transfer" | "razorpay" | "bank";
   bankTransferDetails?: {
     referenceNumber: string;
     accountName: string;
@@ -41,29 +52,24 @@ export type BankTransferCheckoutPayload = {
   products?: Array<{ product: string; quantity: number }>;
 };
 
+
+
+import { uploadProofToStorage } from "./proof-storage-service";
+import { ProofValidationError } from "../schemas/proof-schema";
+
 export async function uploadProofFile(file: File): Promise<{ _id: string; url: string }> {
-  if (!file || file.size <= 0) {
-    throw new OrderDataError("A valid proof file is required.", 400);
+  try {
+    const uploaded = await uploadProofToStorage(file);
+    return {
+      _id: uploaded.url,
+      url: uploaded.url,
+    };
+  } catch (error) {
+    if (error instanceof ProofValidationError) {
+      throw new OrderDataError(error.message, error.status, error);
+    }
+    throw error;
   }
-
-  const allowedTypes = [
-    "image/png",
-    "image/jpeg",
-    "image/jpg",
-    "image/webp",
-    "application/pdf",
-    "image/heic",
-    "image/heif",
-  ];
-  if (!allowedTypes.includes(file.type)) {
-    throw new OrderDataError("Unsupported file type. Please upload PNG, JPG, WebP, or PDF.", 400);
-  }
-
-  const fileId = `proof_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  return {
-    _id: fileId,
-    url: `/uploads/proofs/${fileId}`,
-  };
 }
 
 function generateOrderNumber(): string {
@@ -182,79 +188,93 @@ export async function createOrderFromCheckout(
     const grandTotal = subtotal + shippingCharge;
 
     const orderNum = generateOrderNumber();
-    const notesText = payload.bankTransferDetails
-      ? `Bank Transfer Ref: ${payload.bankTransferDetails.referenceNumber} | Account: ${payload.bankTransferDetails.accountName}`
-      : null;
-
-    // 4. Create Order in DB
-    const [createdOrder] = await db
-      .insert(ordersTable)
-      .values({
-        orderNumber: orderNum,
-        userId: user?.id ?? null,
-        status: "pending",
-        paymentMethod: "cod",
-        paymentStatus: "pending",
-
-        customerEmail: user?.email ?? "guest@babascamera.com",
-        customerName: user?.user_metadata?.full_name ?? "Guest Customer",
-        customerPhone: user?.phone ?? "",
-        subtotal: subtotal.toFixed(2),
-        discount: "0.00",
-        shippingCharge: shippingCharge.toFixed(2),
-        total: grandTotal.toFixed(2),
-        notes: notesText,
-        shippingAddressSnapshot: addressSnapshot,
-      })
-      .returning();
-
-    if (!createdOrder) {
-      throw new OrderDataError("Failed to save order to database.", 500);
-    }
-
-    // 5. Create Order Items in DB
-    for (const item of resolvedItems) {
-      await db.insert(orderItemsTable).values({
-        orderId: createdOrder.id,
-        productId: item.productId,
-        productName: item.productName,
-        sku: item.sku,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice.toFixed(2),
-        total: item.total.toFixed(2),
-      });
-    }
-
-    // 6. Clear Cart if Cart Flow
-    if (!isBuyNow) {
-      try {
-        const owner = await getCartOwner();
-        if (owner.userId) {
-          const [cartRow] = await db
-            .select()
-            .from(cartsTable)
-            .where(eq(cartsTable.userId, owner.userId))
-            .limit(1);
-
-          if (cartRow) {
-            await db.delete(cartItemsTable).where(eq(cartItemsTable.cartId, cartRow.id));
-          }
-        }
-      } catch {
-        // Non-blocking error if cart clear fails
+    const bankDetails = payload.bankTransferDetails;
+    let notesText: string | null = null;
+    if (bankDetails) {
+      notesText = `Bank Transfer Ref: ${bankDetails.referenceNumber} | Account: ${bankDetails.accountName}`;
+      if (bankDetails.proofFile) {
+        notesText += ` | Proof: ${bankDetails.proofFile}`;
       }
     }
 
-    return {
-      _id: createdOrder.id,
-      id: createdOrder.id,
-      orderNumber: createdOrder.orderNumber,
-      totalOrderPrice: Number(createdOrder.total),
-      shippingAddress: payload.shippingAddress,
-      status: "PENDING",
-      createdAt: createdOrder.createdAt.toISOString(),
-      updatedAt: createdOrder.updatedAt.toISOString(),
-    } as unknown as Order;
+    const methodUpper = String(payload.method || "").toUpperCase();
+    let resolvedPaymentMethod: "razorpay" | "cod" = "cod";
+    if (methodUpper === "RAZORPAY") {
+      resolvedPaymentMethod = "razorpay";
+    }
+
+
+    // 4. Create Order, Order Items, and Clear Cart inside an Atomic Database Transaction
+    return await db.transaction(async (tx) => {
+      const [createdOrder] = await tx
+        .insert(ordersTable)
+        .values({
+          orderNumber: orderNum,
+          userId: user?.id ?? null,
+          status: "pending",
+          paymentMethod: resolvedPaymentMethod,
+          paymentStatus: "pending",
+
+          customerEmail: user?.email ?? "guest@babascamera.com",
+          customerName: user?.user_metadata?.full_name ?? "Guest Customer",
+          customerPhone: user?.phone ?? "",
+          subtotal: subtotal.toFixed(2),
+          discount: "0.00",
+          shippingCharge: shippingCharge.toFixed(2),
+          total: grandTotal.toFixed(2),
+          notes: notesText,
+          shippingAddressSnapshot: addressSnapshot,
+        })
+        .returning();
+
+      if (!createdOrder) {
+        throw new OrderDataError("Failed to save order to database.", 500);
+      }
+
+      for (const item of resolvedItems) {
+        await tx.insert(orderItemsTable).values({
+          orderId: createdOrder.id,
+          productId: item.productId,
+          productName: item.productName,
+          sku: item.sku,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice.toFixed(2),
+          total: item.total.toFixed(2),
+        });
+      }
+
+      if (!isBuyNow) {
+        const owner = await getCartOwner();
+        const cartCondition = owner.userId
+          ? eq(cartsTable.userId, owner.userId)
+          : owner.sessionId
+            ? eq(cartsTable.sessionId, owner.sessionId)
+            : null;
+
+        if (cartCondition) {
+          const [cartRow] = await tx
+            .select({ id: cartsTable.id })
+            .from(cartsTable)
+            .where(cartCondition)
+            .limit(1);
+
+          if (cartRow) {
+            await tx.delete(cartItemsTable).where(eq(cartItemsTable.cartId, cartRow.id));
+          }
+        }
+      }
+
+      return {
+        _id: createdOrder.id,
+        id: createdOrder.id,
+        orderNumber: createdOrder.orderNumber,
+        totalOrderPrice: Number(createdOrder.total),
+        shippingAddress: payload.shippingAddress,
+        status: "PENDING",
+        createdAt: createdOrder.createdAt.toISOString(),
+        updatedAt: createdOrder.updatedAt.toISOString(),
+      } as unknown as Order;
+    });
   } catch (error: unknown) {
     if (error instanceof OrderDataError) throw error;
     throw new OrderDataError(
@@ -275,7 +295,9 @@ function mapDbOrderToApiOrder(
     code: order.orderNumber,
     orderStatus: order.status.toUpperCase(),
     orderPaymentStatus: order.paymentStatus.toUpperCase(),
+    paymentMethod: order.paymentMethod,
     createdAt: order.createdAt.toISOString(),
+
     totalSalePrice: order.subtotal,
     deliveryCharges: order.shippingCharge,
     taxAmount: "0.00",
@@ -310,8 +332,8 @@ function mapDbOrderToApiOrder(
           {
             _id: "img_1",
             name: item.productName,
-            key: "placeholder.jpg",
-            mimetype: "image/jpeg",
+            key: "placeholder.svg",
+            mimetype: "image/svg",
             size: 0,
             thumbnail: true,
           },
@@ -321,16 +343,43 @@ function mapDbOrderToApiOrder(
   };
 }
 
-export async function fetchUserOrders() {
+export async function fetchUserOrders(filters: UserOrderFilters = {}) {
   try {
     const user = await getOptionalUser();
     if (!user) return [];
 
     const db = getDatabase();
+    const conditions = [eq(ordersTable.userId, user.id)];
+
+    if (filters.status && filters.status.trim()) {
+      const normalizedStatus = filters.status.trim().toLowerCase();
+      if (!orderStatusValues.includes(normalizedStatus as (typeof orderStatusValues)[number])) {
+        return [];
+      }
+      conditions.push(eq(ordersTable.status, normalizedStatus as typeof ordersTable.$inferSelect.status));
+    }
+
+    if (filters.from) {
+      const fromDate = new Date(filters.from);
+      if (!Number.isNaN(fromDate.getTime())) {
+        conditions.push(gte(ordersTable.createdAt, fromDate));
+      }
+    }
+
+    if (filters.to) {
+      const toDate = new Date(filters.to);
+      if (!Number.isNaN(toDate.getTime())) {
+        if (toDate.getHours() === 0 && toDate.getMinutes() === 0) {
+          toDate.setHours(23, 59, 59, 999);
+        }
+        conditions.push(lte(ordersTable.createdAt, toDate));
+      }
+    }
+
     const orderRows = await db
       .select()
       .from(ordersTable)
-      .where(eq(ordersTable.userId, user.id))
+      .where(and(...conditions))
       .orderBy(desc(ordersTable.createdAt));
 
     if (!orderRows.length) return [];
@@ -341,6 +390,19 @@ export async function fetchUserOrders() {
       .from(orderItemsTable)
       .where(inArray(orderItemsTable.orderId, orderIds));
 
+    let filteredOrderRows = orderRows;
+    if (filters.search && filters.search.trim()) {
+      const q = filters.search.trim().toLowerCase();
+      filteredOrderRows = orderRows.filter((o) => {
+        const orderItems = itemRows.filter((item) => item.orderId === o.id);
+        const matchItem = orderItems.some(
+          (item) => item.productName.toLowerCase().includes(q) || item.sku.toLowerCase().includes(q)
+        );
+        const matchNum = o.orderNumber.toLowerCase().includes(q);
+        return matchItem || matchNum;
+      });
+    }
+
     const itemsByOrder = new Map<string, (typeof orderItemsTable.$inferSelect)[]>();
     for (const item of itemRows) {
       const list = itemsByOrder.get(item.orderId) ?? [];
@@ -348,7 +410,7 @@ export async function fetchUserOrders() {
       itemsByOrder.set(item.orderId, list);
     }
 
-    return orderRows.map((o) => mapDbOrderToApiOrder(o, itemsByOrder.get(o.id) ?? []));
+    return filteredOrderRows.map((o) => mapDbOrderToApiOrder(o, itemsByOrder.get(o.id) ?? []));
   } catch (error: unknown) {
     throw new OrderDataError(
       error instanceof Error ? error.message : "Failed to fetch user orders",

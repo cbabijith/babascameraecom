@@ -5,9 +5,9 @@ export const passwordSchema = z
   .string()
   .min(8, "Use at least 8 characters.")
   .max(72, "Password is too long.")
-  .regex(/[a-z]/, "Include a lowercase letter.")
-  .regex(/[A-Z]/, "Include an uppercase letter.")
-  .regex(/[0-9]/, "Include a number.");
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter.")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter.")
+  .regex(/[0-9]/, "Password must contain at least one number.");
 
 export const loginSchema = z.object({
   email: emailSchema,
@@ -16,12 +16,12 @@ export const loginSchema = z.object({
 
 export const registerSchema = z
   .object({
-    fullName: z.string().trim().min(2, "Enter your full name.").max(100),
+    fullName: z.string().trim().max(100).optional(),
     email: emailSchema,
     password: passwordSchema,
-    confirmPassword: z.string(),
+    confirmPassword: z.string().optional(),
   })
-  .refine((value) => value.password === value.confirmPassword, {
+  .refine((value) => !value.confirmPassword || value.password === value.confirmPassword, {
     message: "Passwords do not match.",
     path: ["confirmPassword"],
   });

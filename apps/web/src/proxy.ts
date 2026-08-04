@@ -4,7 +4,7 @@ import { hasPublicSupabaseConfig, publicSupabaseConfig } from "@/lib/supabase/co
 const CART_SESSION_COOKIE = "bc_cart_session";
 const CART_SESSION_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 
-const protectedPrefixes = ["/account", "/wishlist"];
+const protectedPrefixes = ["/account", "/wishlist", "/checkout", "/cart"];
 
 export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/api/storefront/home") {
@@ -42,24 +42,27 @@ export async function proxy(request: NextRequest) {
       },
     },
   });
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  if (!user && protectedPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
-    const login = new URL("/auth/login", request.url);
-    login.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
-    const redirectResponse = NextResponse.redirect(login);
-    if (newCartSession) {
-      redirectResponse.cookies.set(CART_SESSION_COOKIE, newCartSession, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 30 * 24 * 60 * 60,
-      });
+  if (protectedPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      const login = new URL("/auth/login", request.url);
+      login.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+      const redirectResponse = NextResponse.redirect(login);
+      if (newCartSession) {
+        redirectResponse.cookies.set(CART_SESSION_COOKIE, newCartSession, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 30 * 24 * 60 * 60,
+        });
+      }
+      return redirectResponse;
     }
-    return redirectResponse;
   }
   if (newCartSession) {
     response.cookies.set(CART_SESSION_COOKIE, newCartSession, {

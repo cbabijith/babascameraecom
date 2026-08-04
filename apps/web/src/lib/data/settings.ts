@@ -150,3 +150,34 @@ export async function getHomepageHero() {
     ),
   };
 }
+
+export async function getSpecificDeliverySettings(scope = "Delivery") {
+  try {
+    const checkoutSettings = await getCheckoutSettings();
+    const freeThreshold = Number(checkoutSettings.freeShippingThresholdPaise) / 100;
+    const flatCharge = Number(checkoutSettings.defaultShippingChargePaise) / 100;
+
+    return {
+      _id: "delivery_settings",
+      scope,
+      data: {
+        enableFreeDelivery: true,
+        deliveryChargeFlat: flatCharge > 0 ? flatCharge : 100,
+        freeDeliveryThreshold: freeThreshold > 0 ? freeThreshold : 3000,
+      },
+      createdAt: new Date().toISOString(),
+    };
+  } catch {
+    return {
+      _id: "delivery_settings",
+      scope,
+      data: {
+        enableFreeDelivery: true,
+        deliveryChargeFlat: 100,
+        freeDeliveryThreshold: 3000,
+      },
+      createdAt: new Date().toISOString(),
+    };
+  }
+}
+

@@ -1,7 +1,8 @@
 // src/lib/serverApi.ts
 // Server-side API utilities for Server Components
-// Uses native fetch with Next.js caching
+// Queries database services directly in Node memory without internal HTTP fetches
 
+import { asc, eq, getDatabase, homeBanners } from "@babascamera/db";
 import { getStorefrontOrigin } from "@/lib/api/server-origin";
 import {
   listBestSellingProducts,
@@ -24,8 +25,7 @@ export interface ApiResponse<T = unknown> {
 }
 
 /**
- * Server-side fetch wrapper with Next.js caching
- * Uses revalidate to cache responses for performance
+ * Server-side fetch wrapper kept for external API integration if needed
  */
 export async function serverFetch<T>(
   endpoint: string,
@@ -39,11 +39,11 @@ export async function serverFetch<T>(
     ? API_BASE_PATH
     : `${await getStorefrontOrigin()}${API_BASE_PATH}`;
   const url = `${baseUrl}${endpoint}`;
-  
+
   const fetchOptions: RequestInit = {
     headers: { 'Content-Type': 'application/json' },
     next: {
-      revalidate: options?.revalidate ?? 60, // Default 60s cache
+      revalidate: options?.revalidate ?? 60,
       ...(options?.tags ? { tags: options.tags } : {}),
     },
   };
@@ -83,25 +83,26 @@ export interface Banner {
   };
 }
 
-interface BannerResponse extends ApiResponse<Banner[]> {
-  results: Banner[];
-}
-
 export async function getHeroBannersServer(): Promise<Banner[]> {
   try {
-    const data = await serverFetch<BannerResponse>(
-      '/banner?type=Hero&limit=10',
-      { revalidate: 300, tags: ['banners'] } // 5 min cache
-    );
-    
-    if (!data.success || !data.results) {
-      return [];
-    }
-    
-    // Filter and sort active banners
-    return data.results
-      .filter(b => b.status === 'Active' && b.visibility === 'Show')
-      .sort((a, b) => a.position - b.position);
+    const database = getDatabase();
+    const rows = await database
+      .select()
+      .from(homeBanners)
+      .where(eq(homeBanners.isActive, true))
+      .orderBy(asc(homeBanners.position));
+
+    return rows.map((item) => ({
+      _id: item.id,
+      heading: item.headline ?? "",
+      subHeading: item.subheading ?? "",
+      tagline: "",
+      ctaName: item.buttonLabel ?? "Shop now",
+      position: item.position,
+      status: "Active",
+      visibility: "Show",
+      mediaFile: item.desktopMediaUrl ? { key: item.desktopMediaUrl } : undefined,
+    }));
   } catch (error) {
     console.error('[getHeroBannersServer] Error:', error);
     return [];
@@ -119,10 +120,6 @@ export interface Category {
   image?: {
     key: string;
   };
-}
-
-interface CategoryResponse extends ApiResponse<Category[]> {
-  results: Category[];
 }
 
 function mapCategory(
@@ -175,11 +172,6 @@ export interface Product {
   keyFeatures?: string;
 }
 
-interface ProductResponse extends ApiResponse<Product[]> {
-  results: Product[];
-  totalCount?: number;
-}
-
 function mapProduct(product: CatalogProduct): Product {
   return {
     _id: product.id,
@@ -196,11 +188,11 @@ function mapProduct(product: CatalogProduct): Product {
     },
     ...(product.brandName
       ? {
-          brand: {
-            _id: product.brandSlug ?? "unbranded",
-            name: product.brandName,
-          },
-        }
+        brand: {
+          _id: product.brandSlug ?? "unbranded",
+          name: product.brandName,
+        },
+      }
       : {}),
     quantity: product.stock,
     keyFeatures: product.shortDescription ?? undefined,
@@ -221,21 +213,19 @@ export async function getPopularProductsServer(limit = 10): Promise<Product[]> {
 export interface Brand {
   _id: string;
   name: string;
+  slug?: string;
   status?: string;
   image?: {
     key: string;
   };
 }
 
-interface BrandResponse extends ApiResponse<Brand[]> {
-  results: Brand[];
-}
-
 export async function getActiveBrandsServer(): Promise<Brand[]> {
   try {
     return (await listBrands()).map((brand) => ({
-      _id: brand.id,
+      _id: brand.slug || brand.id,
       name: brand.name,
+      slug: brand.slug,
       status: "Active",
       ...(brand.logoUrl ? { image: { key: brand.logoUrl } } : {}),
     }));
@@ -248,12 +238,13 @@ export async function getActiveBrandsServer(): Promise<Brand[]> {
 // Check if a brand has products (for filtering)
 export async function brandHasProductsServer(brandId: string): Promise<boolean> {
   try {
-    const data = await serverFetch<ProductResponse>(
-      `/product?brand=${brandId}&limit=1`,
-      { revalidate: 300 }
-    );
-    
-    return data.success && data.results && data.results.length > 0;
+    const brands = await listBrands();
+    const brand = brands.find((b) => b.id === brandId || b.slug === brandId);
+    const data = await listCatalogProductsPage({
+      ...(brand ? { brandSlug: brand.slug } : { brandSlug: brandId }),
+      limit: 1,
+    });
+    return data.products.length > 0;
   } catch {
     return false;
   }
@@ -264,15 +255,14 @@ export async function getActiveBrandsWithProductsServer(): Promise<Brand[]> {
   try {
     const [brands, products] = await Promise.all([
       getActiveBrandsServer(),
-      listCatalogProducts({ limit: 60 }),
+      listCatalogProducts({ limit: 20 }),
     ]);
     const brandSlugs = new Set(
       products.map((product) => product.brandSlug).filter(Boolean),
     );
-    return brands.filter((brand) => {
-      const matched = products.find((product) => product.brandSlug === brand._id);
-      return Boolean(matched) || brandSlugs.has(brand._id);
-    });
+    return brands.filter((brand) =>
+      brandSlugs.has(brand._id) || (brand.slug ? brandSlugs.has(brand.slug) : false)
+    );
   } catch (error) {
     console.error('[getActiveBrandsWithProductsServer] Error:', error);
     return [];
@@ -297,6 +287,7 @@ export async function getProductsByCategoryServer(
       ...(brand ? { brandSlug: brand.slug } : {}),
       limit: options?.limit ?? 20,
     });
+
     return {
       products: data.products.map(mapProduct),
       totalCount: data.total,
@@ -320,16 +311,22 @@ export async function getCategoriesWithProductsServer(): Promise<{
   totalProducts: number;
 }> {
   try {
-    const [categoryRows, productsResult] = await Promise.all([
+    const [categoryRows, catalogTotal] = await Promise.all([
       listCategories(),
-      listCatalogProductsPage({ limit: 60 }),
+      listCatalogProductsPage({ limit: 1 }),
     ]);
     const categories = categoryRows.map(mapCategory);
-    const products = productsResult.products.map(mapProduct);
-    const results = categories.map((category) => {
-      const categoryProducts = products.filter(
-        (product) => product.category?._id === categoryRows.find((item) => item.id === category._id)?.slug,
-      );
+
+    const categoryPages = await Promise.all(
+      categoryRows.map((catRow) =>
+        listCatalogProductsPage({ categorySlug: catRow.slug, limit: 20 })
+      )
+    );
+
+    const results: CategoryWithProducts[] = categories.map((category, index) => {
+      const pageResult = categoryPages[index];
+      const categoryProducts = (pageResult?.products ?? []).map(mapProduct);
+
       const brands = Array.from(
         new Map(
           categoryProducts
@@ -337,13 +334,19 @@ export async function getCategoriesWithProductsServer(): Promise<{
             .map((product) => [product.brand._id, product.brand]),
         ).values(),
       );
-      return { category, products: categoryProducts, totalCount: categoryProducts.length, brands };
+
+      return {
+        category,
+        products: categoryProducts,
+        totalCount: pageResult?.total ?? categoryProducts.length,
+        brands,
+      };
     });
-    
+
     // Filter out categories with no products
     const categoriesWithProducts = results.filter((r) => r.products.length > 0);
-    const totalProducts = productsResult.total;
-    
+    const totalProducts = catalogTotal.total;
+
     return { categories: categoriesWithProducts, totalProducts };
   } catch (error) {
     console.error('[getCategoriesWithProductsServer] Error:', error);
@@ -367,15 +370,15 @@ export async function getCategoryPageDataServer(
 ): Promise<CategoryPageData> {
   try {
     const limit = options?.limit ?? 15;
-    
+
     // Fetch category info and products in parallel
     const [categories, productData] = await Promise.all([
       getCategoriesServer(),
       getProductsByCategoryServer(categoryId, { limit }),
     ]);
-    
+
     const category = categories.find((c) => c._id === categoryId) || null;
-    
+
     // Extract unique brands from products
     const brandsMap = new Map<string, { _id: string; name: string }>();
     productData.products.forEach((p) => {
@@ -383,7 +386,7 @@ export async function getCategoryPageDataServer(
         brandsMap.set(p.brand._id, { _id: p.brand._id, name: p.brand.name });
       }
     });
-    
+
     return {
       category,
       products: productData.products,
@@ -418,25 +421,32 @@ export async function getBrandPageDataServer(
 ): Promise<BrandPageData> {
   try {
     const limit = options?.limit ?? 15;
-    
-    // Fetch brand info and products
-    const [brands, productData] = await Promise.all([
-      getActiveBrandsServer(),
-      serverFetch<ProductResponse>(
-        `/product?brand=${brandId}&limit=${limit}`,
-        { revalidate: 300, tags: ['products', `brand-${brandId}`] }
-      ),
-    ]);
-    
-    const brand = brands.find((b) => b._id === brandId) || null;
-    const products = productData.results || [];
-    const totalCount = productData.totalCount || 0;
-    
+    const brands = await listBrands();
+    const brandItem = brands.find((b) => b.id === brandId || b.slug === brandId);
+    const brandSlug = brandItem?.slug ?? brandId;
+
+    const productData = await listCatalogProductsPage({
+      brandSlug,
+      limit,
+    });
+
+    const brand: Brand | null = brandItem
+      ? {
+          _id: brandItem.slug || brandItem.id,
+          name: brandItem.name,
+          slug: brandItem.slug,
+          status: "Active",
+          ...(brandItem.logoUrl ? { image: { key: brandItem.logoUrl } } : {}),
+        }
+      : null;
+
+    const products = productData.products.map(mapProduct);
+
     return {
       brand,
       products,
-      totalCount,
-      totalPages: Math.ceil(totalCount / limit),
+      totalCount: productData.total,
+      totalPages: Math.max(Math.ceil(productData.total / limit), 1),
     };
   } catch (error) {
     console.error('[getBrandPageDataServer] Error:', error);
@@ -448,7 +458,6 @@ export async function getBrandPageDataServer(
     };
   }
 }
-
 
 // ============ Banner Page API (for /products/banner/[bannerId]) ============
 
@@ -482,31 +491,33 @@ interface BannerData {
   collections: BannerCollection[];
 }
 
-interface BannerByIdResponse {
-  success: boolean;
-  result: BannerData;  // Note: 'result' singular, not 'results'
-}
-
 export async function getBannerDataServer(
   bannerId: string
 ): Promise<{ banner: BannerData | null; products: BannerCollection[] }> {
   try {
-    const data = await serverFetch<BannerByIdResponse>(
-      `/banner/${bannerId}`,
-      { revalidate: 300, tags: ['banner', `banner-${bannerId}`] }
-    );
-    
-    if (!data.success || !data.result) {
-      return { banner: null, products: [] };
-    }
-    
+    const database = getDatabase();
+    const [item] = await database
+      .select()
+      .from(homeBanners)
+      .where(eq(homeBanners.id, bannerId))
+      .limit(1);
+
+    if (!item) return { banner: null, products: [] };
+
+    const banner: BannerData = {
+      _id: item.id,
+      heading: item.headline ?? "",
+      subHeading: item.subheading ?? "",
+      mediaFile: item.desktopMediaUrl ? { key: item.desktopMediaUrl } : undefined,
+      collections: [],
+    };
+
     return {
-      banner: data.result,
-      products: data.result.collections || [],
+      banner,
+      products: [],
     };
   } catch (error) {
     console.error('[getBannerDataServer] Error:', error);
     return { banner: null, products: [] };
   }
 }
-

@@ -129,18 +129,18 @@ type Theme = {
 };
 
 const STATUS_THEME: Record<string, Theme> = {
-  PENDING:            { text: "text-amber-700",   bg: "bg-amber-100",   icon: Clock },
-  PLACED:             { text: "text-sky-700",     bg: "bg-sky-100",     icon: PackageCheck },
-  CONFIRMED:          { text: "text-blue-700",    bg: "bg-blue-100",    icon: CheckCircle2 },
-  DISPATCHED:         { text: "text-indigo-700",  bg: "bg-indigo-100",  icon: Truck },
-  PACKED:             { text: "text-indigo-700",  bg: "bg-indigo-100",  icon: Box },
-  SHIPPED:            { text: "text-teal-700",    bg: "bg-teal-100",    icon: Truck },
-  OUT_OF_DELIVERY:    { text: "text-cyan-700",    bg: "bg-cyan-100",    icon: Navigation },
-  DELIVERED:          { text: "text-emerald-700", bg: "bg-emerald-100", icon: FileCheck2 },
-  CANCELLED:          { text: "text-rose-700",    bg: "bg-rose-100",    icon: PackageX },
-  RETURNED:           { text: "text-orange-700",  bg: "bg-orange-100",  icon: Undo2 },
-  REFUNDED:           { text: "text-lime-700",    bg: "bg-lime-100",    icon: CircleDollarSign },
-  FAILED:             { text: "text-red-700",     bg: "bg-red-100",     icon: AlertOctagon },
+  PENDING: { text: "text-amber-700", bg: "bg-amber-100", icon: Clock },
+  PLACED: { text: "text-sky-700", bg: "bg-sky-100", icon: PackageCheck },
+  CONFIRMED: { text: "text-blue-700", bg: "bg-blue-100", icon: CheckCircle2 },
+  DISPATCHED: { text: "text-indigo-700", bg: "bg-indigo-100", icon: Truck },
+  PACKED: { text: "text-indigo-700", bg: "bg-indigo-100", icon: Box },
+  SHIPPED: { text: "text-teal-700", bg: "bg-teal-100", icon: Truck },
+  OUT_OF_DELIVERY: { text: "text-cyan-700", bg: "bg-cyan-100", icon: Navigation },
+  DELIVERED: { text: "text-emerald-700", bg: "bg-emerald-100", icon: FileCheck2 },
+  CANCELLED: { text: "text-rose-700", bg: "bg-rose-100", icon: PackageX },
+  RETURNED: { text: "text-orange-700", bg: "bg-orange-100", icon: Undo2 },
+  REFUNDED: { text: "text-lime-700", bg: "bg-lime-100", icon: CircleDollarSign },
+  FAILED: { text: "text-red-700", bg: "bg-red-100", icon: AlertOctagon },
 };
 
 function DeliveryTrackingCard({
@@ -272,6 +272,15 @@ const PLACEHOLDER_DATAURI =
     </svg>`
   );
 
+function formatPaymentMethod(method?: string): string {
+  if (!method) return "Online Payment";
+  const m = method.toLowerCase();
+  if (m === "bank_transfer" || m === "bank") return "Bank Transfer";
+  if (m === "cod") return "Cash on Delivery (COD)";
+  if (m === "razorpay" || m === "online") return "Online Payment (Razorpay)";
+  return method;
+}
+
 function formatINR(amount: number | undefined): string {
   if (amount == null || Number.isNaN(amount)) return "₹0";
   const isInteger = Number.isInteger(amount);
@@ -282,6 +291,7 @@ function formatINR(amount: number | undefined): string {
     maximumFractionDigits: 2,
   });
 }
+
 
 function formatDate(iso?: string): string {
   if (!iso) return "";
@@ -331,11 +341,21 @@ function ItemCard({ item }: { item: OrderItem }) {
     />
   );
 
-return (
-  <div className="mb-4 flex min-h-[160px] w-full items-center gap-4 overflow-hidden rounded-lg border bg-white p-4 sm:p-6">
-    {/* Image */}
-    {productHref ? (
-      <Link href={productHref} aria-label={`View ${name}`}>
+  return (
+    <div className="mb-4 flex min-h-[160px] w-full items-center gap-4 overflow-hidden rounded-lg border bg-white p-4 sm:p-6">
+      {/* Image */}
+      {productHref ? (
+        <Link href={productHref} aria-label={`View ${name}`}>
+          <Image
+            src={imgSrc}
+            alt={name}
+            width={92}
+            height={92}
+            className="rounded-md object-contain w-[70px] h-[70px] sm:w-[92px] sm:h-[92px]"
+            onError={() => setImgSrc(PLACEHOLDER_DATAURI)}
+          />
+        </Link>
+      ) : (
         <Image
           src={imgSrc}
           alt={name}
@@ -344,66 +364,56 @@ return (
           className="rounded-md object-contain w-[70px] h-[70px] sm:w-[92px] sm:h-[92px]"
           onError={() => setImgSrc(PLACEHOLDER_DATAURI)}
         />
-      </Link>
-    ) : (
-      <Image
-        src={imgSrc}
-        alt={name}
-        width={92}
-        height={92}
-        className="rounded-md object-contain w-[70px] h-[70px] sm:w-[92px] sm:h-[92px]"
-        onError={() => setImgSrc(PLACEHOLDER_DATAURI)}
-      />
-    )}
-
-    {/* Details */}
-    <div className="min-w-0 flex-1">
-      {brandName && (
-        <div className="text-[10px] sm:text-[12px] tracking-wide uppercase text-gray-500 mb-1 truncate">
-          {brandName}
-        </div>
       )}
 
-      <h2
-        style={{ color: "rgba(0, 0, 0, 0.80)", fontWeight: 650 }}
-        className="truncate text-[15px] sm:text-[22px] leading-snug"
-      >
-        {name}
-      </h2>
+      {/* Details */}
+      <div className="min-w-0 flex-1">
+        {brandName && (
+          <div className="text-[10px] sm:text-[12px] tracking-wide uppercase text-gray-500 mb-1 truncate">
+            {brandName}
+          </div>
+        )}
 
-      {/* Price + Qty */}
-      <div
-        className="
+        <h2
+          style={{ color: "rgba(0, 0, 0, 0.80)", fontWeight: 650 }}
+          className="truncate text-[15px] sm:text-[22px] leading-snug"
+        >
+          {name}
+        </h2>
+
+        {/* Price + Qty */}
+        <div
+          className="
           mt-2 flex flex-col sm:flex-row sm:items-center sm:gap-3
           items-start gap-1
         "
-      >
-        {item.actualPrice && item.actualPrice > (item.salePrice ?? 0) && (
-          <span className="text-[11px] sm:text-sm text-gray-400 line-through">
-            {formatINR(item.actualPrice)}
-          </span>
-        )}
+        >
+          {item.actualPrice && item.actualPrice > (item.salePrice ?? 0) && (
+            <span className="text-[11px] sm:text-sm text-gray-400 line-through">
+              {formatINR(item.actualPrice)}
+            </span>
+          )}
 
-        {/* Group sale price and qty together */}
-        <div className="flex items-center gap-1 sm:gap-2">
-          <span className="text-base sm:text-lg font-bold">
-            {formatINR(item.salePrice)}
-          </span>
-          <span className="text-xs sm:text-sm text-gray-600">
-            × {item.quantity}
-          </span>
+          {/* Group sale price and qty together */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <span className="text-base sm:text-lg font-bold">
+              {formatINR(item.salePrice)}
+            </span>
+            <span className="text-xs sm:text-sm text-gray-600">
+              × {item.quantity}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
 
-    {/* Total */}
-    <div className="flex items-center justify-center text-right">
-      <span className="text-sm sm:text-lg font-bold text-black">
-        {formatINR(item.price)}
-      </span>
+      {/* Total */}
+      <div className="flex items-center justify-center text-right">
+        <span className="text-sm sm:text-lg font-bold text-black">
+          {formatINR(item.price)}
+        </span>
+      </div>
     </div>
-  </div>
-);
+  );
 
 }
 
@@ -503,16 +513,16 @@ export default function OrderDetailsPage() {
   const shipping = order.shippingAddress;
   const canDownloadInvoice = (orderPaymentStatus || "").toUpperCase() === "SUCCESS";
   const shouldShowDelivery =
-  !!order.deliveryDetails?.trackingId &&
-  ["SHIPPED", "DELIVERED", "COMPLETED"].includes(order.orderStatus);
+    !!order.deliveryDetails?.trackingId &&
+    ["SHIPPED", "DELIVERED", "COMPLETED"].includes(order.orderStatus);
 
-//   function copyToClipboard(txt: string) {
-//   if (!txt) return;
-//   navigator.clipboard?.writeText(txt).then(
-//     () => toast.success("Tracking ID copied"),
-//     () => toast.error("Unable to copy")
-//   );
-// }
+  //   function copyToClipboard(txt: string) {
+  //   if (!txt) return;
+  //   navigator.clipboard?.writeText(txt).then(
+  //     () => toast.success("Tracking ID copied"),
+  //     () => toast.error("Unable to copy")
+  //   );
+  // }
 
   async function handleDownloadInvoice() {
     if (!order) return;
@@ -589,24 +599,24 @@ export default function OrderDetailsPage() {
             {order.items?.map((it, idx) => (
               <ItemCard key={idx} item={it} />
             ))}
-            
+
           </div>
-                {shouldShowDelivery && (
-  <div className="hidden lg:block mt-6">
-     <DeliveryTrackingCard
-      partnerName={order.deliveryDetails?.partnerName}
-      trackingId={order.deliveryDetails?.trackingId}
-      url={order.deliveryDetails?.url}
-      onTrackClick={() =>
-        genericTrack(
-          order.deliveryDetails?.partnerName,
-          order.deliveryDetails?.trackingId,
-          order.deliveryDetails?.url
-        )
-      }
-    />
-  </div>
-)}
+          {shouldShowDelivery && (
+            <div className="hidden lg:block mt-6">
+              <DeliveryTrackingCard
+                partnerName={order.deliveryDetails?.partnerName}
+                trackingId={order.deliveryDetails?.trackingId}
+                url={order.deliveryDetails?.url}
+                onTrackClick={() =>
+                  genericTrack(
+                    order.deliveryDetails?.partnerName,
+                    order.deliveryDetails?.trackingId,
+                    order.deliveryDetails?.url
+                  )
+                }
+              />
+            </div>
+          )}
 
 
         </div>
@@ -647,58 +657,66 @@ export default function OrderDetailsPage() {
                   <span className="font-extrabold text-black">Total</span>
                   <span className="font-extrabold text-black">{formatINR(grandTotal)}</span>
                 </div>
+
+                <div className="mt-4 border-t pt-3 flex justify-between items-center text-sm sm:text-base">
+                  <span className="font-medium text-gray-600">Payment Method</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatPaymentMethod(order.paymentMethod || order.payment?.paymentGateway)}
+                  </span>
+                </div>
               </div>
 
 
-              {/* ✅ Show Complete Payment button when INITIATED */}
-{/* ✅ Show Complete Payment button if payment is pending (INITIATED) */}
-{order.orderPaymentStatus === "INITIATED" &&
-  order.payment?.paymentGateway === "RAZORPAY" && (
-    <div className="mt-4">
-      {order.payment?.razorpayGatewayDetails?.type === "PAYMENT_ORDER" ? (
-        <button
-          onClick={async () => {
-            const razorOrderId =
-              order.payment?.razorpayGatewayDetails?.orderId;
-            if (!razorOrderId) {
-              toast.error("Missing Razorpay order ID.");
-              return;
-            }
-            const amount = order.summary?.total ?? 0;
-            const amountPaise = Math.round(Number(amount) * 100);
 
-            await openRazorpay({
-              orderId: razorOrderId,
-              amountPaise,
-              customerName: order.shippingAddress?.name,
-              customerEmail: order.user?.email,
-              customerPhone: order.shippingAddress?.phone,
-              onComplete: (status) => {
-                if (status === "success") {
-                  toast.success("Payment completed successfully!");
-                  window.location.reload();
-                } else {
-                  toast("Payment window closed.");
-                }
-              },
-            });
-          }}
-          className="w-full bg-[#E72429] hover:bg-[#c71e23] text-white font-semibold py-2 rounded-md transition-all"
-        >
-          Complete Payment
-        </button>
-      ) : order.payment?.razorpayGatewayDetails?.type === "PAYMENT_LINK" ? (
-        <a
-          href={order.payment?.razorpayGatewayDetails?.paymentLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full text-center bg-[#E72429] hover:bg-[#c71e23] text-white font-semibold py-2 rounded-md transition-all"
-        >
-          Pay Now via Razorpay
-        </a>
-      ) : null}
-    </div>
-  )}
+              {/* ✅ Show Complete Payment button when INITIATED */}
+              {/* ✅ Show Complete Payment button if payment is pending (INITIATED) */}
+              {order.orderPaymentStatus === "INITIATED" &&
+                order.payment?.paymentGateway === "RAZORPAY" && (
+                  <div className="mt-4">
+                    {order.payment?.razorpayGatewayDetails?.type === "PAYMENT_ORDER" ? (
+                      <button
+                        onClick={async () => {
+                          const razorOrderId =
+                            order.payment?.razorpayGatewayDetails?.orderId;
+                          if (!razorOrderId) {
+                            toast.error("Missing Razorpay order ID.");
+                            return;
+                          }
+                          const amount = order.summary?.total ?? 0;
+                          const amountPaise = Math.round(Number(amount) * 100);
+
+                          await openRazorpay({
+                            orderId: razorOrderId,
+                            amountPaise,
+                            customerName: order.shippingAddress?.name,
+                            customerEmail: order.user?.email,
+                            customerPhone: order.shippingAddress?.phone,
+                            onComplete: (status) => {
+                              if (status === "success") {
+                                toast.success("Payment completed successfully!");
+                                window.location.reload();
+                              } else {
+                                toast("Payment window closed.");
+                              }
+                            },
+                          });
+                        }}
+                        className="w-full bg-[#E72429] hover:bg-[#c71e23] text-white font-semibold py-2 rounded-md transition-all"
+                      >
+                        Complete Payment
+                      </button>
+                    ) : order.payment?.razorpayGatewayDetails?.type === "PAYMENT_LINK" ? (
+                      <a
+                        href={order.payment?.razorpayGatewayDetails?.paymentLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full text-center bg-[#E72429] hover:bg-[#c71e23] text-white font-semibold py-2 rounded-md transition-all"
+                      >
+                        Pay Now via Razorpay
+                      </a>
+                    ) : null}
+                  </div>
+                )}
 
 
               {/* Download Invoice (only when SUCCESS) */}
@@ -722,7 +740,7 @@ export default function OrderDetailsPage() {
               <div>
                 <h2
                   className="mb-3"
-                  style={{ color: "black",fontSize: "18px", fontWeight: 650 }}
+                  style={{ color: "black", fontSize: "18px", fontWeight: 650 }}
                 >
                   Shipping Address
                 </h2>
@@ -743,22 +761,22 @@ export default function OrderDetailsPage() {
             )}
           </div>
         </aside>
-       {shouldShowDelivery && (
-        <div className="lg:hidden mt-6">
-           <DeliveryTrackingCard
-      partnerName={order.deliveryDetails?.partnerName}
-      trackingId={order.deliveryDetails?.trackingId}
-      url={order.deliveryDetails?.url}
-      onTrackClick={() =>
-        genericTrack(
-          order.deliveryDetails?.partnerName,
-          order.deliveryDetails?.trackingId,
-          order.deliveryDetails?.url
-        )
-      }
-    />
-        </div>
-)}
+        {shouldShowDelivery && (
+          <div className="lg:hidden mt-6">
+            <DeliveryTrackingCard
+              partnerName={order.deliveryDetails?.partnerName}
+              trackingId={order.deliveryDetails?.trackingId}
+              url={order.deliveryDetails?.url}
+              onTrackClick={() =>
+                genericTrack(
+                  order.deliveryDetails?.partnerName,
+                  order.deliveryDetails?.trackingId,
+                  order.deliveryDetails?.url
+                )
+              }
+            />
+          </div>
+        )}
 
       </div>
     </div>

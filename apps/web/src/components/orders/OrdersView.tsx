@@ -60,7 +60,8 @@ const tabs: OrdersTab[] = ["Orders", "Cancelled Orders"];
 const DateRangeSchema = z.object({ from: z.date(), to: z.date() });
 const FormSchema = z.object({ dateRange: DateRangeSchema.optional().nullable() });
 
-const STATUS_OPTIONS = ["PLACED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED"] as const;
+const STATUS_OPTIONS = ["PENDING", "PROCESSING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED", "REFUNDED"] as const;
+
 type StatusOption = (typeof STATUS_OPTIONS)[number];
 
 export default function OrdersView() {
@@ -463,10 +464,10 @@ export default function OrdersView() {
           {totalCount === 0
             ? "No results"
             : (() => {
-                const start = (currentPage - 1) * pageSize + 1;
-                const end = Math.min(currentPage * pageSize, totalCount);
-                return `Showing ${start}–${end} of ${totalCount}`;
-              })()}
+              const start = (currentPage - 1) * pageSize + 1;
+              const end = Math.min(currentPage * pageSize, totalCount);
+              return `Showing ${start}–${end} of ${totalCount}`;
+            })()}
         </div>
 
         <Pagination

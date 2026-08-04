@@ -48,6 +48,13 @@ const VIDEO_MAX_FALLBACK_MS = 45000;
 const SWIPE_THRESHOLD_PX = 50;
 const ANGLE_TOLERANCE = 1.2;
 
+function isVideoFile(key?: string, mimetype?: string): boolean {
+  if (mimetype?.startsWith("video/")) return true;
+  if (!key) return false;
+  const ext = key.split(".").pop()?.toLowerCase();
+  return ["mp4", "webm", "ogg", "mov", "m4v", "avi", "mkv"].includes(ext || "");
+}
+
 export default function HeroClient({ banners }: HeroClientProps) {
   const [muted, setMuted] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -115,7 +122,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
     if (banners.length <= 1) return;
     const next = (currentSlide + 1) % banners.length;
     const b = banners[next];
-    const isVid = b?.mediaFile?.mimetype?.startsWith("video/");
+    const isVid = isVideoFile(b?.mediaFile?.key, b?.mediaFile?.mimetype);
     const url = b?.mediaFile?.key ? getImageUrl(b.mediaFile.key) : "";
     if (url && !isVid) {
       const img = new window.Image();
@@ -125,7 +132,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
 
   /* ---------- Slide scheduling (image timer vs. video ended) ---------- */
   const currentBanner: Banner | undefined = banners.length > 0 ? banners[currentSlide] : undefined;
-  const isVideo = currentBanner?.mediaFile?.mimetype?.startsWith("video/") || false;
+  const isVideo = isVideoFile(currentBanner?.mediaFile?.key, currentBanner?.mediaFile?.mimetype);
   const mediaUrl = currentBanner?.mediaFile?.key ? getImageUrl(currentBanner.mediaFile.key) : "/placeholder.svg";
 
   useEffect(() => {
@@ -143,17 +150,30 @@ export default function HeroClient({ banners }: HeroClientProps) {
       }
     } else {
       imageTimerRef.current = setTimeout(() => {
-        if (!isVideo && inViewport) nextSlide();
+        if (!isVideo) nextSlide();
       }, IMAGE_DURATION_MS);
     }
 
     return clearTimers;
-  }, [currentSlide, isVideo, mediaUrl, inViewport, currentBanner, clearTimers, nextSlide]);
+  }, [currentSlide, isVideo, mediaUrl, currentBanner, clearTimers, nextSlide]);
+
+  /* ---------- Play/Pause based on viewport visibility ---------- */
+  useEffect(() => {
+    if (isVideo && videoRef.current) {
+      if (inViewport) {
+        videoRef.current.play().catch(() => {});
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [inViewport, isVideo, currentSlide]);
 
   /* ---------- Video event handlers ---------- */
   const onVideoCanPlay = () => {
     setSlideReady(true);
-    videoRef.current?.play().catch(() => {});
+    if (inViewport) {
+      videoRef.current?.play().catch(() => {});
+    }
   };
 
   const onVideoEnded = () => {
@@ -173,7 +193,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
 
   const onMediaError = () => {
     setMediaError("Media failed to load");
-    setTimeout(() => nextSlide(), 1000);
+    setTimeout(() => nextSlide(), 1500);
   };
 
   /* ---------- Swipe / Drag Handlers ---------- */
@@ -210,10 +230,10 @@ export default function HeroClient({ banners }: HeroClientProps) {
       else prevSlide();
     } else {
       if (isVideo) {
-        videoRef.current?.play().catch(() => {});
+        if (inViewport) videoRef.current?.play().catch(() => {});
       } else {
         imageTimerRef.current = setTimeout(() => {
-          if (!isVideo && inViewport) nextSlide();
+          if (!isVideo) nextSlide();
         }, IMAGE_DURATION_MS);
       }
     }
@@ -261,17 +281,13 @@ export default function HeroClient({ banners }: HeroClientProps) {
               src={mediaUrl}
               muted={muted}
               playsInline
-              preload="metadata"
+              preload="auto"
               className="w-full h-full object-cover"
               onCanPlay={onVideoCanPlay}
               onEnded={onVideoEnded}
-              onWaiting={onVideoWaitingOrStalled}
-              onStalled={onVideoWaitingOrStalled}
               onPlaying={onVideoPlaying}
               onError={onMediaError}
-            >
-              <source src={mediaUrl} type="video/mp4" />
-            </video>
+            />
           ) : (
             <Image
               src={mediaUrl}

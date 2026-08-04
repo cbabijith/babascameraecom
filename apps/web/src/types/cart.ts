@@ -92,7 +92,10 @@ export type CreateOrderPayload = {
   totalOrderPrice: number; // e.g., 2500
   shippingAddress: string; // address _id
   deliveryCharge?: number;
+  method?: "RAZORPAY" | "BANK_TRANSFER" | string;
 };
+
+
 
 export type PaymentGatewayDetails = {
   type?: string;
