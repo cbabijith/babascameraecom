@@ -5,16 +5,22 @@ import {
   and,
   cartItems as cartItemsTable,
   carts as cartsTable,
+  couponRedemptions,
+  coupons,
   desc,
   eq,
   getDatabase,
   gte,
   inArray,
+  inventoryReservations,
   lte,
   orderItems as orderItemsTable,
   orders as ordersTable,
+  orderStatusHistory,
   orderStatusValues,
   products as productsTable,
+  productVariants,
+  sql,
   type ShippingAddressSnapshot,
 } from "@babascamera/db";
 
@@ -447,6 +453,131 @@ export async function fetchOrderById(orderId: string) {
     if (error instanceof OrderDataError) throw error;
     throw new OrderDataError(
       error instanceof Error ? error.message : "Failed to fetch order",
+      400,
+      error,
+    );
+  }
+}
+
+export async function cancelUserOrder(orderId: string, reason = "Cancelled by customer") {
+  if (!orderId) {
+    throw new OrderDataError("Order ID is required", 400);
+  }
+
+  try {
+    const user = await getOptionalUser();
+    if (!user) {
+      throw new OrderDataError("Authentication required to cancel order", 401);
+    }
+
+    const db = getDatabase();
+    const [orderRow] = await db
+      .select()
+      .from(ordersTable)
+      .where(and(eq(ordersTable.id, orderId), eq(ordersTable.userId, user.id)))
+      .limit(1);
+
+    if (!orderRow) {
+      throw new OrderDataError("Order not found or access denied.", 404);
+    }
+
+    const currentStatus = orderRow.status.toLowerCase();
+    const NON_CANCELLABLE = ["shipped", "delivered", "cancelled", "refunded"];
+    if (NON_CANCELLABLE.includes(currentStatus)) {
+      throw new OrderDataError(
+        `Order cannot be cancelled as it is already ${orderRow.status}.`,
+        400,
+      );
+    }
+
+    const now = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(ordersTable)
+        .set({
+          status: "cancelled",
+          updatedAt: now,
+        })
+        .where(eq(ordersTable.id, orderId));
+
+      await tx.insert(orderStatusHistory).values({
+        orderId,
+        fromStatus: orderRow.status,
+        toStatus: "cancelled",
+        note: reason,
+        actorId: user.id,
+      });
+
+      // Release inventory reservations
+      const releasable = await tx.query.inventoryReservations.findMany({
+        where: (table, { and: andCond, eq: equals, inArray: inValues }) =>
+          andCond(
+            equals(table.orderId, orderId),
+            inValues(table.status, ["reserved", "consumed"]),
+          ),
+      });
+
+      for (const reservation of releasable) {
+        await tx
+          .update(productsTable)
+          .set({
+            stock: sql`${productsTable.stock} + ${reservation.quantity}`,
+            updatedAt: now,
+          })
+          .where(eq(productsTable.id, reservation.productId));
+
+        if (reservation.variantId) {
+          await tx
+            .update(productVariants)
+            .set({
+              stock: sql`${productVariants.stock} + ${reservation.quantity}`,
+              updatedAt: now,
+            })
+            .where(eq(productVariants.id, reservation.variantId));
+        }
+
+        await tx
+          .update(inventoryReservations)
+          .set({
+            status: "released",
+            consumedAt: null,
+            releasedAt: now,
+            updatedAt: now,
+          })
+          .where(eq(inventoryReservations.id, reservation.id));
+      }
+
+      // Release coupon redemptions
+      const redemptions = await tx.query.couponRedemptions.findMany({
+        where: (table, { and: andCond, eq: equals, inArray: inValues }) =>
+          andCond(
+            equals(table.orderId, orderId),
+            inValues(table.status, ["reserved", "applied"]),
+          ),
+      });
+
+      for (const redemption of redemptions) {
+        await tx
+          .update(couponRedemptions)
+          .set({ status: "released", releasedAt: now, updatedAt: now })
+          .where(eq(couponRedemptions.id, redemption.id));
+
+        await tx
+          .update(coupons)
+          .set({
+            usedCount: sql`greatest(${coupons.usedCount} - 1, 0)`,
+            updatedAt: now,
+          })
+          .where(eq(coupons.id, redemption.couponId));
+      }
+    });
+
+    return fetchOrderById(orderId);
+  } catch (error: unknown) {
+    if (error instanceof OrderDataError) throw error;
+    throw new OrderDataError(
+      error instanceof Error ? error.message : "Failed to cancel order",
       400,
       error,
     );

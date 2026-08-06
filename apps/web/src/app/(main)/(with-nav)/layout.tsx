@@ -12,8 +12,8 @@ export default function WithNavLayout({ children }: { children: ReactNode }) {
     <ReduxProvider>
       <Navbar />
       <Header />
-      <main className="pb-16 md:pb-0">{children}</main>
-      <div className="mb-16 md:mb-0">
+      <main className="pb-16 md:pb-0 w-full max-w-full overflow-x-clip">{children}</main>
+      <div className="mb-16 md:mb-0 w-full max-w-full overflow-x-clip">
         <Footer />
       </div>
       {/* <BottomNav /> */}

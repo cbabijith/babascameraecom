@@ -13,6 +13,7 @@ import {
   productVariants,
   sql,
   type OrderStatus,
+  type PaymentStatus,
 } from "@babascamera/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -167,5 +168,59 @@ export async function updateOrderStatusAction(
     return actionSuccess({ orderId, status: toStatus });
   } catch (error) {
     return actionFailureFromError(error, "Order status could not be updated.", "Order status update failed.");
+  }
+}
+
+const paymentStatusSchema = z.enum(["pending", "paid", "failed", "refunded"]);
+const updatePaymentStatusFormSchema = z.object({
+  orderId: z.string().uuid(),
+  paymentStatus: paymentStatusSchema,
+  note: z.string().max(500).optional(),
+});
+
+export async function updatePaymentStatusAction(
+  formData: FormData,
+): Promise<AdminActionResult<{ orderId: string; paymentStatus: PaymentStatus }>> {
+  const admin = await requirePermission("orders");
+  const parsed = updatePaymentStatusFormSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return validationFailure(parsed.error);
+  const { orderId, paymentStatus } = parsed.data;
+  const note = optionalText(parsed.data.note as string);
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`select id from orders where id = ${orderId} for update`);
+      const order = await tx.query.orders.findFirst({
+        where: (table, { eq: equals }) => equals(table.id, orderId),
+      });
+      if (!order) throw new AdminActionError("Order not found.");
+
+      const now = new Date();
+      await tx
+        .update(orders)
+        .set({
+          paymentStatus,
+          updatedAt: now,
+        })
+        .where(eq(orders.id, orderId));
+
+      await tx.insert(orderStatusHistory).values({
+        orderId,
+        fromStatus: null,
+        toStatus: order.status,
+        note: note ?? `Payment status updated from ${order.paymentStatus} to ${paymentStatus}.`,
+        actorId: admin.id,
+      });
+    });
+
+    revalidatePath("/orders");
+    revalidatePath(`/orders/${orderId}`);
+    return actionSuccess({ orderId, paymentStatus });
+  } catch (error) {
+    return actionFailureFromError(
+      error,
+      "Payment status could not be updated.",
+      "Payment status update failed.",
+    );
   }
 }

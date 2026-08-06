@@ -44,6 +44,26 @@ export const getHeroBanners = async (params?: Omit<BannerQueryParams, 'type'>): 
   return getBanners({ ...params, type: 'Hero' });
 };
 
+// Get both featured banners in a single HTTP request (optimizes network latency)
+export const getFeaturedBannersCombined = async (): Promise<{
+  primary: Banner | null;
+  secondary: Banner | null;
+}> => {
+  try {
+    const response = await getBanners({ limit: 2 });
+    const activeBanners = (response.results || []).filter(
+      (banner) => banner.status === 'Active' && banner.visibility === 'Show'
+    );
+    return {
+      primary: activeBanners[0] || null,
+      secondary: activeBanners[1] || activeBanners[0] || null,
+    };
+  } catch (error) {
+    console.error('getFeaturedBannersCombined error:', error);
+    return { primary: null, secondary: null };
+  }
+};
+
 // Get featured product primary banner
 export const getFeaturedProductPrimary = async (): Promise<Banner | null> => {
   try {

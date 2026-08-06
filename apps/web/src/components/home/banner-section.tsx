@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { OptimizedMedia } from "@/components/ui/optimized-media"
 import { SectionBannerSkeleton } from "@/components/ui/banner-skeleton"
-import { getFeaturedProductPrimary, getFeaturedProductSecondary } from "@/instances/bannerInstance"
+import { getFeaturedBannersCombined } from "@/instances/bannerInstance"
 import type { Banner } from "@/types/banner"
 import { getImageUrl } from "@/lib/apiClient"
 
@@ -18,12 +18,9 @@ export default function BannerSection() {
     const fetchFeaturedBanners = async () => {
       try {
         setLoading(true)
-        const [primary, secondary] = await Promise.all([
-          getFeaturedProductPrimary(),
-          getFeaturedProductSecondary(),
-        ])
-        setPrimaryBanner(primary || null)
-        setSecondaryBanner(secondary || null)
+        const { primary, secondary } = await getFeaturedBannersCombined()
+        setPrimaryBanner(primary)
+        setSecondaryBanner(secondary)
       } catch (err) {
         console.error("Error fetching featured banners:", err)
         setPrimaryBanner(null)
@@ -63,8 +60,11 @@ export default function BannerSection() {
     banner: Banner
     gradient?: string
   }) => {
-    const isVideo = banner.mediaFile?.mimetype?.startsWith("video/") || false
     const src = banner.mediaFile?.key ? getImageUrl(banner.mediaFile.key) : ""
+    const keyLower = (banner.mediaFile?.key || "").toLowerCase()
+    const isVideo =
+      Boolean(banner.mediaFile?.mimetype?.startsWith("video/")) ||
+      [".mp4", ".webm", ".ogg", ".mov", ".m4v", ".avi", ".mkv"].some((ext) => keyLower.endsWith(ext))
 
     return (
       <Link href={`/products/banner/${banner._id}`} className="block group" aria-label={banner.subHeading}>

@@ -2,7 +2,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "@babascamera/u
 import { Download, ExternalLink, FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 
-import { OrderTransitionForm, RefundForm } from "@/components/order-actions";
+import { OrderTransitionForm, PaymentStatusForm, RefundForm } from "@/components/order-actions";
 import { OrderItemTable } from "@/components/order-item-table";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -94,7 +94,6 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       console.warn("Could not generate signed URL for bank proof attachment:", err);
     }
   }
-
   return (
     <>
       <PageHeader title={order.orderNumber} description={`Placed ${formatDate(order.createdAt, true)} by ${order.customerName ?? order.customerEmail}.`} />
@@ -209,6 +208,19 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </Card>
           ) : null}
 
+          {order.status === "cancelled" ?
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span>Payment status adjustment</span>
+                  {order.status === "cancelled" ? <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">Cancelled Order</span> : null}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PaymentStatusForm orderId={order.id} currentPaymentStatus={order.paymentStatus} isCancelled={order.status === "cancelled"} />
+              </CardContent>
+            </Card>
+            : null}
           <Card><CardHeader><CardTitle>Advance fulfilment</CardTitle></CardHeader><CardContent><OrderTransitionForm orderId={order.id} currentStatus={order.status} allowed={ORDER_TRANSITIONS[order.status]} /></CardContent></Card>
           {canRefund ? <Card className="border-rose-200"><CardHeader><CardTitle>Razorpay refund</CardTitle></CardHeader><CardContent><RefundForm orderId={order.id} /></CardContent></Card> : null}
         </aside>

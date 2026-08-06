@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { getOrderById, fetchInvoiceFile } from "@/instances/orderInstance";
+import { getOrderById, fetchInvoiceFile, cancelOrder } from "@/instances/orderInstance";
 import type { Order, OrderItem } from "@/types/order";
 import { getThumbnailUrl } from "@/lib/apiClient";
 import { toast } from "sonner";
@@ -258,6 +258,14 @@ function getStatusMeta(status?: string) {
   return { label, ...theme };
 }
 
+const CANCELLABLE_STATUSES = new Set(["PENDING", "PLACED", "CONFIRMED", "PROCESSING", "PACKED"]);
+
+export function isOrderCancellable(status?: string): boolean {
+  if (!status) return false;
+  const compact = status.toUpperCase().replace(/[^A-Z]/g, "");
+  return CANCELLABLE_STATUSES.has(compact);
+}
+
 /* ---------- helpers ---------- */
 const PLACEHOLDER_DATAURI =
   "data:image/svg+xml;utf8," +
@@ -425,6 +433,25 @@ export default function OrderDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("Changed my mind");
+
+  async function handleConfirmCancel() {
+    if (!order) return;
+    try {
+      setCancelling(true);
+      const updated = await cancelOrder(order._id, cancelReason);
+      setOrder(updated);
+      setShowCancelModal(false);
+      toast.success("Order has been cancelled successfully");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to cancel order";
+      toast.error(msg);
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -564,15 +591,28 @@ export default function OrderDetailsPage() {
             {/* Header row (status badge style copied from OrderCard) */}
             {(() => {
               const { label, text: statusText, bg, icon: Icon } = getStatusMeta(order.orderStatus);
+              const cancellable = isOrderCancellable(order.orderStatus);
               return (
                 <div className="mb-4 sm:mb-6 flex flex-col items-start justify-between gap-3 sm:flex-row">
                   <div className="min-w-0">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs sm:text-sm font-medium ${bg} ${statusText}`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {label}
-                    </span>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs sm:text-sm font-medium ${bg} ${statusText}`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </span>
+                      {cancellable && (
+                        <button
+                          type="button"
+                          onClick={() => setShowCancelModal(true)}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-3.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors shadow-2xs"
+                        >
+                          <PackageX className="h-3.5 w-3.5" />
+                          Cancel Order
+                        </button>
+                      )}
+                    </div>
 
                     {placedAt && (
                       <p className="mt-2 text-muted-foreground text-[12px] sm:text-[13px]">
@@ -581,7 +621,7 @@ export default function OrderDetailsPage() {
                     )}
                   </div>
 
-                  <div className="text-sm sm:text-base text-left">
+                  <div className="text-sm sm:text-base text-left sm:text-right">
                     <p className="text-gray-600">
                       <span className="font-[750]">Order Code :</span>{" "}
                       <span className="font-[500]">{order.code}</span>
@@ -778,6 +818,55 @@ export default function OrderDetailsPage() {
           </div>
         )}
 
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3 text-rose-600 mb-2">
+              <PackageX className="h-6 w-6" />
+              <h3 className="text-xl font-bold text-gray-900">Cancel Order?</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to cancel order <span className="font-semibold text-gray-900">{order.code}</span>? Items will be returned to inventory.
+            </p>
+
+            <div className="mb-5">
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                Reason for cancellation
+              </label>
+              <select
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white p-2.5 text-sm outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+              >
+                <option value="Changed my mind">Changed my mind</option>
+                <option value="Ordered by mistake">Ordered by mistake</option>
+                <option value="Shipping time too long">Shipping time too long</option>
+                <option value="Found a better price elsewhere">Found a better price elsewhere</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(false)}
+                disabled={cancelling}
+                className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                disabled={cancelling}
+                className="rounded-full bg-rose-600 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-700 transition-colors shadow-sm disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {cancelling ? "Cancelling..." : "Confirm Cancellation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

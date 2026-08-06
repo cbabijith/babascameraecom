@@ -392,3 +392,27 @@ export const fetchInvoiceFile = async (
     rethrowAxios(error, "Failed to download invoice");
   }
 };
+
+/* ---------------- API: cancel order ---------------- */
+
+export const cancelOrder = async (orderId: string, reason?: string): Promise<Order> => {
+  try {
+    const response = await apiClient.patch<{
+      success: boolean;
+      message?: string;
+      result?: ApiOrder | FlattenedOrderRow;
+      data?: ApiOrder | FlattenedOrderRow;
+    }>(`/order/${orderId}`, { status: "cancelled", reason });
+
+    if (!response?.data?.success) {
+      throw new Error(response?.data?.message || "Failed to cancel order");
+    }
+    const raw = response.data.result ?? response.data.data;
+    if (raw) {
+      return isFlattenedOrderItem(raw) ? toOrderFromFlatRow(raw) : toOrderFromApi(raw as ApiOrder);
+    }
+    return await getOrderById(orderId);
+  } catch (error: unknown) {
+    rethrowAxios(error, "Failed to cancel order");
+  }
+};

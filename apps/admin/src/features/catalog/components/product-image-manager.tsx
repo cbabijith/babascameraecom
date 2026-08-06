@@ -127,8 +127,8 @@ export function ProductImageManager({
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {localImages.map((image) => (
-              <article key={image.id} className="overflow-hidden rounded-lg border bg-white shadow-sm">
-                <img src={image.url} alt={image.altText ?? productName} className="aspect-square w-full object-cover" />
+              <article key={image.id} className="rounded-lg border bg-white shadow-sm">
+                <img src={image.url} alt={image.altText ?? productName} className="aspect-square w-full rounded-t-lg object-cover" />
                 <div className="flex items-center justify-between gap-2 p-3">
                   {image.isPrimary ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
@@ -141,13 +141,16 @@ export function ProductImageManager({
                     <summary className="grid size-8 cursor-pointer list-none place-items-center rounded-md text-slate-500 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 [&::-webkit-details-marker]:hidden">
                       <MoreHorizontal className="size-4" />
                     </summary>
-                    <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
+                    <div className="absolute right-0 z-30 mt-1 w-44 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
                       {!image.isPrimary ? (
                         <button
                           type="button"
                           disabled={pending}
                           className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 disabled:opacity-60"
-                          onClick={() => run("primary", image)}
+                          onClick={(e) => {
+                            e.currentTarget.closest("details")?.removeAttribute("open");
+                            run("primary", image);
+                          }}
                         >
                           <Star className="size-4" /> Set primary
                         </button>
@@ -156,7 +159,10 @@ export function ProductImageManager({
                         type="button"
                         disabled={pending}
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-                        onClick={() => setDeleteImage(image)}
+                        onClick={(e) => {
+                          e.currentTarget.closest("details")?.removeAttribute("open");
+                          setDeleteImage(image);
+                        }}
                       >
                         <Trash2 className="size-4" /> Delete
                       </button>

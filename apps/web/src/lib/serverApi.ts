@@ -432,12 +432,12 @@ export async function getBrandPageDataServer(
 
     const brand: Brand | null = brandItem
       ? {
-          _id: brandItem.slug || brandItem.id,
-          name: brandItem.name,
-          slug: brandItem.slug,
-          status: "Active",
-          ...(brandItem.logoUrl ? { image: { key: brandItem.logoUrl } } : {}),
-        }
+        _id: brandItem.slug || brandItem.id,
+        name: brandItem.name,
+        slug: brandItem.slug,
+        status: "Active",
+        ...(brandItem.logoUrl ? { image: { key: brandItem.logoUrl } } : {}),
+      }
       : null;
 
     const products = productData.products.map(mapProduct);

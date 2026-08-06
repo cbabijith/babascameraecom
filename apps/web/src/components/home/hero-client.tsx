@@ -67,7 +67,6 @@ export default function HeroClient({ banners }: HeroClientProps) {
   const videoFallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const videoStallTimerRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [videoKey, setVideoKey] = useState(0);
 
   /* ---- swipe / drag state ---- */
   const startXRef = useRef<number | null>(null);
@@ -142,7 +141,6 @@ export default function HeroClient({ banners }: HeroClientProps) {
     clearTimers();
 
     if (isVideo) {
-      setVideoKey(k => k + 1);
       if (VIDEO_MAX_FALLBACK_MS > 0) {
         videoFallbackTimerRef.current = setTimeout(() => {
           nextSlide();
@@ -155,7 +153,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
     }
 
     return clearTimers;
-  }, [currentSlide, isVideo, mediaUrl, currentBanner, clearTimers, nextSlide]);
+  }, [currentSlide, isVideo, mediaUrl, clearTimers, nextSlide]);
 
   /* ---------- Play/Pause based on viewport visibility ---------- */
   useEffect(() => {
@@ -276,7 +274,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
         <div className="relative w-full h-full">
           {isVideo ? (
             <video
-              key={videoKey}
+              key={currentBanner?._id || currentSlide}
               ref={videoRef}
               src={mediaUrl}
               muted={muted}

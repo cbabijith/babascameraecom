@@ -55,16 +55,16 @@ function useNetworkQuality() {
       const apiDown = conn?.downlink;
       const apiType = conn?.effectiveType;
 
-      // Fallback: HEAD fetch to a tiny asset (use local favicon to avoid CDN CORS issues)
+      // Fallback: HEAD fetch to root route if connection API is unavailable
       let headRtt: number | undefined;
-      try {
-        const start = performance.now();
-        // Use local favicon from public folder - CDN URLs cause CORS issues
-        const url = "/favicon.ico";
-        await fetch(url, { method: "HEAD", cache: "no-store" });
-        headRtt = Math.max(0, performance.now() - start);
-      } catch {
-        // ignore; still useful with API data if present
+      if (typeof apiRtt !== "number") {
+        try {
+          const start = performance.now();
+          await fetch("/", { method: "HEAD", cache: "no-store" });
+          headRtt = Math.max(0, performance.now() - start);
+        } catch {
+          // ignore
+        }
       }
 
       const rtt = apiRtt ?? headRtt;

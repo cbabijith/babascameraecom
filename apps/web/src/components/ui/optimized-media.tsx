@@ -21,6 +21,14 @@ interface OptimizedMediaProps {
   height?: number
 }
 
+const VIDEO_EXTENSIONS = [".mp4", ".webm", ".ogg", ".mov", ".m4v", ".avi", ".mkv"];
+
+function isVideoUrl(url?: string): boolean {
+  if (!url) return false;
+  const cleanUrl = url.split("?")[0]?.toLowerCase() || "";
+  return VIDEO_EXTENSIONS.some((ext) => cleanUrl.endsWith(ext));
+}
+
 export function OptimizedMedia({
   src,
   alt,
@@ -51,6 +59,8 @@ export function OptimizedMedia({
     onError?.()
   }, [onError])
 
+  const shouldRenderVideo = isVideo || isVideoUrl(src);
+
   if (hasError) {
     return (
       <div className={`bg-gradient-to-r from-gray-800 to-gray-900 flex items-center justify-center ${className}`}>
@@ -67,7 +77,7 @@ export function OptimizedMedia({
         <Skeleton className="absolute inset-0" />
       )}
       
-      {isVideo ? (
+      {shouldRenderVideo ? (
         <video
           src={src}
           autoPlay={autoPlay}

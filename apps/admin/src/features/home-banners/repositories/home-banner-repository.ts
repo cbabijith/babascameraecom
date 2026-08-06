@@ -61,10 +61,13 @@ export async function reorderHomeBanners(ids: string[]) {
     }
     const all = await tx.select({ id: homeBanners.id }).from(homeBanners);
     if (all.length !== ids.length) throw new Error("BANNER_ORDER_INCOMPLETE");
-    await tx.update(homeBanners).set({ position: sql`${homeBanners.position} + 10` });
-    for (const [position, id] of ids.entries()) {
-      await tx.update(homeBanners).set({ position, updatedAt: new Date() })
-        .where(eq(homeBanners.id, id));
-    }
+
+    await tx.execute(sql`drop index if exists home_banners_position_unique`);
+    const cases = ids.map((id, position) => sql`WHEN ${homeBanners.id} = ${id}::uuid THEN ${position}::integer`);
+    await tx.update(homeBanners).set({
+      position: sql`(CASE ${sql.join(cases, sql` `)} END)::integer`,
+      updatedAt: new Date(),
+    }).where(inArray(homeBanners.id, ids));
+    await tx.execute(sql`create unique index if not exists home_banners_position_unique on home_banners (position)`);
   });
 }

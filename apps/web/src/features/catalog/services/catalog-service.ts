@@ -81,6 +81,7 @@ export interface CatalogFilters {
   productIds?: string[];
   limit?: number;
   offset?: number;
+  skipTotal?: boolean;
 }
 
 export async function listCatalogProductsPage(
@@ -197,12 +198,14 @@ export async function listCatalogProductsPage(
       .orderBy(sortExpression, desc(products.createdAt))
       .limit(pageSize)
       .offset(offset),
-    database
-      .select({ value: count() })
-      .from(products)
-      .leftJoin(brands, eq(products.brandId, brands.id))
-      .leftJoin(categories, eq(products.categoryId, categories.id))
-      .where(and(...conditions)),
+    filters.skipTotal
+      ? Promise.resolve([{ value: 0 }])
+      : database
+          .select({ value: count() })
+          .from(products)
+          .leftJoin(brands, eq(products.brandId, brands.id))
+          .leftJoin(categories, eq(products.categoryId, categories.id))
+          .where(and(...conditions)),
   ]);
 
   if (rows.length === 0) {
@@ -308,11 +311,12 @@ export async function listBestSellingProducts(limit = 8) {
     .map((row) => row.productId)
     .filter((id): id is string => Boolean(id));
   if (!ids.length) {
-    return listCatalogProducts({ featured: true, limit });
+    return listCatalogProducts({ featured: true, limit, skipTotal: true });
   }
   const productsResult = await listCatalogProducts({
     productIds: ids,
     limit: ids.length,
+    skipTotal: true,
   });
   const byId = new Map(productsResult.map((product) => [product.id, product]));
   return ids

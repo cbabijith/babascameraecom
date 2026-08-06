@@ -30,22 +30,24 @@ function OfferSkeletonRow() {
           <div className="hidden md:block h-10 w-[92px]" />
         </div>
 
-        <div className="flex gap-3 md:gap-6 -mx-4 px-4 md:mx-0 md:px-0">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex-none w-[140px] md:w-[285px]">
-              <div
-                className="
-                  rounded-[14px] md:rounded-[36px] border bg-white shadow-sm animate-pulse
-                  w-[140px] h-[90.8537px] md:w-[285px] md:h-[202px]
-                "
-              />
-              <div className="mt-2 md:mt-3 space-y-1.5">
-                <div className="h-3 md:h-4 w-[80%] bg-gray-200 rounded animate-pulse" />
-                <div className="h-3 md:h-4 w-[60%] bg-gray-200 rounded animate-pulse" />
-                <div className="h-4 md:h-5 w-[50%] bg-gray-200 rounded animate-pulse mt-2" />
+        <div className="overflow-hidden">
+          <div className="flex gap-3 md:gap-6 pb-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex-none w-[140px] md:w-[285px]">
+                <div
+                  className="
+                    rounded-[14px] md:rounded-[36px] border bg-white shadow-sm animate-pulse
+                    w-[140px] h-[90.8537px] md:w-[285px] md:h-[202px]
+                  "
+                />
+                <div className="mt-2 md:mt-3 space-y-1.5">
+                  <div className="h-3 md:h-4 w-[80%] bg-gray-200 rounded animate-pulse" />
+                  <div className="h-3 md:h-4 w-[60%] bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 md:h-5 w-[50%] bg-gray-200 rounded animate-pulse mt-2" />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -136,7 +138,7 @@ function OfferStrip({ collection }: { collection: Collection }) {
             {typeof collection?.value === "number" && (
               <span
                 className="text-white text-xs sm:text-sm px-2.5 py-1 rounded-full"
-                style={{ backgroundColor: "#E72429"}}
+                style={{ backgroundColor: "#E72429" }}
               >
                 {collection.value}% OFF
               </span>

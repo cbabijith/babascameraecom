@@ -40,6 +40,7 @@ import {
   updateUserAddress,
 } from "@/features/address";
 import {
+  cancelUserOrder,
   createOrderFromCheckout,
   fetchOrderById,
   fetchUserOrders,
@@ -526,6 +527,15 @@ export async function PATCH(
       const body = await request.json().catch(() => ({}));
       const result = await updateUserAddress(identifier, body);
       return success({ result });
+    }
+
+    if (resource === "order" && identifier) {
+      const body = await request.json().catch(() => ({}));
+      const isCancel = path[2] === "cancel" || String(body.status).toLowerCase() === "cancelled" || String(body.action).toLowerCase() === "cancel";
+      if (isCancel) {
+        const result = await cancelUserOrder(identifier, body.reason);
+        return success({ result, message: "Order cancelled successfully." });
+      }
     }
 
     return NextResponse.json({ success: false, message: "Endpoint not available" + resource + "/" + identifier }, { status: 404 });

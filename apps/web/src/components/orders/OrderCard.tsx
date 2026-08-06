@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Order } from "@/types/order";
 import { getThumbnailUrl } from "@/lib/apiClient";
+import { cancelOrder } from "@/instances/orderInstance";
+import { toast } from "sonner";
 
 /* Icons */
 import {
@@ -111,6 +113,14 @@ function getStatusMeta(status?: string) {
   return { label, ...theme };
 }
 
+const CANCELLABLE_STATUSES = new Set(["PENDING", "PLACED", "CONFIRMED", "PROCESSING", "PACKED"]);
+
+function isOrderCancellable(status?: string): boolean {
+  if (!status) return false;
+  const compact = status.toUpperCase().replace(/[^A-Z]/g, "");
+  return CANCELLABLE_STATUSES.has(compact);
+}
+
 
 function formatINR(amount: number | undefined): string {
   if (amount == null || Number.isNaN(amount)) return "₹0";
@@ -149,7 +159,25 @@ export default function OrderCard({ order }: { order: Order }) {
 
   const items = order.items || [];
   const itemCount = items.length;
- const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancelClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to cancel order ${order.code ?? ""}?`)) return;
+    try {
+      setCancelling(true);
+      await cancelOrder(order._id, "Cancelled by customer");
+      toast.success("Order cancelled successfully");
+      window.location.reload();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to cancel order";
+      toast.error(msg);
+    } finally {
+      setCancelling(false);
+    }
+  };
 useEffect(() => {
   const mq = window.matchMedia("(max-width: 639px)");
   const onChange = () => setIsMobile(mq.matches);
@@ -252,12 +280,24 @@ useEffect(() => {
             <div className="font-semibold text-[16px] sm:text-[18px]">
               {amountFormatted}
             </div>
-            <Link
-              href={`/orders/${order._id}`}
-              className="mt-3 sm:mt-2 inline-flex h-9 sm:h-10 items-center justify-center rounded-full border px-4 sm:px-5 text-xs sm:text-sm font-semibold text-[#E72429] border-[#E72429] hover:bg-[#fff5f5]"
-            >
-              View Details
-            </Link>
+            <div className="mt-3 sm:mt-2 flex items-center gap-2 flex-wrap justify-end">
+              {isOrderCancellable(order.orderStatus) && (
+                <button
+                  type="button"
+                  onClick={handleCancelClick}
+                  disabled={cancelling}
+                  className="inline-flex h-9 sm:h-10 items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-rose-700 hover:bg-rose-100 transition-colors disabled:opacity-50"
+                >
+                  {cancelling ? "Cancelling..." : "Cancel Order"}
+                </button>
+              )}
+              <Link
+                href={`/orders/${order._id}`}
+                className="inline-flex h-9 sm:h-10 items-center justify-center rounded-full border px-4 sm:px-5 text-xs sm:text-sm font-semibold text-[#E72429] border-[#E72429] hover:bg-[#fff5f5]"
+              >
+                View Details
+              </Link>
+            </div>
           </div>
         </div>
       </div>

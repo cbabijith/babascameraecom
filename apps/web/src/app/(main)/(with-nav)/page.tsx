@@ -15,8 +15,8 @@ const PromotionalCards = nextDynamic(() => import("@/components/home/promotional
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-white">
-     <div className="space-y-2 sm:space-y-3 lg:space-y-4 pb-4">
+    <main className="min-h-screen bg-white w-full max-w-full overflow-x-clip relative">
+      <div className="space-y-2 sm:space-y-3 lg:space-y-4 pb-4 w-full max-w-full overflow-x-clip">
         {/* Extra top padding for nav → hero spacing */}
         <div className="constrained-width">
           <Hero />
@@ -31,6 +31,6 @@ export default function HomePage() {
         <StaticContent />
         <PromotionalCards />
       </div>
-  </main>
+    </main>
   )
 }

@@ -16,16 +16,18 @@ function BrandsWeLoveSkeleton() {
           <div className="hidden md:block h-10 w-[92px]" />
         </div>
 
-        <div className="flex gap-3 md:gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex-none w-[130px] sm:w-[190px] md:w-[230px] lg:w-[285px]
-                h-[170px] md:h-[260px] lg:h-[300px]
-                rounded-[16px] md:rounded-[28px] lg:rounded-[36px]
-                border border-gray-200 bg-white shadow-sm animate-pulse"
-            />
-          ))}
+        <div className="overflow-hidden">
+          <div className="flex gap-3 md:gap-6 pb-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex-none w-[130px] sm:w-[190px] md:w-[230px] lg:w-[285px]
+                  h-[170px] md:h-[260px] lg:h-[300px]
+                  rounded-[16px] md:rounded-[28px] lg:rounded-[36px]
+                  border border-gray-200 bg-white shadow-sm animate-pulse"
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>
