@@ -1,0 +1,23 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK",
+    "buildCommand": "bun run --cwd apps/admin build",
+    "watchPatterns": [
+      "/apps/admin/**",
+      "/packages/config/**",
+      "/packages/db/**",
+      "/packages/ui/**",
+      "/package.json",
+      "/bun.lock",
+      "/turbo.json"
+    ]
+  },
+  "deploy": {
+    "startCommand": "bun run --cwd apps/admin start",
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
