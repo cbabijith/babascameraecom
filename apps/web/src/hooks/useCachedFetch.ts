@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import apiClient, { ApiResponse } from "@/lib/apiClient";
+import apiClient, { type ApiResponse } from "@/lib/apiClient";
 import {
   getCached,
   setCache,
@@ -59,6 +59,7 @@ export function useCachedFetch<T>(
     staleWhileRevalidate = true,
   } = options;
 
+  const paramsKey = JSON.stringify(params);
   const cacheKey = createCacheKey(url, params);
   const [data, setData] = useState<T | undefined>(() => getCached<T>(cacheKey));
   const [loading, setLoading] = useState(!data && !skip);
@@ -91,7 +92,8 @@ export function useCachedFetch<T>(
         setLoading(false);
       }
     }
-  }, [url, JSON.stringify(params), cacheKey, ttl, onSuccess, onError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- data/params are captured per-mount by design; paramsKey covers identity
+  }, [url, paramsKey, cacheKey, ttl, onSuccess, onError]);
 
   useEffect(() => {
     mountedRef.current = true;

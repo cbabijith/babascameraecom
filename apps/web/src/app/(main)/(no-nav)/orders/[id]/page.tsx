@@ -40,13 +40,13 @@ const loadRazorpayScript = (): Promise<boolean> =>
     document.body.appendChild(s);
   });
 
-type RazorpaySuccessResponse = {
+interface RazorpaySuccessResponse {
   razorpay_payment_id?: string;
   razorpay_order_id?: string;
   razorpay_signature?: string;
-};
+}
 
-type RazorpayOptions = {
+interface RazorpayOptions {
   key: string;
   amount: number;
   currency: string;
@@ -55,9 +55,9 @@ type RazorpayOptions = {
   prefill?: { name?: string; email?: string; contact?: string };
   handler?: (response: RazorpaySuccessResponse) => void;
   modal?: { ondismiss?: () => void };
-};
+}
 
-type RazorpayCheckout = { open: () => void };
+interface RazorpayCheckout { open: () => void }
 type RazorpayConstructor = new (opts: RazorpayOptions) => RazorpayCheckout;
 
 declare global {
@@ -122,11 +122,11 @@ const STATUS_LABEL: Record<string, string> = {
   FAILED: "Payment Failed",
 };
 
-type Theme = {
+interface Theme {
   text: string;
   bg: string;
   icon: React.ComponentType<{ className?: string }>;
-};
+}
 
 const STATUS_THEME: Record<string, Theme> = {
   PENDING: { text: "text-amber-700", bg: "bg-amber-100", icon: Clock },
@@ -338,7 +338,7 @@ function ItemCard({ item }: { item: OrderItem }) {
   );
   const [imgSrc, setImgSrc] = useState<string>(initialSrc);
 
-  const Img = (
+  const _Img = (
     <Image
       src={imgSrc}
       alt={name}

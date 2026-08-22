@@ -1,7 +1,7 @@
 // instances/profileInstance.ts
 
 import { apiClient } from '@/lib/apiClient';
-import {
+import type {
   UserProfile,
   UserProfileResponse,
   UpdateUserProfilePayload,

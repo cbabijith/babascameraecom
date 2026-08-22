@@ -37,7 +37,6 @@ import {
   SortableListItem,
 } from "@/components/sortable-list";
 import { AdminPage, AdminPageHeader, AdminSection } from "@/components/ui/admin-page";
-import { createClient } from "@/lib/supabase/client";
 
 import { homeBannerApi } from "../api/home-banner-api-client";
 import { getBannerStatus } from "../tables/banner-list-model";
@@ -218,10 +217,12 @@ export function HomeBannerManager({ banners }: { banners: HomeBanner[] }) {
     }
     const { path, token } = authorization.data;
     setUploadProgress(35);
-    const { error } = await createClient().storage
-      .from("home-banners")
-      .uploadToSignedUrl(path, token, file, { contentType: "video/mp4" });
-    if (error) {
+    const uploadRes = await fetch(token, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": "video/mp4" },
+    });
+    if (!uploadRes.ok) {
       setUploading(null);
       toast.error("Video upload failed.");
       return;

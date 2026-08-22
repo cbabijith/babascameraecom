@@ -4,11 +4,11 @@ import { useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-type Award = {
+interface Award {
   img: string;
   title: string;
   desc: string;
-};
+}
 
 const awards: Award[] = [
   {

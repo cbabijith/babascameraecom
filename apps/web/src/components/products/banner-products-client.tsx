@@ -24,7 +24,7 @@ interface BannerProduct {
     salePrice: number;
     collectionDiscount?: number;
   };
-  images?: Array<{ key: string }>;
+  images?: { key: string }[];
   category?: { _id: string; name: string };
   brand?: { _id: string; name: string };
   quantity: number;

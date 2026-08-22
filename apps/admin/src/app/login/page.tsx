@@ -32,7 +32,7 @@ export default async function LoginPage({
             Fast, private access for product, order, and customer management.
           </p>
           <p className="mt-5 max-w-md text-base leading-7 text-white/64">
-            Admin access is verified through Supabase Auth, then checked against the internal user role before any dashboard page loads.
+            Admin access is authenticated securely, then verified against the administrator role before any dashboard page loads.
           </p>
         </div>
       </section>

@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
-import type { AppDispatch, RootState } from "@/store";
+import type { AppDispatch } from "@/store";
 import {
   selectCartItems,
   selectCartLoading,
@@ -46,19 +46,19 @@ const toNumber = (v: unknown): number => {
   return 0;
 };
 
-type UploadApiResponse = {
+interface UploadApiResponse {
   success?: boolean;
   result?: { _id?: string } | null;
   data?: { _id?: string } | null;
   _id?: string;
-};
+}
 
-type CreateOrderResponseLite = {
+interface CreateOrderResponseLite {
   success?: boolean;
   message?: string;
-};
+}
 
-type BankTransferOrderPayload = {
+interface BankTransferOrderPayload {
   totalOrderPrice: number;
   shippingAddress: string;
   method: "BANK_TRANSFER";
@@ -67,7 +67,7 @@ type BankTransferOrderPayload = {
     accountName: string;
     proofFile?: string | null;
   };
-};
+}
 
 const DELIVERY_DEFAULTS: Required<DeliverySettings> = {
   enableFreeDelivery: true,
@@ -75,29 +75,29 @@ const DELIVERY_DEFAULTS: Required<DeliverySettings> = {
   freeDeliveryThreshold: 3000,
 };
 
-type ProductLite = {
+interface ProductLite {
   _id: string;
   name: string;
   slug?: string;
   price?: { salePrice?: number };
   quantity?: number;
-  images?: Array<{ key: string }>;
+  images?: { key: string }[];
   brand?: { name?: string };
   category?: { name?: string };
-};
+}
 
 function BankTransferInner() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
 
   // Store context
-  const checkoutCtx = useSelector(selectCheckoutContext);
+  void useSelector(selectCheckoutContext);
   const isBuyNowFlow = useSelector(selectIsBuyNowCheckout);
   const buyNowCtx = useSelector(selectBuyNowContext);
   const storeAddressId = useSelector(selectCheckoutAddressId);
 
   const cartItems = useSelector(selectCartItems);
-  const cartLoading = useSelector(selectCartLoading);
+  void useSelector(selectCartLoading);
   const cartError = useSelector(selectCartError);
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(storeAddressId);

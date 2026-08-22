@@ -45,7 +45,7 @@ function ModalSkeleton() {
   );
 }
 
-type FormState = {
+interface FormState {
   // from profile (not user-editable in UI)
   name: string;
   phone: string;
@@ -62,7 +62,7 @@ type FormState = {
 
   addressType: AddressType | string;
   category: AddressCategory | string;
-};
+}
 
 interface AddressModalProps {
   isOpen: boolean;

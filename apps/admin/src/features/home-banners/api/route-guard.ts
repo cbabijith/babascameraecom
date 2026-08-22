@@ -1,5 +1,4 @@
 import { resolveAdminAccess } from "@/features/auth/server/admin";
-import { createClient } from "@/lib/supabase/server";
 
 import { HomeBannerError } from "../services/home-banner-service";
 
@@ -25,7 +24,7 @@ export async function homeBannerRoute(request: Request, operation: () => Promise
       }
     }
   }
-  const access = await resolveAdminAccess(await createClient());
+  const access = await resolveAdminAccess();
   if (access.kind === "anonymous") return errorResponse("UNAUTHENTICATED", "Sign in to continue.", 401);
   if (access.kind === "forbidden" || !access.admin.permissions.includes("storefront")) {
     return errorResponse("FORBIDDEN", "Storefront access is not allowed.", 403);

@@ -100,7 +100,7 @@ export function LoginForm({ next }: { next: string }) {
           )}
         </Button>
         <p className="text-center text-xs text-slate-500">
-          Access is checked against Supabase Auth and the admin role before the dashboard opens.
+          Access is checked against administrator credentials before the dashboard opens.
         </p>
       </form>
     </Form>

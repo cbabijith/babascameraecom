@@ -55,11 +55,11 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 /* ---------- theme (text + icon + bg) ---------- */
-type Theme = {
+interface Theme {
   text: string;
   bg: string;
   icon: React.ComponentType<{ className?: string }>;
-};
+}
 
 const STATUS_THEME: Record<string, Theme> = {
   PENDING:        { text: "text-amber-700",   bg: "bg-amber-100",   icon: Clock },
@@ -146,9 +146,9 @@ function formatDate(iso: string | undefined): string {
 function formatNames(names: string[]): string {
   const n = names.length;
   if (n === 0) return "";
-  if (n === 1) return names[0]!;
+  if (n === 1) return names[0] ?? "";
   if (n === 2) return `${names[0]} and ${names[1]}`;
-  return `${names[0]}, ${names[1]} and ${names[2]}`;
+  return `${names[0] ?? ""}, ${names[1] ?? ""} and ${names[2] ?? ""}`;
 }
 
 export default function OrderCard({ order }: { order: Order }) {

@@ -1,7 +1,7 @@
 // src/instances/authInstance.ts
 import axios from 'axios';
 import { apiClient } from '@/lib/apiClient';
-import {
+import type {
   RegisterPayload,
   RegisterResponse,
   LoginPayload,
@@ -15,7 +15,7 @@ import {
 import type { AxiosResponse } from "axios";
 
 // ---------- Helpers ----------
-type ApiErrorBody = { message?: string };
+interface ApiErrorBody { message?: string }
 const getErrorMessage = (e: unknown, fallback = 'Request failed'): string => {
   if (axios.isAxiosError(e)) {
     const data = e.response?.data as ApiErrorBody | undefined;
@@ -26,36 +26,36 @@ const getErrorMessage = (e: unknown, fallback = 'Request failed'): string => {
 };
 
 // May come as { id } or { _id }, plus optional fields
-type ApiUserMaybe = {
+interface ApiUserMaybe {
   id?: string;
   _id?: string;
   email: string;
   name?: string;
   userType?: string;
   status?: string;
-};
+}
 
 // Profile endpoint can return user in `result` or `data`
-type ProfileResponse = {
+interface ProfileResponse {
   success: boolean;
   result?: ApiUserMaybe;
   data?: ApiUserMaybe;
-};
+}
 
-type GoogleLoginResponse = {
+interface GoogleLoginResponse {
   success: boolean;
   message?: string;
   result: {
     token: string;
     user?: ApiUserMaybe; // ← allow same shape here too
   };
-};
+}
 
-type GoogleSignupResponse = {
+interface GoogleSignupResponse {
   success: boolean;
   message?: string;
   result: { token: string; user?: ApiUserMaybe };
-};
+}
 
 // ✅ Normalizer removes the need for any-casts
 const normalizeApiUser = (p: ApiUserMaybe): User => ({

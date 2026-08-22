@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Category, BrandAssociation } from "@/types/product";
+import type { Category } from "@/types/product";
 import { getThumbnailUrl } from "@/lib/apiClient";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -80,7 +80,7 @@ export default function Header() {
       }
     }
   };
-  const handleTouchEnd: React.TouchEventHandler<HTMLDivElement> = () => {};
+  const handleTouchEnd: React.TouchEventHandler<HTMLDivElement> = () => undefined;
   const justDragged = () => {
     const recently = Date.now() - touchState.current.lastDragTs < OPEN_COOLDOWN_MS;
     return touchState.current.dragging || recently;

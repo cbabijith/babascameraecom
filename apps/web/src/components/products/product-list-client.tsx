@@ -10,7 +10,6 @@ import { useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getImageUrl } from "@/lib/apiClient";
 import { getProductsByCategory } from "@/instances/productInstance";
-import type { Product, Brand, Category } from "@/types/product";
 import ProductCardSkeleton from "../ui/product-card-skeleton";
 import AppBreadcrumb from "../common/app-breadcrumb";
 
@@ -20,19 +19,19 @@ export interface CategorySection {
     name: string;
     image?: { key: string };
   };
-  products: Array<{
+  products: {
     _id: string;
     name: string;
     slug?: string;
     price?: { actualPrice?: number; salePrice?: number };
-    images?: Array<{ key: string }>;
+    images?: { key: string }[];
     category?: { _id: string; name: string };
     brand?: { _id: string; name: string };
     quantity?: number;
     keyFeatures?: string;
-  }>;
+  }[];
   totalCount: number;
-  brands: Array<{ _id: string; name: string }>;
+  brands: { _id: string; name: string }[];
   // State properties used during client-side filtering
   selectedBrand?: string | null;
   loading?: boolean;

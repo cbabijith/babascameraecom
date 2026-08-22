@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 
 import sharp from "sharp";
 
-import { createClient } from "@/lib/supabase/server";
+import {
+  uploadToS3,
+  deleteFromS3,
+  deleteManyFromS3,
+  extractS3KeyFromUrl,
+  getPresignedUploadUrl,
+  getPublicUrlForS3Key,
+} from "@babascamera/db";
 
 import {
   bannerFinalizeSchema,
@@ -128,64 +135,67 @@ export async function processAndUploadImage(file: File, role: string): Promise<U
     throw new HomeBannerError("Upload a valid JPEG, PNG, or WebP image.", "INVALID_IMAGE", 422);
   }
   const path = webpPath(role);
-  const supabase = await createClient();
-  const { error } = await supabase.storage.from(HOME_BANNER_BUCKET)
-    .upload(path, output, { contentType: "image/webp", upsert: false });
-  if (error) throw new HomeBannerError("Image upload failed. Check banner storage configuration.", "UPLOAD_FAILED", 502);
-  const { data } = supabase.storage.from(HOME_BANNER_BUCKET).getPublicUrl(path);
-  return { path, url: data.publicUrl, contentType: "image/webp" };
+  const { url } = await uploadToS3({
+    key: path,
+    body: output,
+    contentType: "image/webp",
+  });
+  return { path, url, contentType: "image/webp" };
 }
 
 export async function authorizeVideoUpload(input: unknown) {
   const parsed = bannerVideoUploadSchema.safeParse(input);
   if (!parsed.success) throw new HomeBannerError("Choose an MP4 video no larger than 40 MiB.", "INVALID_VIDEO", 422);
   const path = `videos/${randomUUID()}.mp4`;
-  const { data, error } = await (await createClient()).storage
-    .from(HOME_BANNER_BUCKET)
-    .createSignedUploadUrl(path);
-  if (error || !data) throw new HomeBannerError("Video upload could not be authorized.", "UPLOAD_FAILED", 502);
-  return { path, token: data.token, contentType: "video/mp4" as const, maximumBytes: VIDEO_MAX_BYTES };
+  try {
+    const uploadUrl = await getPresignedUploadUrl(path, "video/mp4", 3600);
+    return { path, token: uploadUrl, contentType: "video/mp4" as const, maximumBytes: VIDEO_MAX_BYTES };
+  } catch {
+    throw new HomeBannerError("Video upload could not be authorized.", "UPLOAD_FAILED", 502);
+  }
 }
 
 export async function finalizeVideoUpload(input: unknown): Promise<UploadedBannerMedia> {
   const parsed = bannerFinalizeSchema.safeParse(input);
   if (!parsed.success) throw new HomeBannerError("Uploaded video details are invalid.", "INVALID_VIDEO", 422);
-  const supabase = await createClient();
-  const { data } = supabase.storage.from(HOME_BANNER_BUCKET).getPublicUrl(parsed.data.path);
+  const publicUrl = getPublicUrlForS3Key(parsed.data.path);
   try {
-    const response = await fetch(data.publicUrl, { headers: { Range: "bytes=0-1048575" }, cache: "no-store" });
+    const response = await fetch(publicUrl, { headers: { Range: "bytes=0-1048575" }, cache: "no-store" });
     if (!response.ok) throw new Error("missing");
     const bytes = Buffer.from(await response.arrayBuffer());
     const header = bytes.subarray(4, 12).toString("ascii");
     const sample = bytes.toString("latin1");
     if (!header.includes("ftyp") || !sample.includes("avc1")) {
-      await supabase.storage.from(HOME_BANNER_BUCKET).remove([parsed.data.path]);
+      await deleteFromS3(parsed.data.path);
       throw new HomeBannerError("Video must be an MP4 encoded with H.264.", "INVALID_VIDEO_CODEC", 422);
     }
   } catch (error) {
     if (error instanceof HomeBannerError) throw error;
     throw new HomeBannerError("Uploaded video could not be verified.", "VIDEO_VERIFICATION_FAILED", 422);
   }
-  return { path: parsed.data.path, url: data.publicUrl, contentType: "video/mp4" };
-}
-
-function storagePath(url: string | null) {
-  if (!url) return null;
-  const marker = `/storage/v1/object/public/${HOME_BANNER_BUCKET}/`;
-  try {
-    const parsed = new URL(url);
-    const index = parsed.pathname.indexOf(marker);
-    return index >= 0 ? decodeURIComponent(parsed.pathname.slice(index + marker.length)) : null;
-  } catch {
-    return null;
-  }
+  return { path: parsed.data.path, url: publicUrl, contentType: "video/mp4" };
 }
 
 async function removeMediaUrls(urls: (string | null)[]) {
-  const paths = [...new Set(urls.map(storagePath).filter((path): path is string => Boolean(path)))];
-  if (!paths.length) return;
-  const { error } = await (await createClient()).storage.from(HOME_BANNER_BUCKET).remove(paths);
-  if (error) console.error("Banner media cleanup failed.", { paths, error });
+  const validUrls = urls.filter((u): u is string => Boolean(u));
+  if (!validUrls.length) return;
+
+  const s3Keys: string[] = [];
+
+  for (const url of validUrls) {
+    const s3Key = extractS3KeyFromUrl(url) || (url.startsWith("banners/") || url.startsWith("images/") ? url : null);
+    if (s3Key) {
+      s3Keys.push(s3Key);
+    }
+  }
+
+  if (s3Keys.length) {
+    try {
+      await deleteManyFromS3(s3Keys);
+    } catch (e) {
+      console.error("S3 banner cleanup failed:", e);
+    }
+  }
 }
 
 async function removeReplacedMedia(

@@ -18,7 +18,7 @@ interface Product {
     actualPrice?: number;
     salePrice?: number;
   };
-  images?: Array<{ key: string }>;
+  images?: { key: string }[];
   category?: {
     _id: string;
     name: string;

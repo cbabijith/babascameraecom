@@ -1,5 +1,4 @@
 import { resolveAdminAccess } from "@/features/auth/server/admin";
-import { createClient } from "@/lib/supabase/server";
 
 import { catalogApiError } from "./api-error";
 
@@ -21,7 +20,7 @@ export async function authorizeCatalogRequest(request: Request) {
       response: catalogApiError("INVALID_ORIGIN", "Cross-origin catalogue mutations are not allowed.", 403),
     } as const;
   }
-  const access = await resolveAdminAccess(await createClient());
+  const access = await resolveAdminAccess();
   if (access.kind === "anonymous") {
     return { response: catalogApiError("UNAUTHENTICATED", "Sign in to continue.", 401) } as const;
   }

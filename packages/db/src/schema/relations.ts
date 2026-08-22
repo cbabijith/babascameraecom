@@ -19,6 +19,8 @@ import {
   productVariants,
   refunds,
   reviews,
+  sessions,
+  accounts,
   users,
   wishlists,
 } from "./tables";
@@ -30,8 +32,24 @@ export const usersRelations = relations(users, ({ many }) => ({
   emailOutbox: many(emailOutbox),
   orders: many(orders),
   reviews: many(reviews),
+  sessions: many(sessions),
+  accounts: many(accounts),
   statusChanges: many(orderStatusHistory),
   wishlists: many(wishlists),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const accountsRelations = relations(accounts, ({ one }) => ({
+  user: one(users, {
+    fields: [accounts.userId],
+    references: [users.id],
+  }),
 }));
 
 export const addressesRelations = relations(addresses, ({ one }) => ({

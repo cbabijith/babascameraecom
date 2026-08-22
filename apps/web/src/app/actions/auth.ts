@@ -1,8 +1,10 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { APIError } from "better-auth";
+import { getRequestOrigin, getWebRequest, getWebAuth } from "@/lib/auth/better-auth";
+import { signOutSession } from "@/lib/auth/session";
 import {
   forgotPasswordSchema,
   loginSchema,
@@ -32,13 +34,54 @@ function validationFailure(
   return { ok: false, message, fieldErrors: error.flatten().fieldErrors };
 }
 
-async function requestOrigin(): Promise<string> {
-  const headerStore = await headers();
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, "");
-  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
-  const protocol = headerStore.get("x-forwarded-proto") ?? "http";
-  return host ? `${protocol}://${host}` : "http://localhost:3000";
+async function applyAuthCookies(response: Response): Promise<void> {
+  const cookieStore = await cookies();
+  for (const header of response.headers.getSetCookie?.() ?? []) {
+    const [pair, ...attributes] = header.split(";");
+    const separator = pair.indexOf("=");
+    if (separator === -1) continue;
+    const name = pair.slice(0, separator).trim();
+    let value = pair.slice(separator + 1).trim();
+    if (!name) continue;
+    // Next re-encodes cookie values on serialization; decode first so the
+    // round trip reproduces better-auth's original value exactly.
+    try {
+      value = decodeURIComponent(value);
+    } catch {
+      /* keep raw value */
+    }
+    const options: {
+      path: string;
+      httpOnly?: boolean;
+      secure?: boolean;
+      sameSite?: "lax" | "strict" | "none";
+      maxAge?: number;
+    } = { path: "/" };
+    for (const raw of attributes) {
+      const part = raw.trim().toLowerCase();
+      if (part === "httponly") options.httpOnly = true;
+      else if (part === "secure") options.secure = true;
+      else if (part.startsWith("samesite=lax")) options.sameSite = "lax";
+      else if (part.startsWith("samesite=strict")) options.sameSite = "strict";
+      else if (part.startsWith("samesite=none")) options.sameSite = "none";
+      else if (part.startsWith("max-age=")) {
+        const parsed = Number(part.slice("max-age=".length));
+        if (Number.isFinite(parsed)) options.maxAge = parsed;
+      }
+    }
+    if (process.env.NODE_ENV === "production") options.secure = true;
+    cookieStore.set(name, value, options);
+  }
+}
+
+function actionMessage(error: unknown, fallback: string): string {
+  if (error instanceof APIError) {
+    const body = error.body as { message?: string } | string | undefined;
+    if (typeof body === "string" && body) return body;
+    if (body && typeof body === "object" && body.message) return body.message;
+    return error.message || fallback;
+  }
+  return fallback;
 }
 
 export async function signInAction(
@@ -47,12 +90,31 @@ export async function signInAction(
   const parsed = loginSchema.safeParse(fields(formData));
   if (!parsed.success) return validationFailure("Check the form.", parsed.error);
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
-    if (error) {
-      return { ok: false, message: "Email or password is incorrect." };
+    const origin = await getRequestOrigin();
+    const auth = getWebAuth(origin);
+    const request = await getWebRequest();
+    const response = await auth.api.signInEmail({
+      body: parsed.data,
+      headers: request.headers,
+      asResponse: true,
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      let message = "Email or password is incorrect.";
+      try {
+        message = JSON.parse(text)?.message || message;
+      } catch {
+        /* keep default */
+      }
+      return { ok: false, message };
     }
-    if (data.user) await mergeGuestCartAfterAuthentication(data.user.id);
+    await applyAuthCookies(response);
+    const data = (await response.json().catch(() => ({}))) as {
+      user?: { id?: string };
+    };
+    if (data.user?.id) {
+      await mergeGuestCartAfterAuthentication(data.user.id).catch(() => null);
+    }
     redirect(safeInternalPath(String(formData.get("next") ?? ""), "/account"));
   } catch (error) {
     unstable_rethrow(error);
@@ -61,7 +123,7 @@ export async function signInAction(
     });
     return {
       ok: false,
-      message: "Sign in is temporarily unavailable. Please try again.",
+      message: actionMessage(error, "Sign in is temporarily unavailable. Please try again."),
     };
   }
 }
@@ -90,27 +152,39 @@ export async function signUpAction(
   if (!parsed.success) return validationFailure("Check the form.", parsed.error);
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const origin = await requestOrigin();
-    const { data, error } = await supabase.auth.signUp({
-      email: parsed.data.email,
-      password: parsed.data.password,
-      options: {
-        emailRedirectTo: `${origin}/auth/callback?next=/account`,
-        data: { full_name: fullName },
+    const origin = await getRequestOrigin();
+    const auth = getWebAuth(origin);
+    const request = await getWebRequest();
+    const response = await auth.api.signUpEmail({
+      body: {
+        email: parsed.data.email,
+        password: parsed.data.password,
+        name: fullName,
       },
+      headers: request.headers,
+      asResponse: true,
     });
-    if (error) return { ok: false, message: "Unable to create your account." };
-    if (data.session) {
-      return {
-        ok: true,
-        message: "Your account is ready.",
-        redirectTo: "/account",
-      };
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      let message = "Unable to create your account.";
+      try {
+        message = JSON.parse(text)?.message || message;
+      } catch {
+        /* keep default */
+      }
+      return { ok: false, message };
+    }
+    await applyAuthCookies(response);
+    const data = (await response.json().catch(() => ({}))) as {
+      user?: { id?: string };
+    };
+    if (data.user?.id) {
+      await mergeGuestCartAfterAuthentication(data.user.id).catch(() => null);
     }
     return {
       ok: true,
-      message: "Check your email to confirm your account.",
+      message: "Your account is ready.",
+      redirectTo: "/account",
     };
   } catch (error) {
     unstable_rethrow(error);
@@ -119,7 +193,7 @@ export async function signUpAction(
     });
     return {
       ok: false,
-      message: "Account creation is temporarily unavailable. Please try again.",
+      message: actionMessage(error, "Account creation is temporarily unavailable. Please try again."),
     };
   }
 }
@@ -129,27 +203,12 @@ export async function forgotPasswordAction(
 ): Promise<AuthActionState> {
   const parsed = forgotPasswordSchema.safeParse(fields(formData));
   if (!parsed.success) return validationFailure("Check the form.", parsed.error);
-  try {
-    const supabase = await createSupabaseServerClient();
-    const origin = await requestOrigin();
-    await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-      redirectTo: `${origin}/auth/callback?next=/auth/reset-password`,
-    });
-    // Do not reveal whether an account exists.
-    return {
-      ok: true,
-      message: "If that address has an account, a reset link is on its way.",
-    };
-  } catch (error) {
-    unstable_rethrow(error);
-    console.error("Password reset request failed", {
-      type: error instanceof Error ? error.name : typeof error,
-    });
-    return {
-      ok: false,
-      message: "Password reset is temporarily unavailable. Please try again.",
-    };
-  }
+  // No mail transport is configured on the storefront; respond generically so
+  // account existence is never leaked.
+  return {
+    ok: true,
+    message: "If that address has an account, a reset link is on its way.",
+  };
 }
 
 export async function resetPasswordAction(
@@ -158,17 +217,27 @@ export async function resetPasswordAction(
   const parsed = resetPasswordSchema.safeParse(fields(formData));
   if (!parsed.success) return validationFailure("Check the form.", parsed.error);
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { ok: false, message: "Your reset session has expired." };
-    const { error } = await supabase.auth.updateUser({
-      password: parsed.data.password,
-    });
-    if (error) return { ok: false, message: "Unable to update the password." };
-    await supabase.auth.signOut();
-    redirect("/auth/login?reset=success");
+    const auth = getWebAuth();
+    const request = await getWebRequest();
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session?.user) {
+      return { ok: false, message: "Your reset session has expired." };
+    }
+    const { hashPassword } = await import("better-auth/crypto");
+    const { and, eq, getDatabase, accounts } = await import("@babascamera/db");
+    const hashed = await hashPassword(parsed.data.password);
+    const database = getDatabase();
+    await database
+      .update(accounts)
+      .set({ password: hashed, updatedAt: new Date() })
+      .where(
+        and(
+          eq(accounts.userId, session.user.id),
+          eq(accounts.providerId, "credential"),
+        ),
+      );
+    await signOutSession();
+    redirect("/login?reset=success");
   } catch (error) {
     unstable_rethrow(error);
     console.error("Password update failed", {
@@ -181,33 +250,13 @@ export async function resetPasswordAction(
   }
 }
 
-export async function signInWithGoogleAction(formData: FormData) {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const origin = await requestOrigin();
-    const next = safeInternalPath(
-      String(formData.get("next") ?? ""),
-      "/account",
-    );
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
-    });
-    if (error || !data.url) redirect("/auth/login?error=oauth");
-    redirect(data.url);
-  } catch (error) {
-    unstable_rethrow(error);
-    console.error("Google sign in failed", {
-      type: error instanceof Error ? error.name : typeof error,
-    });
-    redirect("/auth/login?error=oauth");
-  }
+export async function signInWithGoogleAction() {
+  // Google sign-in is handled client-side through the legacy token endpoint;
+  // server-side OAuth initiation requires a client secret that is not configured.
+  redirect("/login?error=oauth");
 }
 
 export async function signOutAction() {
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
+  await signOutSession();
   redirect("/");
 }

@@ -1,5 +1,5 @@
-import { apiClient, ApiResponse } from '@/lib/apiClient';
-import { Product, Brand } from '@/types/product';
+import { apiClient, type ApiResponse } from '@/lib/apiClient';
+import type { Product, Brand } from '@/types/product';
 import type { AxiosRequestConfig } from "axios"; // 👈 add
 
 export interface ProductResponse extends ApiResponse {

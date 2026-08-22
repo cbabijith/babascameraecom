@@ -34,7 +34,6 @@ import {
 import {
   AddressDataError,
   addUserAddress,
-  createUserAddress,
   deleteUserAddress,
   getUserAddresses,
   updateUserAddress,
@@ -413,7 +412,11 @@ export async function POST(
     }
 
     if (resource === "user" && (identifier === "g-auth" || identifier === "g-auth-signup")) {
-      const result = await googleAuth();
+      const gAccessToken =
+        request.nextUrl.searchParams.get("gAccessToken") ??
+        request.nextUrl.searchParams.get("accessToken") ??
+        undefined;
+      const result = await googleAuth({ gAccessToken });
       return success({ result });
     }
 

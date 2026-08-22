@@ -13,12 +13,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type Props = {
+interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onConfirm: () => void;
   loading?: boolean;
-};
+}
 
 export default function LogoutConfirmDialog({
   open,

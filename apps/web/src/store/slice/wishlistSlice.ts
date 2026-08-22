@@ -1,15 +1,14 @@
 // src/store/slice/wishlistSlice.ts
-import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
 import {
   addToWishlist as apiAddToWishlist,
   getWishlist as apiGetWishlist,
   removeFromWishlist as apiRemoveFromWishlist,
-  WishlistItem,
+  type WishlistItem,
 } from '@/instances/wishlistInstance';
 
 // --- helpers
-type ProductRef = string | { _id?: string; id?: string };
 const extractProductId = (product: unknown): string | undefined => {
   if (typeof product === 'string') return product;
   if (product && typeof product === 'object') {
@@ -30,12 +29,12 @@ const messageFrom = (e: unknown): string => {
   try { return JSON.stringify(e); } catch { return ''; }
 };
 
-type WishlistState = {
+interface WishlistState {
   byProductId: Record<string, WishlistItem>;
   loading: boolean;
   error: string | null;
   initialized: boolean;
-};
+}
 
 const initialState: WishlistState = {
   byProductId: {},
@@ -162,7 +161,8 @@ const wishlistSlice = createSlice({
         removeFromWishlistAsync.fulfilled,
         (state, action: PayloadAction<{ productId: string; wishlistId: string }>) => {
           const { productId } = action.payload;
-          delete state.byProductId[productId];
+          const { [productId]: _removed, ...rest } = state.byProductId;
+          state.byProductId = rest;
         }
       )
 
@@ -173,7 +173,8 @@ const wishlistSlice = createSlice({
           const pid = getProductId(payload.item);
           if (pid) state.byProductId[pid] = payload.item;
         } else {
-          delete state.byProductId[payload.productId];
+          const { [payload.productId]: _removed, ...rest } = state.byProductId;
+          state.byProductId = rest;
         }
       })
       .addCase(toggleWishlistAsync.rejected, (state, action) => {

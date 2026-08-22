@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { updateSession } from "@/lib/supabase/proxy";
+import { updateSession } from "@/lib/auth/proxy";
 
 export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname === "/api/health") {

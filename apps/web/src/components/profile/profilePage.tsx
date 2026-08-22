@@ -53,7 +53,7 @@ import {
 
 /* ---------------------------------- Consts --------------------------------- */
 
-const USER_TYPES: Array<"Retailer" | "Consumer"> = ["Consumer", "Retailer"];
+const USER_TYPES: ("Retailer" | "Consumer")[] = ["Consumer", "Retailer"];
 
 const emptyProfile: Partial<UserProfile> = {
   name: "",
@@ -82,7 +82,7 @@ const emptyForm: CreateAddressPayload = {
 
 /* ------------------------------- Subsections ------------------------------- */
 
-type ProfileInfoContentProps = {
+interface ProfileInfoContentProps {
   loading: boolean;
   isEditing: boolean;
   submitting: boolean;
@@ -97,7 +97,7 @@ type ProfileInfoContentProps = {
   onGSTDataChange: (key: keyof GSTData, value: string) => void;
   reload: () => void;
   USER_TYPES: ("Retailer" | "Consumer")[];
-};
+}
 
 function ProfileInfoContent({
   loading,
@@ -307,7 +307,7 @@ function ProfileInfoContent({
   );
 }
 
-type AddressContentProps = {
+interface AddressContentProps {
   addressLoading: boolean;
   addressSubmitting: boolean;
   addressError: string | null;
@@ -327,7 +327,7 @@ type AddressContentProps = {
   profile: UserProfile | null;
   addFormLoading: boolean;
   onOpenAddForm: () => Promise<void>;
-};
+}
 
 function AddressContent({
   addressLoading,
@@ -768,7 +768,7 @@ export default function ProfilePageClient() {
   useEffect(() => {
     if (currentView === "info") loadUserProfile();
     if (currentView === "address") loadAddresses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [currentView]);
 
   const handleNavigation = (view: "info" | "address") => {

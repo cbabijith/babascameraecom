@@ -4,6 +4,41 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@babascamera/db", "@babascamera/ui"],
   serverExternalPackages: ["postgres"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/**",
+      },
+      {
+        protocol: "https",
+        hostname: "t3.storageapi.dev",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.t3.storageapi.dev",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.tigris.dev",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "babas.blr1.cdn.digitaloceanspaces.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "babasphotostore.blr1.cdn.digitaloceanspaces.com",
+        pathname: "/**",
+      },
+    ],
+    formats: ["image/avif", "image/webp"],
+  },
   experimental: {
     optimizePackageImports: ["lucide-react"],
     serverActions: {

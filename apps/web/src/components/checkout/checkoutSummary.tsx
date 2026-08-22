@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
@@ -161,7 +162,7 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
               <div className="flex-1 flex items-center gap-3">
                 {/* GIF from public folder - show as-is, natural size */}
                 <div className="relative flex-shrink-0">
-                  <img
+                  <Image
                     src={bankTransferGifUrl}
                     alt="Save money with bank transfer"
                     className="w-auto h-16 sm:h-20 object-contain"

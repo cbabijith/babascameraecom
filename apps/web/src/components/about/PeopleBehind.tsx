@@ -65,7 +65,7 @@ export default function PeopleBehind() {
 
 /* ---------------- Person Card ---------------- */
 
-type PersonCardProps = { name: string; role: string; src: string };
+interface PersonCardProps { name: string; role: string; src: string }
 
 function PersonCard({ name, role, src }: PersonCardProps) {
   return (

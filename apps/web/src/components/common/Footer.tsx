@@ -11,7 +11,7 @@ import type { Category } from "@/types/product";
 import { toast } from "sonner";
 import { usePathname } from "next/navigation";
 
-type CachedCats = { ts: number; cats: Category[] };
+interface CachedCats { ts: number; cats: Category[] }
 
 const CACHE_KEY = "footer_cats_v3";
 const MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours

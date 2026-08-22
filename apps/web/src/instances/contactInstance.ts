@@ -1,5 +1,5 @@
 // src/instances/contactInstance.ts
-import { apiClient, ApiResponse } from "@/lib/apiClient";
+import { apiClient, type ApiResponse } from "@/lib/apiClient";
 
 export interface ContactPayload {
   name: string;

@@ -1,5 +1,5 @@
-import { apiClient, ApiResponse } from '@/lib/apiClient';
-import { Product, Brand } from '@/types/product';
+import { apiClient, type ApiResponse } from '@/lib/apiClient';
+import type { Product, Brand } from '@/types/product';
 
 /** Listing pages (category/brand) only */
 export type ListingSortOption = 'name_asc' | 'name_desc' | 'price_asc' | 'price_desc' |'popular' | 'newest';

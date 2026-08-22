@@ -1,28 +1,19 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { safeInternalPath } from "@/lib/auth/safe-redirect";
-import { mergeGuestCartAfterAuthentication } from "@/lib/cart-session";
 
+/**
+ * Historical Supabase OAuth callback. Auth sessions are now handled by
+ * better-auth (cookie based), so this simply forwards logged-in users to the
+ * account area and everyone else to the login page.
+ */
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const code = url.searchParams.get("code");
   const next = safeInternalPath(url.searchParams.get("next"), "/account");
-  if (!code) {
-    return NextResponse.redirect(new URL("/auth/login?error=oauth", url));
-  }
-
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      return NextResponse.redirect(new URL("/auth/login?error=oauth", url));
-    }
-    if (data.user) await mergeGuestCartAfterAuthentication(data.user.id);
+  const hasSession = request.headers
+    .get("cookie")
+    ?.includes("better-auth.session_token");
+  if (hasSession) {
     return NextResponse.redirect(new URL(next, url.origin));
-  } catch (error) {
-    console.error("Auth callback failed", {
-      type: error instanceof Error ? error.name : typeof error,
-    });
-    return NextResponse.redirect(new URL("/auth/login?error=oauth", url));
   }
+  return NextResponse.redirect(new URL(`/login?next=${encodeURIComponent(next)}`, url.origin));
 }

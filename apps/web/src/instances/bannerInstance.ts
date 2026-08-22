@@ -1,7 +1,7 @@
 // src/instances/bannerInstance.ts
 
-import { apiClient, ApiResponse } from '@/lib/apiClient';
-import { Banner, BannerQueryParams } from '@/types/banner';
+import { apiClient, type ApiResponse } from '@/lib/apiClient';
+import type { Banner, BannerQueryParams } from '@/types/banner';
 
 export interface BannerResponse extends ApiResponse {
   results: Banner[];

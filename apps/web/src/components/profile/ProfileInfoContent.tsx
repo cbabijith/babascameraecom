@@ -31,7 +31,7 @@ function ProfileInfoSkeleton() {
 }
 
 /* ---------------------------------- Props --------------------------------- */
-export type ProfileInfoContentProps = {
+export interface ProfileInfoContentProps {
   loading: boolean;
   isEditing: boolean;
   submitting: boolean;
@@ -46,7 +46,7 @@ export type ProfileInfoContentProps = {
   onGSTDataChange: (key: keyof GSTData, value: string) => void;
   reload: () => void;
   USER_TYPES: ("Retailer" | "Consumer")[];
-};
+}
 
 export default function ProfileInfoContent({
   loading,

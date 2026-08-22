@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react"; // ← add useState, useMemo
 import Image from "next/image";
 import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "@/store";
+import type { AppDispatch, RootState } from "@/store";
 import {
   selectCartItems,
   selectCartLoading,

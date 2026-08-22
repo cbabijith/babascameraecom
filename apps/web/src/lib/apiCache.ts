@@ -1,11 +1,11 @@
 // src/lib/apiCache.ts - Lightweight client-side cache for API responses
 // Works alongside Redux without affecting performance
 
-type CacheEntry<T> = {
+interface CacheEntry<T> {
   data: T;
   timestamp: number;
   expiresAt: number;
-};
+}
 
 // In-memory cache - cleared on page refresh (intentional for fresh data)
 const cache = new Map<string, CacheEntry<unknown>>();

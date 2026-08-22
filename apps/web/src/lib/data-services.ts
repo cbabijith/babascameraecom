@@ -57,7 +57,7 @@ export const productService = {
   },
 
   // Get featured products (first 8 products)
-  getFeatured: (limit: number = 8): Product[] => {
+  getFeatured: (limit = 8): Product[] => {
     return products.slice(0, limit)
   },
 
@@ -85,7 +85,7 @@ export const productService = {
   },
 
   // Get products with pagination
-  getPaginated: (page: number = 1, limit: number = 12): {
+  getPaginated: (page = 1, limit = 12): {
     products: Product[];
     totalCount: number;
     totalPages: number;

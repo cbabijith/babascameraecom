@@ -266,7 +266,7 @@ export default function OfferZone() {
       const rows = await getCollections();
       const sorted = [...(rows ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
       setCollections(sorted);
-    } catch (e) {
+    } catch {
       // On error: just clear data; visibility logic below will hide the section.
       setCollections([]);
     } finally {

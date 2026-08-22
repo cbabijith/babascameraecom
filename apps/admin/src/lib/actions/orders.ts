@@ -7,10 +7,12 @@ import {
   emailOutbox,
   eq,
   inventoryReservations,
+  orderItems,
   orderStatusHistory,
   orders,
   products,
   productVariants,
+  refunds,
   sql,
   type OrderStatus,
   type PaymentStatus,
@@ -221,6 +223,96 @@ export async function updatePaymentStatusAction(
       error,
       "Payment status could not be updated.",
       "Payment status update failed.",
+    );
+  }
+}
+
+const deleteOrderFormSchema = z.object({
+  orderId: z.string().uuid(),
+});
+
+export async function deleteOrderAction(
+  formData: FormData,
+): Promise<AdminActionResult<{ orderId: string }>> {
+  await requirePermission("orders");
+  const parsed = deleteOrderFormSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return validationFailure(parsed.error);
+  const { orderId } = parsed.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`select id from orders where id = ${orderId} for update`);
+      const order = await tx.query.orders.findFirst({
+        where: (table, { eq: equals }) => equals(table.id, orderId),
+      });
+      if (!order) throw new AdminActionError("Order not found.");
+
+      const now = new Date();
+
+      // Release inventory if the order was not delivered or already cancelled
+      if (!["cancelled", "delivered"].includes(order.status)) {
+        const releasable = await tx.query.inventoryReservations.findMany({
+          where: (table, { and, eq: equals, inArray: inValues }) =>
+            and(
+              equals(table.orderId, orderId),
+              inValues(table.status, ["reserved", "consumed"]),
+            ),
+        });
+        for (const reservation of releasable) {
+          await tx
+            .update(products)
+            .set({
+              stock: sql`${products.stock} + ${reservation.quantity}`,
+              updatedAt: now,
+            })
+            .where(eq(products.id, reservation.productId));
+          if (reservation.variantId) {
+            await tx
+              .update(productVariants)
+              .set({
+                stock: sql`${productVariants.stock} + ${reservation.quantity}`,
+                updatedAt: now,
+              })
+              .where(eq(productVariants.id, reservation.variantId));
+          }
+        }
+      }
+
+      // Release coupons if applied
+      const redemptions = await tx.query.couponRedemptions.findMany({
+        where: (table, { and, eq: equals, inArray: inValues }) =>
+          and(
+            equals(table.orderId, orderId),
+            inValues(table.status, ["reserved", "applied"]),
+          ),
+      });
+      for (const redemption of redemptions) {
+        await tx
+          .update(coupons)
+          .set({
+            usedCount: sql`greatest(${coupons.usedCount} - 1, 0)`,
+            updatedAt: now,
+          })
+          .where(eq(coupons.id, redemption.couponId));
+      }
+
+      // Delete dependent records
+      await tx.delete(refunds).where(eq(refunds.orderId, orderId));
+      await tx.delete(inventoryReservations).where(eq(inventoryReservations.orderId, orderId));
+      await tx.delete(couponRedemptions).where(eq(couponRedemptions.orderId, orderId));
+      await tx.delete(orderStatusHistory).where(eq(orderStatusHistory.orderId, orderId));
+      await tx.delete(orderItems).where(eq(orderItems.orderId, orderId));
+      await tx.delete(emailOutbox).where(eq(emailOutbox.orderId, orderId));
+      await tx.delete(orders).where(eq(orders.id, orderId));
+    });
+
+    revalidatePath("/orders");
+    return actionSuccess({ orderId });
+  } catch (error) {
+    return actionFailureFromError(
+      error,
+      "Order could not be deleted.",
+      "Order deletion failed.",
     );
   }
 }

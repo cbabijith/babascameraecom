@@ -1,5 +1,5 @@
 // src/types/cart.ts
-import { Product } from "./product";
+import type { Product } from "./product";
 
 /* ---------- existing Cart types (unchanged) ---------- */
 export interface CartItem {
@@ -83,27 +83,27 @@ export interface CartPageProps {
 }
 
 /* ---------- new: Order / Checkout / Buy-Now types ---------- */
-export type CartCheckoutResponse = {
+export interface CartCheckoutResponse {
   success: boolean;
   message: string; // "Cart checkout successfully"
-};
+}
 
-export type CreateOrderPayload = {
+export interface CreateOrderPayload {
   totalOrderPrice: number; // e.g., 2500
   shippingAddress: string; // address _id
   deliveryCharge?: number;
   method?: "RAZORPAY" | "BANK_TRANSFER" | string;
-};
+}
 
 
 
-export type PaymentGatewayDetails = {
+export interface PaymentGatewayDetails {
   type?: string;
   checkoutUrl?: string;
   orderId?: string;
-};
+}
 
-export type Transaction = {
+export interface Transaction {
   _id: string;
   order: string;
   user: string;
@@ -123,15 +123,15 @@ export type Transaction = {
   createdAt: string;
   updatedAt: string;
   [k: string]: unknown;
-};
+}
 
-export type Order = {
+export interface Order {
   _id: string;
   totalOrderPrice: number;
   shippingAddress: string;
   // other fields are backend-defined; keep flexible:
   [k: string]: unknown;
-};
+}
 
 export type OrderCreateResult =
   | {
@@ -145,21 +145,21 @@ export type OrderCreateResult =
       result: Order;
     };
 
-export type OrderResponse = {
+export interface OrderResponse {
   success: boolean;
   message: string;
   result: { order: Order; transaction?: Transaction } | Order;
-};
+}
 
-export type BuyNowOrderProduct = { product: string; quantity: number };
+export interface BuyNowOrderProduct { product: string; quantity: number }
 
-export type BuyNowOrderPayload = {
+export interface BuyNowOrderPayload {
   products: BuyNowOrderProduct[]; // [{ product, quantity }]
   shippingAddress: string; // address _id
   invoiceAt: string; // ISO date string
   totalOrderPrice: number; // computed client-side
   deliveryCharge?: number;
-};
+}
 
 export type BuyNowOrderCreateResult =
   | {

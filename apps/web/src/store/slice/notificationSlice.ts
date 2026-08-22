@@ -1,5 +1,5 @@
 // src/store/slice/notificationSlice.ts
-import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "@/store";
 import {
   getNotifications as apiGetNotifications,
@@ -8,7 +8,6 @@ import {
 import type { NotificationItem } from "@/types/notification";
 
 // --- helpers (mirror wishlist approach)
-type ProductRef = string | { _id?: string; id?: string };
 const extractProductId = (product: unknown): string | undefined => {
   if (typeof product === "string") return product;
   if (product && typeof product === "object") {
@@ -33,12 +32,12 @@ const messageFrom = (e: unknown): string => {
   }
 };
 
-type NotificationState = {
+interface NotificationState {
   byProductId: Record<string, NotificationItem>;
   loading: boolean;
   error: string | null;
   initialized: boolean;
-};
+}
 
 const initialState: NotificationState = {
   byProductId: {},

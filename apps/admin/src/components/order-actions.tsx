@@ -2,11 +2,17 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Form, toast } from "@babascamera/ui";
-import { useEffect } from "react";
+import { Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { updateOrderStatusAction, updatePaymentStatusAction } from "@/lib/actions/orders";
+import {
+  deleteOrderAction,
+  updateOrderStatusAction,
+  updatePaymentStatusAction,
+} from "@/lib/actions/orders";
 import { refundOrderAction } from "@/lib/actions/refunds";
 import {
   AdminInputField,
@@ -178,7 +184,7 @@ export function PaymentStatusForm({
     }
   });
 
-  const availablePaymentStatuses: Array<{ value: string; label: string }> = [
+  const availablePaymentStatuses: { value: string; label: string }[] = [
     { value: "pending", label: "Pending" },
     { value: "paid", label: "Paid" },
     { value: "failed", label: "Failed" },
@@ -221,5 +227,65 @@ export function PaymentStatusForm({
         </div>
       </form>
     </Form>
+  );
+}
+
+export function DeleteOrderButton({
+  orderId,
+  orderNumber,
+  redirectToOrders = false,
+}: {
+  orderId: string;
+  orderNumber: string;
+  redirectToOrders?: boolean;
+}) {
+  const router = useRouter();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (
+      !window.confirm(
+        `Are you sure you want to permanently delete order ${orderNumber}? This will remove the order, items, status history, and cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setIsDeleting(true);
+    const payload = new FormData();
+    payload.set("orderId", orderId);
+
+    try {
+      const result = await deleteOrderAction(payload);
+      if (!result.success) {
+        toast.error(result.error);
+        setIsDeleting(false);
+        return;
+      }
+      toast.success(`Order ${orderNumber} deleted successfully.`);
+      if (redirectToOrders) {
+        router.push("/orders");
+      } else {
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Order deletion request failed:", error);
+      toast.error("Order could not be deleted.");
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="destructive"
+      size="sm"
+      className="gap-2 bg-rose-600 text-white hover:bg-rose-700"
+      disabled={isDeleting}
+      onClick={handleDelete}
+    >
+      <Trash2 className="size-4" />
+      {isDeleting ? "Deleting…" : "Delete Order"}
+    </Button>
   );
 }

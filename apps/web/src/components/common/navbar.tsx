@@ -7,7 +7,7 @@ import { useSelector } from "react-redux"
 import type { RootState } from "@/store"
 import { Search, Menu, Handbag, Heart, X, Loader2, ArrowLeft, CircleUserRound } from "lucide-react"
 import { searchProducts } from "@/instances/searchInstance"
-import { Product } from "@/types/product"
+import type { Product } from "@/types/product"
 import { getImageUrl, getThumbnailUrl } from "@/lib/apiClient"
 import { getAuthToken } from "@/instances/authInstance"
 import { selectWishlistCount } from "@/store/slice/wishlistSlice";
@@ -21,8 +21,6 @@ interface SearchSuggestion {
   image?: string
   category?: string
 }
-interface CartItem { quantity?: number }
-
 export default function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
@@ -218,10 +216,6 @@ useEffect(() => {
     inputRef.current?.focus()
   }
 
-  const go = (href: string) => {
-    setMobileOpen(false)
-    router.push(href)
-  }
 
 return (
   <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-gray-100">
@@ -603,16 +597,3 @@ function MobileLink({
   );
 }
 
-function MobileButton({
-  children,
-  onClick,
-}: { children: React.ReactNode; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-[15px] text-gray-900 hover:bg-gray-50 active:bg-gray-100"
-    >
-      {children}
-    </button>
-  )
-}

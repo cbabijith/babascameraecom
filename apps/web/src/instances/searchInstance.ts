@@ -1,5 +1,5 @@
-import { apiClient, ApiResponse } from '@/lib/apiClient';
-import { Product } from '@/types/product';
+import { apiClient, type ApiResponse } from '@/lib/apiClient';
+import type { Product } from '@/types/product';
 
 // keep the same sort values used elsewhere
 export type SortOption = 'name_asc' | 'name_desc' | 'price_asc' | 'price_desc' | 'popular' | 'newest';

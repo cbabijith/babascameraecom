@@ -27,4 +27,6 @@ export {
 export * from "./client";
 export * from "./money";
 export * from "./schema";
+export * from "./storage";
 export * from "./types";
+export * from "./auth";

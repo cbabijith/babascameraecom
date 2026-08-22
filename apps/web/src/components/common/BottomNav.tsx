@@ -7,7 +7,7 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/store";
 import { Home, LayoutGrid, Package, Handbag } from "lucide-react";
 
-type CartItem = { quantity?: number };
+interface CartItem { quantity?: number }
 
 function isItemsObj(v: unknown): v is { items: CartItem[] } {
   return typeof v === "object" && v !== null && Array.isArray((v as { items?: unknown }).items);

@@ -9,6 +9,8 @@
     "./client": "./src/client.ts",
     "./money": "./src/money.ts",
     "./schema": "./src/schema/index.ts",
+    "./storage": "./src/storage/index.ts",
+    "./auth": "./src/auth.ts",
     "./types": "./src/types.ts"
   },
   "scripts": {
@@ -22,6 +24,7 @@
     "db:validate": "bun scripts/validate-migration.ts"
   },
   "dependencies": {
+    "better-auth": "^1.7.1",
     "drizzle-orm": "0.45.2",
     "postgres": "3.4.9"
   },

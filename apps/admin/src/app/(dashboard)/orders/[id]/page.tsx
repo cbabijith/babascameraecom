@@ -2,39 +2,21 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "@babascamera/u
 import { Download, ExternalLink, FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 
-import { OrderTransitionForm, PaymentStatusForm, RefundForm } from "@/components/order-actions";
+import {
+  DeleteOrderButton,
+  OrderTransitionForm,
+  PaymentStatusForm,
+  RefundForm,
+} from "@/components/order-actions";
 import { OrderItemTable } from "@/components/order-item-table";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { getOrder } from "@/lib/data";
 import { formatMoney } from "@/lib/money";
 import { ORDER_TRANSITIONS } from "@/lib/order-transitions";
-import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-function extractStoragePath(url: string): string {
-  const marker = `/bank-transfer-proof-bucket/`;
-  const idx = url.indexOf(marker);
-  if (idx !== -1) {
-    const rawPath = url.slice(idx + marker.length);
-    return decodeURIComponent(rawPath.split("?")[0] || "");
-  }
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    try {
-      const parsed = new URL(url);
-      const segments = parsed.pathname.split("/");
-      const bucketIdx = segments.indexOf("bank-transfer-proof-bucket");
-      if (bucketIdx !== -1 && bucketIdx < segments.length - 1) {
-        return decodeURIComponent(segments.slice(bucketIdx + 1).join("/"));
-      }
-    } catch {
-      // Fallback
-    }
-  }
-  return url;
-}
 
 function parseBankTransferNotes(notes: string | null | undefined) {
   if (!notes) return null;
@@ -77,29 +59,16 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     Boolean(order.razorpayPaymentId);
 
   const bankDetails = parseBankTransferNotes(order.notes);
-
-  let displayProofUrl = bankDetails?.proofUrl ?? null;
-  if (bankDetails?.proofUrl) {
-    try {
-      const relativePath = extractStoragePath(bankDetails.proofUrl);
-      const supabase = await createClient();
-      const { data: signedData } = await supabase.storage
-        .from("bank-transfer-proof-bucket")
-        .createSignedUrl(relativePath, 3600);
-
-      if (signedData?.signedUrl) {
-        displayProofUrl = signedData.signedUrl;
-      }
-    } catch (err) {
-      console.warn("Could not generate signed URL for bank proof attachment:", err);
-    }
-  }
+  const displayProofUrl = bankDetails?.proofUrl ?? null;
   return (
     <>
       <PageHeader title={order.orderNumber} description={`Placed ${formatDate(order.createdAt, true)} by ${order.customerName ?? order.customerEmail}.`} />
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={order.status} /><StatusBadge status={order.paymentStatus} /><StatusBadge status={order.paymentMethod} />
-        <Button asChild variant="outline" className="ml-auto"><a href={`/api/orders/${order.id}/invoice`}><Download className="size-4" /> Download PDF invoice</a></Button>
+        <div className="ml-auto flex items-center gap-2">
+          <Button asChild variant="outline"><a href={`/api/orders/${order.id}/invoice`}><Download className="size-4" /> Download PDF invoice</a></Button>
+          <DeleteOrderButton orderId={order.id} orderNumber={order.orderNumber} redirectToOrders />
+        </div>
       </div>
       <div className="grid gap-6 xl:grid-cols-[1fr_24rem]">
         <div className="grid gap-6">

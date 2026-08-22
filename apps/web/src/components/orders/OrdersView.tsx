@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar as CalendarIcon, Search } from "lucide-react"; // removed ChevronDown
 import TabsBar from "@/components/ui/TabsBar";
-import OrdersList, { OrdersTab } from "@/components/orders/OrdersList";
+import OrdersList, { type OrdersTab } from "@/components/orders/OrdersList";
 import type { Order } from "@/types/order";
 import { getAllOrders, type OrdersPage } from "@/instances/orderInstance";
 import { useSelector } from "react-redux";

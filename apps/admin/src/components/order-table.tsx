@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { DataTable, SortableHeading } from "@/components/data-table";
+import { DeleteOrderButton } from "@/components/order-actions";
 import { StatusBadge } from "@/components/status-badge";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
@@ -39,7 +40,20 @@ const columns: ColumnDef<OrderRow>[] = [
     header: ({ column }) => <SortableHeading label="Placed" direction={column.getIsSorted()} onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")} />,
     cell: ({ row }) => formatDate(row.original.createdAt, true),
   },
-  { id: "actions", cell: ({ row }) => <Button asChild size="sm" variant="outline"><Link href={`/orders/${row.original.id}`}>Open</Link></Button> },
+  {
+    id: "actions",
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/orders/${row.original.id}`}>Open</Link>
+        </Button>
+        <DeleteOrderButton
+          orderId={row.original.id}
+          orderNumber={row.original.orderNumber}
+        />
+      </div>
+    ),
+  },
 ];
 
 export function OrderTable({ data }: { data: OrderRow[] }) {

@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
 import { formatPrice, formatPriceWithoutSymbol } from "@/lib/price-formatter";
 import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "@/store";
+import type { AppDispatch, RootState } from "@/store";
 import { toggleWishlistAsync, selectIsInWishlist } from "@/store/slice/wishlistSlice";
 import { addToCartAsync } from "@/store/slice/cartSlice";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { CartItem } from "@/types/cart";
+import type { CartItem } from "@/types/cart";
 import { buildProductPath } from "@/lib/slug";
 
 interface ProductCardProps {

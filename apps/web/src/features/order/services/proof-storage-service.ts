@@ -1,17 +1,16 @@
 import { randomUUID } from "node:crypto";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { uploadToS3 } from "@babascamera/db";
 import { getOptionalUser } from "@/lib/auth/session";
 import {
-  BANK_TRANSFER_PROOF_BUCKET,
   ProofValidationError,
   validateProofFile,
 } from "../schemas/proof-schema";
 
-export type UploadedProofResult = {
+export interface UploadedProofResult {
   path: string;
   url: string;
-};
+}
 
 export async function uploadProofToStorage(file: File): Promise<UploadedProofResult> {
   const { bytes, mimeType } = await validateProofFile(file);
@@ -34,31 +33,24 @@ export async function uploadProofToStorage(file: File): Promise<UploadedProofRes
   else if (mimeType === "image/heif") extension = "heif";
   else extension = file.name.split(".").pop() || "bin";
 
-  // First folder segment MUST be auth.uid() to satisfy RLS policy:
-  // (storage.foldername(name))[1] = (select auth.uid()::text)
-  const path = `${user.id}/${randomUUID()}.${extension}`;
+  const key = `payment-proofs/${user.id}/${randomUUID()}.${extension}`;
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.storage
-    .from(BANK_TRANSFER_PROOF_BUCKET)
-    .upload(path, bytes, {
+  try {
+    const uploaded = await uploadToS3({
+      key,
+      body: bytes,
       contentType: mimeType,
-      upsert: false,
     });
-
-  if (error) {
+    return {
+      path: uploaded.key,
+      url: uploaded.url,
+    };
+  } catch (error) {
     console.error("Proof file storage upload failed:", error);
     throw new ProofValidationError(
-      `Proof upload failed: ${error.message}`,
+      error instanceof Error ? error.message : "Proof upload failed.",
       "STORAGE_UPLOAD_FAILED",
       502,
     );
   }
-
-  const { data } = supabase.storage.from(BANK_TRANSFER_PROOF_BUCKET).getPublicUrl(path);
-
-  return {
-    path,
-    url: data.publicUrl,
-  };
 }

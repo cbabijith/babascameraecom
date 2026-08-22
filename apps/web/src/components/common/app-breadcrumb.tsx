@@ -11,7 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-type Crumb = { label: string; href?: string };
+interface Crumb { label: string; href?: string }
 export interface AppBreadcrumbProps {
   items: Crumb[];
   className?: string;

@@ -29,7 +29,7 @@ async function BrandProductListContent({ brandId }: BrandProductListProps) {
 }
 
 // Main export with Suspense boundary
-export default function BrandProductList({ brandId, page }: BrandProductListProps) {
+export default function BrandProductList({ brandId, page: _page }: BrandProductListProps) {
   return (
     <Suspense fallback={<ProductListingSkeleton variant="grid" showHeader={false} cardCount={12} />}>
       <BrandProductListContent brandId={brandId} />

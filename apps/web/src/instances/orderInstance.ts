@@ -10,24 +10,24 @@ import type {
 } from "@/types/order";
 
 
-type PriceRow = {
+interface PriceRow {
   totalPrice?: number | string;
   salePrice?: number | string;
   actualPrice?: number | string;
-};
+}
 
-type ImageLite = { key: string };
-type BrandLite = { name?: string };
+interface ImageLite { key: string }
+interface BrandLite { name?: string }
 
-type ProductLite = {
+interface ProductLite {
   _id?: string;
   name?: string;
   code?: string;
   brand?: BrandLite;
   images?: ImageLite[];
-};
+}
 
-export type FlattenedOrderRow = {
+export interface FlattenedOrderRow {
   /** API uses either _id or orderId to represent the order */
   _id?: string;
   orderId?: string;
@@ -63,18 +63,18 @@ export type FlattenedOrderRow = {
   /** optional address blob passed through to UI */
   shippingAddress?: unknown;
   deliveryDetails?: { trackingId?: string; partnerName?: string };
-};
+}
 
 /** API list response can return either legacy ApiOrder[] or FlattenedOrderRow[] */
-type OrdersListApiResponse = {
+interface OrdersListApiResponse {
   success: boolean;
   message?: string;
   currentPage?: number | string;
   totalCount?: number | string;
   totalPages?: number | string;
-  results?: Array<ApiOrder | FlattenedOrderRow>;
-  data?: Array<ApiOrder | FlattenedOrderRow>;
-};
+  results?: (ApiOrder | FlattenedOrderRow)[];
+  data?: (ApiOrder | FlattenedOrderRow)[];
+}
 
 /* ---------------- helpers ---------------- */
 
@@ -149,7 +149,7 @@ function isFlattenedOrderItem(row: unknown): row is FlattenedOrderRow {
     r &&
     r.itemId &&
     r.product &&
-    (r.salePrice != null || r.totalPrice != null || r.actualPrice != null)
+    (r.salePrice !== null || r.totalPrice !== null || r.actualPrice !== null)
   );
 }
 
@@ -251,12 +251,12 @@ function rethrowAxios(error: unknown, fallback: string): never {
 
 /* ---------------- types for paginated list ---------------- */
 
-export type OrdersPage = {
+export interface OrdersPage {
   results: Order[];
   totalCount: number;
   totalPages: number;
   currentPage: number;
-};
+}
 
 /* ---------------- API: list (user-scoped) ---------------- */
 // only showing the list function; keep the rest of the file as you have
@@ -304,7 +304,7 @@ export const getAllOrders = async ({
       throw new Error(data?.message || "Failed to fetch orders");
     }
 
-    const unionRows = (data.results ?? data.data ?? []) as Array<ApiOrder | FlattenedOrderRow>;
+    const unionRows = (data.results ?? data.data ?? []) as (ApiOrder | FlattenedOrderRow)[];
     const mapped: Order[] = unionRows.map((row) =>
       isFlattenedOrderItem(row) ? toOrderFromFlatRow(row) : toOrderFromApi(row as ApiOrder)
     );

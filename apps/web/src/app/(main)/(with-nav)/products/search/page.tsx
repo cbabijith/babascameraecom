@@ -1,7 +1,7 @@
 // src/app/(main)/products/search/page.tsx
 
 import SearchResults from "@/components/search/search-results"
-import { Metadata } from "next"
+import type { Metadata } from "next"
 
 interface SearchPageProps {
   searchParams?: Promise<{

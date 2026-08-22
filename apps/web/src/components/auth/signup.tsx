@@ -14,35 +14,13 @@ import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { User } from "@/types/auth";
+import type { User } from "@/types/auth";
 import { loadGoogleScript } from "@/lib/loadGoogle";
 import { Loader2 } from "lucide-react";
 
-const ORBIT_ICON_SIZE = 70;
 
 const MAX_EMAIL = 254; // RFC-ish practical limit
 const MAX_PASS = 64; // plenty for bcrypt/argon2
-
-function OrbitImg({
-  src,
-  alt,
-  className,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-}) {
-  return (
-    <Image
-      src={src}
-      alt={alt}
-      width={ORBIT_ICON_SIZE}
-      height={ORBIT_ICON_SIZE}
-      className={cn("absolute object-contain", className)}
-      priority
-    />
-  );
-}
 
 function GoogleIcon() {
   return (
@@ -138,10 +116,10 @@ export default function SignUpForm() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error] = React.useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = React.useState(false);
 
-  type RegisterResult = { token: string; user: User | null };
+  interface RegisterResult { token: string; user: User | null }
 
   const [submitted, setSubmitted] = React.useState(false);
   const [errors, setErrors] = React.useState<{
@@ -158,6 +136,7 @@ export default function SignUpForm() {
   React.useEffect(() => {
     if (!submitted) return;
     setErrors(validate());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- validate only reads the listed fields
   }, [email, password, confirm, submitted]);
 
   const validate = () => {
@@ -232,16 +211,6 @@ export default function SignUpForm() {
       ? "bg-amber-500"
       : "bg-green-600";
 
-  const hintColor = !password
-    ? "text-gray-500"
-    : strength === "weak"
-    ? "text-red-600"
-    : strength === "fair"
-    ? "text-yellow-600"
-    : strength === "good"
-    ? "text-amber-600"
-    : "text-green-600";
-
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -273,7 +242,7 @@ export default function SignUpForm() {
       const { user } = await tp.unwrap();
       if (user) dispatch(setUser({ ...user, name: user.name ?? "" }));
       router.push("/");
-    } catch (err) {
+    } catch {
       // toast handled above
     } finally {
       setLoading(false);

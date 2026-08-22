@@ -4,7 +4,7 @@
 
 import { useEffect } from "react"
 import { useDispatch } from "react-redux"
-import { AppDispatch } from "@/store"
+import type { AppDispatch } from "@/store"
 import { setUser } from "@/store/slice/authSlice"
 import { fetchWishlistAsync } from "@/store/slice/wishlistSlice" // ⬅️ updated import
 import { fetchCart } from "@/store/slice/cartSlice"

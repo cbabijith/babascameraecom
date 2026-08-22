@@ -144,7 +144,7 @@ export async function updateUserAddress(addressId: string, input: Partial<{
   }
 }
 
-export async function addUserAddress(rawInput: Record<string, any>) {
+export async function addUserAddress(rawInput: Record<string, unknown>) {
   try {
     const user = await getOptionalUser();
     if (!user) throw new AddressDataError("Authentication required to add an address.", 401);

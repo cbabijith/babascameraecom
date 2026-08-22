@@ -10,6 +10,9 @@ import {
   products,
   productVariants,
   categories,
+  uploadToS3,
+  deleteManyFromS3,
+  extractS3KeyFromUrl,
 } from "@babascamera/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -23,14 +26,10 @@ import {
 } from "@/lib/actions/result";
 import { parseMoney, parseOptionalMoney } from "@/lib/money";
 import {
-  PRODUCT_IMAGE_BUCKET,
-  randomizedProductImagePath,
   storagePathFromPublicUrl,
   validateProductImage,
 } from "@/lib/security/product-image";
 import { sanitizeProductDescription } from "@/lib/security/rich-text";
-import { getSupabasePublicConfig } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
 import { formBoolean, formInteger, optionalText, slugify } from "@/lib/utils";
 import type { CategoryListItem } from "@/features/catalog/types";
 
@@ -215,29 +214,28 @@ async function uploadProductImages(productId: string, files: File[]) {
   } catch (error) {
     throw new AdminActionError(error instanceof Error ? error.message : "A product image is invalid.");
   }
-  const supabase = await createClient();
-  const uploadedPaths: string[] = [];
+  const uploadedKeys: string[] = [];
   try {
     const rows = [];
     for (const item of prepared) {
-      const path = randomizedProductImagePath(productId, item.extension);
-      const { error } = await supabase.storage
-        .from(PRODUCT_IMAGE_BUCKET)
-        .upload(path, item.bytes, { contentType: item.contentType, upsert: false });
-      if (error) throw new AdminActionError("Image upload failed. Check Storage configuration and try again.");
-      uploadedPaths.push(path);
-      const { data } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
-      rows.push({ path, url: data.publicUrl });
+      const key = `${productId}/${randomUUID()}.${item.extension}`;
+      const { url } = await uploadToS3({
+        key,
+        body: item.bytes,
+        contentType: item.contentType,
+      });
+      uploadedKeys.push(key);
+      rows.push({ path: key, url });
     }
     return rows;
   } catch (error) {
-    if (uploadedPaths.length) await supabase.storage.from(PRODUCT_IMAGE_BUCKET).remove(uploadedPaths);
+    if (uploadedKeys.length) await deleteManyFromS3(uploadedKeys);
     throw error;
   }
 }
 
 async function persistNewImages(productId: string, files: File[]) {
-  const uploaded = await uploadProductImages(productId, files);
+  const uploaded = await uploadProductImages(`products/${productId}`, files);
   if (!uploaded.length) return;
   try {
     const existing = await db.query.productImages.findMany({
@@ -253,29 +251,35 @@ async function persistNewImages(productId: string, files: File[]) {
       isPrimary: !hasPrimary && index === 0,
     })));
   } catch (error) {
-    const supabase = await createClient();
-    await supabase.storage.from(PRODUCT_IMAGE_BUCKET).remove(uploaded.map((image) => image.path));
+    await deleteManyFromS3(uploaded.map((image) => image.path));
     throw error;
   }
 }
 
-async function removeManagedImages(paths: string[]) {
-  if (!paths.length) return;
-  const { error } = await (await createClient()).storage
-    .from(PRODUCT_IMAGE_BUCKET)
-    .remove(paths);
-  if (error) console.error("Managed image cleanup failed.", error);
+async function removeManagedImages(pathsOrUrls: string[]) {
+  if (!pathsOrUrls.length) return;
+  const s3Keys: string[] = [];
+
+  for (const item of pathsOrUrls) {
+    const s3Key = extractS3KeyFromUrl(item) || (item.startsWith("products/") || item.startsWith("categories/") ? item : null);
+    if (s3Key) {
+      s3Keys.push(s3Key);
+    }
+  }
+
+  if (s3Keys.length) {
+    try {
+      await deleteManyFromS3(s3Keys);
+    } catch (e) {
+      console.error("S3 image cleanup failed.", e);
+    }
+  }
 }
 
 function managedStoragePath(url: string) {
-  const path = storagePathFromPublicUrl(url);
-  if (!path) return null;
-  try {
-    const expectedOrigin = new URL(getSupabasePublicConfig().url).origin;
-    return new URL(url).origin === expectedOrigin ? path : null;
-  } catch {
-    return null;
-  }
+  const s3Key = extractS3KeyFromUrl(url);
+  if (s3Key) return s3Key;
+  return storagePathFromPublicUrl(url) || null;
 }
 
 function optionalUpload(formData: FormData, field: string) {
@@ -492,12 +496,7 @@ async function deleteProductsByIds(ids: string[]) {
       return path ? [path] : [];
     });
     if (paths.length) {
-      const { error } = await (await createClient()).storage
-        .from(PRODUCT_IMAGE_BUCKET)
-        .remove(paths);
-      if (error) {
-        console.error("Product rows were deleted, but some Storage objects could not be removed.", error);
-      }
+      await removeManagedImages(paths);
     }
 }
 
@@ -534,8 +533,7 @@ export async function deleteProductImage(formData: FormData): Promise<AdminActio
     await db.delete(productImages).where(eq(productImages.id, image.id));
     const path = managedStoragePath(image.url);
     if (path) {
-      const { error } = await (await createClient()).storage.from(PRODUCT_IMAGE_BUCKET).remove([path]);
-      if (error) console.error("A deleted product image could not be removed from Storage.", error);
+      await removeManagedImages([path]);
     }
     if (image.isPrimary) {
       const replacement = await db.query.productImages.findFirst({

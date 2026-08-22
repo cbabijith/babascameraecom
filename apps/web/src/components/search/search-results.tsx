@@ -104,7 +104,7 @@ export default function SearchResults({ query, page }: SearchResultsProps) {
     if (query) {
       fetchSearchResults(query, currentPage, sort, selectedBrandId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [query, currentPage, sort, selectedBrandId]);
 
   const fetchSearchResults = async (

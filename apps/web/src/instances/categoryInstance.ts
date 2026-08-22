@@ -1,7 +1,7 @@
 // instances/categoryInstance.ts
 
-import { apiClient, ApiResponse } from '@/lib/apiClient';
-import { Category } from '@/types/product';
+import { apiClient, type ApiResponse } from '@/lib/apiClient';
+import type { Category } from '@/types/product';
 
 export interface CategoryResponse extends ApiResponse {
   results: Category[];

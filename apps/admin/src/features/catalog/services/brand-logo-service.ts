@@ -2,12 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import sharp from "sharp";
 
-import {
-  detectProductImageMime,
-  PRODUCT_IMAGE_BUCKET,
-  storagePathFromPublicUrl,
-} from "@/lib/security/product-image";
-import { createClient } from "@/lib/supabase/server";
+import { detectProductImageMime } from "@/lib/security/product-image";
+import { uploadToS3, deleteFromS3, extractS3KeyFromUrl } from "@babascamera/db";
 
 import { BrandServiceError } from "./brands-service-error";
 
@@ -57,18 +53,22 @@ export async function prepareBrandLogo(file: File) {
 export async function uploadBrandLogo(brandId: string, file: File) {
   const webp = await prepareBrandLogo(file);
   const path = `brands/${brandId}/${randomUUID()}.webp`;
-  const supabase = await createClient();
-  const { error } = await supabase.storage.from(PRODUCT_IMAGE_BUCKET)
-    .upload(path, webp, { contentType: "image/webp", upsert: false });
-  if (error) throw new BrandServiceError("Brand logo upload failed.", "BRAND_LOGO_UPLOAD_FAILED", 500);
-  const { data } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
-  return { path, url: data.publicUrl };
+  const { url } = await uploadToS3({
+    key: path,
+    body: webp,
+    contentType: "image/webp",
+  });
+  return { path, url };
 }
 
 export async function removeManagedBrandLogo(urlOrPath: string | null) {
   if (!urlOrPath) return;
-  const path = urlOrPath.startsWith("brands/") ? urlOrPath : storagePathFromPublicUrl(urlOrPath);
-  if (!path || !path.startsWith("brands/")) return;
-  const { error } = await (await createClient()).storage.from(PRODUCT_IMAGE_BUCKET).remove([path]);
-  if (error) console.error("Brand logo cleanup failed.", { path, message: error.message });
+  const s3Key = extractS3KeyFromUrl(urlOrPath);
+  if (s3Key) {
+    try {
+      await deleteFromS3(s3Key);
+    } catch (e) {
+      console.error("S3 brand logo cleanup failed:", e);
+    }
+  }
 }

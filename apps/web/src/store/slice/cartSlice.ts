@@ -1,5 +1,5 @@
 // src/store/slice/cartSlice.ts
-import { AnyAction, createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { type AnyAction, createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { toast } from 'sonner';
 import {
   addToCart,
@@ -67,7 +67,7 @@ const getErrorMessage = (e: unknown, fallback = 'Request failed'): string =>
 
 export const fetchCart = createAsyncThunk<
   CartItem[],                      // return type
-  void,                            // arg
+  undefined,                            // arg
   { state: RootState; rejectValue: string }
 >('cart/fetchCart', async (_, { getState, rejectWithValue }) => {
   try {
@@ -90,7 +90,7 @@ export const fetchCart = createAsyncThunk<
 
 export const fetchCartSilent = createAsyncThunk<
   CartItem[],
-  void,
+  undefined,
   { state: RootState; rejectValue: string }
 >('cart/fetchCartSilent', async (_, { getState, rejectWithValue }) => {
   try {
@@ -178,9 +178,9 @@ export const deleteCartAsync = createAsyncThunk<
 /** NEW: PATCH /cart/checkout/user */
 export const checkoutCartAsync = createAsyncThunk<
   boolean,
-  void,
+  undefined,
   { state: RootState; rejectValue: string }
->('cart/checkout', async (_: void, { getState, rejectWithValue }) => {
+>('cart/checkout', async (_, { getState, rejectWithValue }) => {
   try {
     const state = getState();
     const items: CartItem[] = state.cart.items;
@@ -198,13 +198,13 @@ export const checkoutCartAsync = createAsyncThunk<
 });
 
 /** NEW: POST /order/user (typed to allow optional transaction) */
-type OrderCreateResult = {
+interface OrderCreateResult {
   order: unknown;
   transaction?: {
     phonepeGatewayDetails?: { checkoutUrl?: string };
     [k: string]: unknown;
   };
-};
+}
 
 export const createOrderAsync = createAsyncThunk<
   OrderCreateResult,                               // return type

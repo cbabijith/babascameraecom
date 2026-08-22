@@ -5,7 +5,7 @@ import WishlistCard from "@/components/wishlist/wishlistCard";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { RootState, AppDispatch } from "@/store";
+import type { RootState, AppDispatch } from "@/store";
 import {
   fetchWishlistAsync,
   removeFromWishlistAsync,
@@ -19,11 +19,11 @@ import { toast } from "sonner";
 import { buildProductPath } from "@/lib/slug";
 
 /* --- typed guard to avoid any --- */
-type PopPrice = { salePrice?: number; actualPrice?: number };
-type PopImage = { key: string };
-type PopBrand = { name?: string };
-type PopCategory = { name?: string };
-type PopulatedProduct = {
+interface PopPrice { salePrice?: number; actualPrice?: number }
+interface PopImage { key: string }
+interface PopBrand { name?: string }
+interface PopCategory { name?: string }
+interface PopulatedProduct {
   _id: string;
   slug?: string;   
   name?: string;
@@ -33,7 +33,7 @@ type PopulatedProduct = {
   category?: PopCategory;
   quantity?: number;
   code?: string;
-};
+}
 const isPopulatedProduct = (p: unknown): p is PopulatedProduct =>
   typeof p === "object" && p !== null && "_id" in p;
 
@@ -124,11 +124,7 @@ const WishlistPage: React.FC = () => {
       const message = err instanceof Error ? err.message : "Could not add to cart";
       toast.error(message);
     } finally {
-      setAddingMap((m) => {
-        const c = { ...m };
-        delete c[productId];
-        return c;
-      });
+      setAddingMap(({ [productId]: _removed, ...rest }) => rest);
     }
   };
 

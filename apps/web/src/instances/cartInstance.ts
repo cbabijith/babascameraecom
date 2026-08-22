@@ -1,6 +1,6 @@
 // src/instances/cartInstance.ts
 import { apiClient } from "@/lib/apiClient";
-import {
+import type {
   CartItem,
   AddToCartResponse,
   CartResponse,
@@ -10,7 +10,6 @@ import {
   Order,
   OrderResponse,
   Transaction,
-  BuyNowOrderPayload,
   BuyNowOrderCreateResult,
   OrderCreateResult,
 } from "@/types/cart";
@@ -75,8 +74,8 @@ export const createOrder = async (
 
 /* ------------------- buy-now flow ------------------- */
 type BuyNowMethod = "RAZORPAY" | "BANK_TRANSFER";
-type BuyNowOrderPayloadWide = {
-  products: Array<{ product: string; quantity: number }>;
+interface BuyNowOrderPayloadWide {
+  products: { product: string; quantity: number }[];
   shippingAddress: string;
   invoiceAt?: string;
   totalOrderPrice: number;
@@ -87,7 +86,7 @@ type BuyNowOrderPayloadWide = {
     accountName: string;
     proofFile?: string | null;
   };
-};
+}
 
 export const createBuyNowOrder = async (
   payload: BuyNowOrderPayloadWide

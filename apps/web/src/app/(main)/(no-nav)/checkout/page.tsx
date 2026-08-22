@@ -22,6 +22,7 @@ import type { AppDispatch, RootState } from "@/store";
 
 import { getSpecificSettings } from "@/instances/settingsInstance";
 import { getUserAddresses, getUserProfile } from "@/instances/profileInstance";
+import type { Address } from "@/types/profile";
 import { getImageUrl } from "@/lib/apiClient";
 
 import {
@@ -117,13 +118,13 @@ const loadRazorpayScript = (): Promise<boolean> =>
     document.body.appendChild(s);
   });
 
-type RazorpaySuccessResponse = {
+interface RazorpaySuccessResponse {
   razorpay_payment_id?: string;
   razorpay_order_id?: string;
   razorpay_signature?: string;
-};
+}
 
-type RazorpayOptions = {
+interface RazorpayOptions {
   key: string;
   amount: number; // paise
   currency: string;
@@ -132,9 +133,9 @@ type RazorpayOptions = {
   prefill?: { name?: string; email?: string; contact?: string };
   handler?: (response: RazorpaySuccessResponse) => void;
   modal?: { ondismiss?: () => void };
-};
+}
 
-type RazorpayCheckout = { open: () => void };
+interface RazorpayCheckout { open: () => void }
 type RazorpayConstructor = new (opts: RazorpayOptions) => RazorpayCheckout;
 
 declare global {
@@ -180,7 +181,7 @@ const openRazorpay = async (opts: {
 };
 
 /* -------------------- user id helper -------------------- */
-type MinimalUser = { id?: string; _id?: string; name?: string; email?: string; phone?: string };
+interface MinimalUser { id?: string; _id?: string; name?: string; email?: string; phone?: string }
 const getUserId = (u: unknown): string | null => {
   const m = u as MinimalUser | null | undefined;
   if (m && typeof m.id === "string") return m.id;
@@ -189,12 +190,12 @@ const getUserId = (u: unknown): string | null => {
 };
 
 /* -------------------- PAGE -------------------- */
-type LocalCheckoutItem = {
+interface LocalCheckoutItem {
   id: string; // productId
   product: Product;
   quantity: number;
   status: "ACTIVE";
-};
+}
 
 const CheckoutPageContent: React.FC = () => {
   const router = useRouter();
@@ -301,14 +302,14 @@ const CheckoutPageContent: React.FC = () => {
   }, [isBuyNow, buyNowProductId, initialQtyFromQuery, dispatch]);
 
   // Addresses
-  const [addresses, setAddresses] = useState<import("@/types/profile").Address[]>([]);
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
   const [addrLoading, setAddrLoading] = useState<boolean>(true);
   const [addrError, setAddrError] = useState<string | null>(null);
 
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  const [editingAddress, setEditingAddress] = useState<import("@/types/profile").Address | null>(null);
+  const [editingAddress, setEditingAddress] = useState<Address | null>(null);
 
   const loadAddresses = async (): Promise<void> => {
     setAddrLoading(true);
@@ -364,7 +365,7 @@ const CheckoutPageContent: React.FC = () => {
     setEditingAddress(null);
     setIsAddressModalOpen(true);
   };
-  const handleEditAddress = (addr: import("@/types/profile").Address) => {
+  const handleEditAddress = (addr: Address) => {
     setEditingAddress(addr);
     setIsAddressModalOpen(true);
   };

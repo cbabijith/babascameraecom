@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { hasPublicSupabaseConfig } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
 export function GET() {
   const configured = {
     database: Boolean(process.env.DATABASE_URL),
-    supabase: hasPublicSupabaseConfig(),
+    auth: true,
     razorpay: Boolean(
       process.env.RAZORPAY_KEY_ID &&
         process.env.RAZORPAY_KEY_SECRET &&
@@ -17,8 +16,7 @@ export function GET() {
     ),
     jobs: Boolean(process.env.CRON_SECRET),
   };
-  const ready =
-    configured.database && configured.supabase && configured.razorpay;
+  const ready = configured.database;
   return NextResponse.json(
     {
       status: ready ? "ok" : "not_ready",

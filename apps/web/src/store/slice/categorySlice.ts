@@ -5,13 +5,13 @@ import type { Category } from "@/types/product";
 const CACHE_KEY = "category_cache_v1";
 const TTL_MS = 15 * 60 * 1000;      // 15 minutes
 
-type CategoryState = {
+interface CategoryState {
   categories: Category[];
   verifiedIds: string[];
   status: "idle" | "loading" | "succeeded" | "failed";
   error?: string;
   lastLoadedAt?: number;
-};
+}
 
 const initialState: CategoryState = {
   categories: [],
@@ -40,7 +40,9 @@ function saveCache(categories: Category[], verifiedIds: string[]) {
       CACHE_KEY,
       JSON.stringify({ categories, verifiedIds, at: Date.now() })
     );
-  } catch {}
+  } catch {
+      // cache write is best-effort
+    }
 }
 
 // Deduplicate multiple components hydrating at once

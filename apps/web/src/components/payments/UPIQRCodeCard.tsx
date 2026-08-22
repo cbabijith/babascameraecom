@@ -4,12 +4,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
 
-type UPIQRCodeCardProps = {
+interface UPIQRCodeCardProps {
   merchantName?: string;
   vpa: string;
   amountINR?: number | null;
   className?: string;
-};
+}
 
 /** ---- Minimal types for qr-code-styling (enough for our usage) ---- */
 type ECC = "L" | "M" | "Q" | "H";

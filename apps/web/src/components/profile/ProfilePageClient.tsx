@@ -36,7 +36,7 @@ import AddressContent from "./AddressContent";
 
 /* ------------------------------ Local consts ------------------------------ */
 
-const USER_TYPES: Array<"Retailer" | "Consumer"> = ["Consumer", "Retailer"];
+const USER_TYPES: ("Retailer" | "Consumer")[] = ["Consumer", "Retailer"];
 
 const emptyProfile: Partial<UserProfile> = {
   name: "",
@@ -103,7 +103,7 @@ export default function ProfilePageClient() {
   useEffect(() => {
     if (currentView === "info") loadUserProfile();
     if (currentView === "address") loadAddresses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [currentView]);
 
   const handleNavigation = (view: "info" | "address") => {

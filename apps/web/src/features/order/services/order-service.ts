@@ -39,14 +39,14 @@ export class OrderDataError extends Error {
   }
 }
 
-export type UserOrderFilters = {
+export interface UserOrderFilters {
   status?: string;
   from?: string;
   to?: string;
   search?: string;
-};
+}
 
-export type BankTransferCheckoutPayload = {
+export interface BankTransferCheckoutPayload {
   totalOrderPrice?: number;
   shippingAddress: string;
   method?: "BANK_TRANSFER" | "RAZORPAY" | "bank_transfer" | "razorpay" | "bank";
@@ -55,8 +55,8 @@ export type BankTransferCheckoutPayload = {
     accountName: string;
     proofFile?: string | null;
   };
-  products?: Array<{ product: string; quantity: number }>;
-};
+  products?: { product: string; quantity: number }[];
+}
 
 
 
@@ -98,7 +98,7 @@ export async function createOrderFromCheckout(
 
     // 1. Resolve Shipping Address Snapshot
     let addressSnapshot: ShippingAddressSnapshot = {
-      fullName: user?.user_metadata?.full_name ?? "Guest Customer",
+      fullName: user?.name ?? "Guest Customer",
       phone: user?.phone ?? "9876543210",
       label: "Shipping Address",
       line1: "Main Address",
@@ -118,7 +118,7 @@ export async function createOrderFromCheckout(
 
       if (addrRow) {
         addressSnapshot = {
-          fullName: user?.user_metadata?.full_name ?? addrRow.label ?? "Customer",
+          fullName: user?.name ?? addrRow.label ?? "Customer",
           phone: user?.phone ?? "9876543210",
           label: addrRow.label,
           line1: addrRow.line1,
@@ -135,14 +135,14 @@ export async function createOrderFromCheckout(
 
 
     // 2. Resolve Order Items
-    type ResolvedItem = {
+    interface ResolvedItem {
       productId: string;
       productName: string;
       sku: string;
       quantity: number;
       unitPrice: number;
       total: number;
-    };
+    }
 
     const resolvedItems: ResolvedItem[] = [];
 
@@ -222,7 +222,7 @@ export async function createOrderFromCheckout(
           paymentStatus: "pending",
 
           customerEmail: user?.email ?? "guest@babascamera.com",
-          customerName: user?.user_metadata?.full_name ?? "Guest Customer",
+          customerName: user?.name ?? "Guest Customer",
           customerPhone: user?.phone ?? "",
           subtotal: subtotal.toFixed(2),
           discount: "0.00",

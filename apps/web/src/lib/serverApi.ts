@@ -361,7 +361,7 @@ export interface CategoryPageData {
   products: Product[];
   totalCount: number;
   totalPages: number;
-  brands: Array<{ _id: string; name: string }>;
+  brands: { _id: string; name: string }[];
 }
 
 export async function getCategoryPageDataServer(
@@ -475,7 +475,7 @@ interface BannerCollection {
     salePrice: number;
     collectionDiscount?: number;
   };
-  images?: Array<{ key: string }>;
+  images?: { key: string }[];
   category?: { _id: string; name: string };
   brand?: { _id: string; name: string };
   quantity: number;

@@ -23,6 +23,21 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "t3.storageapi.dev",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.t3.storageapi.dev",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.tigris.dev",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "babas.blr1.cdn.digitaloceanspaces.com",
         pathname: "/**",
       },

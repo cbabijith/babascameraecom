@@ -1,6 +1,6 @@
 // src/instances/wishlistInstance.ts
-import { apiClient, ApiResponse } from '@/lib/apiClient';
-import { Product } from '@/types/product';
+import { apiClient, type ApiResponse } from '@/lib/apiClient';
+import type { Product } from '@/types/product';
 
 export interface WishlistItem {
   _id: string;

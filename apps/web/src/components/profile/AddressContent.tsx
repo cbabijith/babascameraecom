@@ -49,7 +49,7 @@ function AddressSkeleton() {
 }
 
 /* ---------------------------------- Props --------------------------------- */
-export type AddressContentProps = {
+export interface AddressContentProps {
   addressLoading: boolean;
   addressSubmitting: boolean;
   addressError: string | null;
@@ -70,7 +70,7 @@ export type AddressContentProps = {
   profile: UserProfile | null;
   addFormLoading: boolean;
   onOpenAddForm: () => Promise<void>;
-};
+}
 
 const EMPTY_FORM: CreateAddressPayload = {
   name: "",

@@ -1,6 +1,6 @@
 "server-only";
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   addresses,
   and,
@@ -9,7 +9,6 @@ import {
   carts,
   couponRedemptions,
   coupons,
-  desc,
   emailOutbox,
   eq,
   getDatabase,
@@ -35,7 +34,6 @@ import {
   decimalToPaise,
   percentageToBasisPoints,
   safePaiseNumber,
-  paiseToDecimal,
 } from "@/lib/commerce/money";
 import type { CheckoutInput } from "@/lib/commerce/checkout-schema";
 import { getCheckoutSettings } from "@/lib/data/settings";
@@ -366,7 +364,7 @@ export async function reconcileCapturedPayment(input: {
       .where(
         order.userId
           ? eq(carts.userId, order.userId)
-          : eq(carts.sessionId, order.guestSessionHash!),
+          : eq(carts.sessionId, order.guestSessionHash ?? ""),
       )
       .limit(1);
 
@@ -394,7 +392,8 @@ export async function reconcileCapturedPayment(input: {
         .onConflictDoNothing({ target: emailOutbox.dedupeKey });
     }
 
-    return { order: updatedOrder!, compensated };
+    if (!updatedOrder) throw new Error("Order update failed during compensation check.");
+    return { order: updatedOrder, compensated };
   });
 }
 

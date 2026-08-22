@@ -1,6 +1,6 @@
 // src/types/banner.ts
 
-import { Product } from './product';
+import type { Product } from './product';
 
 export interface MediaFile {
   _id: string;

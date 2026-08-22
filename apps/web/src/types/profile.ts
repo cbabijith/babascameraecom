@@ -109,10 +109,10 @@ export interface ApiResponse<T = unknown> {
 }
 
 
-export type PostalAPIResponse = Array<{
+export type PostalAPIResponse = {
   Status: "Success" | "Error";
-  PostOffice?: Array<{
+  PostOffice?: {
     District?: string;
     State?: string;
-  }>;
-}>;
+  }[];
+}[];

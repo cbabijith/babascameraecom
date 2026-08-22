@@ -1,4 +1,4 @@
-export type BrandImage = {
+export interface BrandImage {
   _id: string
   name: string
   key: string
@@ -7,7 +7,7 @@ export type BrandImage = {
   thumbnail: boolean
 }
 
-export type Brand = {
+export interface Brand {
   _id: string
   name: string
   image?: BrandImage
@@ -17,7 +17,7 @@ export type Brand = {
   code?: string
 }
 
-export type BrandListResponse = {
+export interface BrandListResponse {
   success: boolean
   message: string
   currentPage?: number

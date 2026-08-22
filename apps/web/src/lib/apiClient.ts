@@ -1,8 +1,10 @@
 // src/lib/apiClient.ts
-import axios, { AxiosResponse, AxiosError, AxiosRequestConfig } from "axios";
+import axios from "axios";
+import type { AxiosResponse, AxiosError, AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
 import type { Store } from "@reduxjs/toolkit";
 import type { RootState } from "@/store";
+import { resolveMediaUrl } from "@/lib/media-proxy";
 
 let _store: Store<RootState> | null = null;
 async function getStore(): Promise<Store<RootState>> {
@@ -94,14 +96,18 @@ export interface ErrorResponse {
 /* -------------------- Utilities -------------------- */
 export const getImageUrl = (imageKey?: string | null): string => {
   if (!imageKey) return "";
-  if (/^https?:\/\//i.test(imageKey) || imageKey.startsWith("/")) return imageKey;
+  if (/^https?:\/\//i.test(imageKey) || imageKey.startsWith("/")) {
+    return resolveMediaUrl(imageKey, imageKey);
+  }
   const key = imageKey.startsWith("/") ? imageKey.slice(1) : imageKey;
   return `${CDN_BASE_URL}${key}`;
 };
 
 export const getThumbnailUrl = (imageKey?: string | null): string => {
   if (!imageKey) return getProductFallbackImage();
-  if (/^https?:\/\//i.test(imageKey) || imageKey.startsWith("/")) return imageKey;
+  if (/^https?:\/\//i.test(imageKey) || imageKey.startsWith("/")) {
+    return resolveMediaUrl(imageKey, imageKey);
+  }
   const cleanKey = imageKey.startsWith("/") ? imageKey.slice(1) : imageKey;
   const cleanBaseUrl = THUMBNAIL_BASE_URL.endsWith("/")
     ? THUMBNAIL_BASE_URL.slice(0, -1)
@@ -279,7 +285,7 @@ apiClient.interceptors.response.use(
 
         try {
           return apiClient.request(retryConfig);
-        } catch (retryError) {
+        } catch {
           // If retry also fails, continue with normal error handling
         }
       }
@@ -374,7 +380,7 @@ apiClient.interceptors.response.use(
           try {
             // Continue retrying silently
             return apiClient.request(retryConfig);
-          } catch (retryError) {
+          } catch {
             // If retry fails, continue to next retry attempt
             // Only after all retries exhausted will error be shown
           }

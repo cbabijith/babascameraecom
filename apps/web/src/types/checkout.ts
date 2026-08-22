@@ -27,10 +27,10 @@ export interface CheckoutItem {
       salePrice: number;
       originalPrice?: number;
     };
-    images: Array<{
+    images: {
       key: string;
       url?: string;
-    }>;
+    }[];
     code?: string;
   };
   quantity: number;

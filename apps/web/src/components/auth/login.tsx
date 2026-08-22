@@ -17,7 +17,7 @@ import {
   loginWithGoogleAccessToken,
 } from "@/instances/authInstance";
 import { toast } from "sonner";
-import { User } from "@/types/auth";
+import type { User } from "@/types/auth";
 import { loadGoogleScript } from "@/lib/loadGoogle";
 
 type TokenClientCallback = (resp: {
@@ -25,25 +25,25 @@ type TokenClientCallback = (resp: {
   error?: string;
 }) => void;
 
-type TokenClientConfig = {
+interface TokenClientConfig {
   client_id: string;
   scope: string;
   callback: TokenClientCallback;
   // GIS accepts prompt hints; we only use "" | "consent"
   prompt?: "" | "consent";
-};
+}
 
-type TokenClient = {
+interface TokenClient {
   requestAccessToken: (opts?: { prompt?: "" | "consent" }) => void;
-};
+}
 
-type GoogleIdentity = {
+interface GoogleIdentity {
   accounts?: {
     oauth2?: {
       initTokenClient: (config: TokenClientConfig) => TokenClient;
     };
   };
-};
+}
 
 declare global {
   interface Window {
@@ -52,28 +52,6 @@ declare global {
 }
 
 // Orbit decoration constants & component (unchanged)
-const ORBIT_ICON_SIZE = 70;
-
-function OrbitImg({
-  src,
-  alt,
-  className,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-}) {
-  return (
-    <Image
-      src={src}
-      alt={alt}
-      width={ORBIT_ICON_SIZE}
-      height={ORBIT_ICON_SIZE}
-      className={cn("absolute object-contain", className)}
-      priority
-    />
-  );
-}
 
 function GoogleIcon() {
   return (
@@ -168,10 +146,10 @@ export default function LoginForm() {
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [, setError] = React.useState<string | null>(null);
   const [emailError, setEmailError] = React.useState<string | null>(null);
   const [passwordError, setPasswordError] = React.useState<string | null>(null);
-  type LoginResult = { token: string; user: User | null };
+  interface LoginResult { token: string; user: User | null }
 
   // ensure spinner is visible briefly then stops (feels responsive)
   const stopGoogleLoadingSoon = React.useCallback(() => {

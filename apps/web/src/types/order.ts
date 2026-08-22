@@ -19,17 +19,17 @@ export type OrderStatus =
   | "REFUNDED"
   | "COMPLETED";
 
-export type OrderImage = { key?: string };
+export interface OrderImage { key?: string }
 
-export type OrderProductMini = {
+export interface OrderProductMini {
   _id?: string;
   name?: string;
   slug?: string;
   images?: OrderImage[];
   brand?: { name?: string };
-};
+}
 
-export type OrderItem = {
+export interface OrderItem {
   quantity: number;
   product: OrderProductMini | string;
   name?: string;
@@ -38,9 +38,9 @@ export type OrderItem = {
   actualPrice?: number;
   bullets?: string[];
   brandName?: string;
-};
+}
 
-export type OrderAddress = {
+export interface OrderAddress {
   name?: string;
   phone?: string;
   alternatePhone?: string;
@@ -54,13 +54,13 @@ export type OrderAddress = {
   postalCode?: string;
   addressType?: string;
   _id?: string;
-};
+}
 
-export type OrderDeliveryDetails = {
+export interface OrderDeliveryDetails {
   trackingId?: string;
   partnerName?: string;
   url?: string;
-};
+}
 
 export interface Order {
   /** Basic identifiers */
@@ -124,23 +124,23 @@ export interface Order {
    RAW API TYPES (backend) — allow numeric strings
    ========================= */
 
-export type ApiImage = {
+export interface ApiImage {
   _id: string;
   name: string;
   key: string;
   mimetype: string;
   size: number;
   thumbnail: boolean;
-};
+}
 
-export type ApiBrand = {
+export interface ApiBrand {
   _id?: string;
   name?: string;
   image?: ApiImage;
   code?: string;
-};
+}
 
-export type ApiProdCore = {
+export interface ApiProdCore {
   _id: string;
   name: string;
   slug?: string;
@@ -155,9 +155,9 @@ export type ApiProdCore = {
     status?: string;
     visibility?: string;
   };
-};
+}
 
-export type ApiOrderProduct = {
+export interface ApiOrderProduct {
   product?: ApiProdCore;
   quantity: number | string;
   actualPrice: number | string;
@@ -168,9 +168,9 @@ export type ApiOrderProduct = {
   orderProductStatus: string;
   _id: string;
   gst?: number | string;
-};
+}
 
-export type ApiOrder = {
+export interface ApiOrder {
   _id: string;
   code: string;
   invoiceCode?: string;
@@ -201,7 +201,7 @@ export type ApiOrder = {
     trackingId?: string;
     partnerName?: string;
   };
-};
+}
 
 export type OrderListResponse = ApiResponse & {
   success?: boolean;
@@ -215,7 +215,7 @@ export type OrderListResponse = ApiResponse & {
 
 export type PaymentGateway = "NO_PAYMENT" | "RAZORPAY" | string;
 
-export type ApiTransaction = {
+export interface ApiTransaction {
   order?: string;
   user?: string;
   paymentType?: string;     // e.g., "ORDER"
@@ -232,7 +232,7 @@ export type ApiTransaction = {
   code?: string;
   createdAt?: string;
   updatedAt?: string;
-};
+}
 
 export type OrderDetailResponse = ApiResponse & {
   success?: boolean;
@@ -245,15 +245,15 @@ export type OrderDetailResponse = ApiResponse & {
    CREATE ORDER (optional)
    ========================= */
 
-export type CreateOrderRequest = {
+export interface CreateOrderRequest {
   totalOrderPrice: number;
   shippingAddress: string;
-};
+}
 
-export type CreateOrderResult = {
+export interface CreateOrderResult {
   order: Order;
   transaction?: ApiTransaction;
-};
+}
 
 export type CreateOrderApiResponse = ApiResponse & {
   result?: ApiOrder | { order: ApiOrder; transaction?: ApiTransaction };

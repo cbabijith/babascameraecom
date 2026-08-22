@@ -6,7 +6,6 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Volume2, VolumeX } from "lucide-react";
-import { HeroBannerSkeleton } from "@/components/ui/banner-skeleton";
 import { getImageUrl } from "@/lib/apiClient";
 
 // Types
@@ -43,7 +42,6 @@ function Dot({ active = false, onClick }: { active?: boolean; onClick?: () => vo
 
 /* ---------- Tunables ---------- */
 const IMAGE_DURATION_MS = 6000;
-const VIDEO_STALL_SKIP_MS = 8000;
 const VIDEO_MAX_FALLBACK_MS = 45000;
 const SWIPE_THRESHOLD_PX = 50;
 const ANGLE_TOLERANCE = 1.2;
@@ -59,8 +57,8 @@ export default function HeroClient({ banners }: HeroClientProps) {
   const [muted, setMuted] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [slideReady, setSlideReady] = useState(false);
   const [inViewport, setInViewport] = useState(true);
+  const [, setSlideReady] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const imageTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -153,13 +151,13 @@ export default function HeroClient({ banners }: HeroClientProps) {
     }
 
     return clearTimers;
-  }, [currentSlide, isVideo, mediaUrl, clearTimers, nextSlide]);
+  }, [currentSlide, currentBanner, isVideo, mediaUrl, clearTimers, nextSlide]);
 
   /* ---------- Play/Pause based on viewport visibility ---------- */
   useEffect(() => {
     if (isVideo && videoRef.current) {
       if (inViewport) {
-        videoRef.current.play().catch(() => {});
+        videoRef.current.play().catch(() => undefined);
       } else {
         videoRef.current.pause();
       }
@@ -170,7 +168,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
   const onVideoCanPlay = () => {
     setSlideReady(true);
     if (inViewport) {
-      videoRef.current?.play().catch(() => {});
+      videoRef.current?.play().catch(() => undefined);
     }
   };
 
@@ -178,12 +176,6 @@ export default function HeroClient({ banners }: HeroClientProps) {
     nextSlide();
   };
 
-  const onVideoWaitingOrStalled = () => {
-    if (videoStallTimerRef.current) clearTimeout(videoStallTimerRef.current);
-    videoStallTimerRef.current = setTimeout(() => {
-      nextSlide();
-    }, VIDEO_STALL_SKIP_MS);
-  };
 
   const onVideoPlaying = () => {
     if (videoStallTimerRef.current) { clearTimeout(videoStallTimerRef.current); videoStallTimerRef.current = null; }
@@ -228,7 +220,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
       else prevSlide();
     } else {
       if (isVideo) {
-        if (inViewport) videoRef.current?.play().catch(() => {});
+        if (inViewport) videoRef.current?.play().catch(() => undefined);
       } else {
         imageTimerRef.current = setTimeout(() => {
           if (!isVideo) nextSlide();

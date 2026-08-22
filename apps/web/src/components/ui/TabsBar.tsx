@@ -1,11 +1,10 @@
 // components/ui/TabsBar.tsx
 "use client";
 
-import { useState } from "react";
 
 type TabItem = string | { label: string; value?: string };
 
-type TabsBarProps = {
+interface TabsBarProps {
   items: TabItem[];
   active: string;
   onChange: (value: string) => void;
@@ -22,7 +21,7 @@ type TabsBarProps = {
   activeBg?: string;
 
   className?: string;
-};
+}
 
 export default function TabsBar({
   items,
@@ -42,8 +41,6 @@ export default function TabsBar({
 
   className = "",
 }: TabsBarProps) {
-  const [period, setPeriod] = useState("Last 30 days");
-  const [open, setOpen] = useState(false);
 
   const toLabel = (t: TabItem) => (typeof t === "string" ? t : t.label);
   const toValue = (t: TabItem) =>
