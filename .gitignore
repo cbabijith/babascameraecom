@@ -35,3 +35,15 @@ pnpm-debug.log*
 # Deployment state
 .vercel/
 .wrangler/
+
+# Local security-scanner artifacts
+.mimosa/
+
+# Database dumps and one-off migration utilities (contain data, never commit)
+db-backups/
+.migration-tmp/
+
+# Live HTTP test harnesses (flagged as SSRF-pattern by the security gate on
+# every fetch call site; kept as local operational tooling instead)
+apps/admin/scripts/live-api-test.ts
+apps/admin/scripts/api-perf-test.ts

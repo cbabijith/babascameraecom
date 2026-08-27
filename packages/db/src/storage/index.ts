@@ -119,6 +119,35 @@ export async function getPresignedDownloadUrl(
   );
 }
 
+/** Read an object (or a byte range) with the app's own S3 credentials.
+    Works on private buckets, unlike fetching the public URL. */
+export async function getS3ObjectBytes(
+  key: string,
+  range?: { start: number; end: number }
+): Promise<{ bytes: Uint8Array; contentType: string | undefined }> {
+  const client = getS3Client();
+  const cleanKey = key.replace(/^\/+/, "");
+  const result = await client.send(
+    new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: cleanKey,
+      ...(range ? { Range: `bytes=${range.start}-${range.end}` } : {}),
+    })
+  );
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of result.Body as AsyncIterable<Uint8Array>) {
+    chunks.push(chunk);
+  }
+  const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { bytes, contentType: result.ContentType };
+}
+
 export async function getPresignedUploadUrl(
   key: string,
   contentType = "video/mp4",

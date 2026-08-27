@@ -28,9 +28,15 @@ const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET || "babas-camera-super-secret-auth-key-2026-very-secure-32chars",
 });
 
-const adminEmail = "info@babascamera.com";
-const adminPassword = "admin123";
+const adminEmail = process.env.ADMIN_SEED_EMAIL?.trim() || "info@babascamera.com";
+const adminPassword = process.env.ADMIN_SEED_PASSWORD?.trim();
 const adminName = "Administrator";
+
+if (!adminPassword || adminPassword.length < 8) {
+  throw new Error(
+    "ADMIN_SEED_PASSWORD is required (min 8 chars) — set it explicitly instead of committing a default.",
+  );
+}
 
 console.log(`Setting up admin user ${adminEmail}...`);
 

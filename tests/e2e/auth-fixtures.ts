@@ -1,18 +1,30 @@
+import { randomUUID } from "node:crypto";
+
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
+
+/**
+ * E2E-only accounts on the .invalid domain. Passwords come from the
+ * environment when provided; otherwise a random value is generated per run
+ * (the seeding helper signs in with these values, so any value works).
+ */
+function e2ePassword(environmentVariable: string): string {
+  const provided = process.env[environmentVariable]?.trim();
+  return provided && provided.length >= 8 ? provided : `Babas-E2E-${randomUUID().slice(0, 12)}`;
+}
 
 export const authFixtures = {
   customer: {
     email: "customer.e2e@babas.invalid",
     fullName: "E2E Customer",
-    password: "Babas-E2E-Customer-2026!",
+    password: e2ePassword("E2E_CUSTOMER_PASSWORD"),
     phone: "+919999999999",
     role: "customer",
   },
   admin: {
     email: "admin.e2e@babas.invalid",
     fullName: "E2E Administrator",
-    password: "Babas-E2E-Admin-2026!",
+    password: e2ePassword("E2E_ADMIN_PASSWORD"),
     phone: "+919999999998",
     role: "admin",
   },

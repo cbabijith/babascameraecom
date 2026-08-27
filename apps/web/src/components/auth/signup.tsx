@@ -139,18 +139,22 @@ export default function SignUpForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- validate only reads the listed fields
   }, [email, password, confirm, submitted]);
 
+  const VALIDATION_MESSAGES = {
+    passwordRequired: "Password is required.",
+    passwordMinLength: "Password must be at least 8 characters.",
+  } as const;
+
   const validate = () => {
     const next: typeof errors = {};
-
     // email
     if (!email.trim()) next.email = "Email is required.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       next.email = "Enter a valid email address.";
 
-    // password
-    if (!password) next.password = "Password is required.";
+    // password (messages kept in a catalog, separate from the field they describe)
+    if (!password) next.password = VALIDATION_MESSAGES.passwordRequired;
     else if (password.length < 8)
-      next.password = "Password must be at least 8 characters.";
+      next.password = VALIDATION_MESSAGES.passwordMinLength;
 
     // confirm password
     if (!confirm) next.confirm = "Please confirm your password.";

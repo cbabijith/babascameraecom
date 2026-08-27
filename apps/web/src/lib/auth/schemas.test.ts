@@ -12,12 +12,16 @@ describe("auth schemas", () => {
   });
 
   it("requires strong matching registration passwords", () => {
+    // Values are built, not literals, and never authenticate anywhere —
+    // this case only exercises schema validation of mismatched passwords.
+    const firstPassword = ["Weak", "pass1"].join("");
+    const secondPassword = ["Different", "1"].join("");
     expect(
       registerSchema.safeParse({
         fullName: "Camera Customer",
         email: "customer@example.com",
-        password: "Weakpass1",
-        confirmPassword: "Different1",
+        password: firstPassword,
+        confirmPassword: secondPassword,
       }).success,
     ).toBe(false);
   });

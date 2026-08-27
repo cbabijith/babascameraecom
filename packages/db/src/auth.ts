@@ -20,6 +20,18 @@ export function createBetterAuth(options?: { baseURL?: string; secret?: string }
     emailAndPassword: {
       enabled: true,
     },
+    rateLimit: {
+      enabled: true,
+      window: 10,
+      max: 100,
+      // Human-friendly limits on credential endpoints: the default 3-per-10s
+      // starves legitimate users sharing an IP (offices, NAT, admin tooling).
+      // 10 sign-ins per minute still makes brute force pointless (bcrypt).
+      customRules: {
+        "/sign-in/email": { window: 60, max: 10 },
+        "/sign-up/email": { window: 60, max: 5 },
+      },
+    },
     advanced: {
       database: {
         generateId: "uuid",

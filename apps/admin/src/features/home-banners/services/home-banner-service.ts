@@ -9,6 +9,7 @@ import {
   extractS3KeyFromUrl,
   getPresignedUploadUrl,
   getPublicUrlForS3Key,
+  getS3ObjectBytes,
 } from "@babascamera/db";
 
 import {
@@ -160,11 +161,11 @@ export async function finalizeVideoUpload(input: unknown): Promise<UploadedBanne
   if (!parsed.success) throw new HomeBannerError("Uploaded video details are invalid.", "INVALID_VIDEO", 422);
   const publicUrl = getPublicUrlForS3Key(parsed.data.path);
   try {
-    const response = await fetch(publicUrl, { headers: { Range: "bytes=0-1048575" }, cache: "no-store" });
-    if (!response.ok) throw new Error("missing");
-    const bytes = Buffer.from(await response.arrayBuffer());
-    const header = bytes.subarray(4, 12).toString("ascii");
-    const sample = bytes.toString("latin1");
+    // Verify with the app's own S3 credentials: works on the private bucket
+    // and avoids a public-internet roundtrip to the object URL.
+    const { bytes } = await getS3ObjectBytes(parsed.data.path, { start: 0, end: 1_048_575 });
+    const header = Buffer.from(bytes.subarray(4, 12)).toString("ascii");
+    const sample = Buffer.from(bytes).toString("latin1");
     if (!header.includes("ftyp") || !sample.includes("avc1")) {
       await deleteFromS3(parsed.data.path);
       throw new HomeBannerError("Video must be an MP4 encoded with H.264.", "INVALID_VIDEO_CODEC", 422);

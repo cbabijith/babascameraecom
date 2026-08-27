@@ -20,13 +20,19 @@ function assert(description: string, condition: boolean, extra?: any) {
 
 const db = getDatabase();
 
+const testAdminEmail = process.env.ADMIN_EMAIL?.trim() || "info@babascamera.com";
+const testAdminPassword = process.env.ADMIN_PASSWORD?.trim();
+if (!testAdminPassword) {
+  throw new Error("ADMIN_PASSWORD is required to run the comprehensive API tests.");
+}
+
 // 1. Better Auth Authentication Test
 console.log("\n--- TEST 1: Better Auth Sign-In & Session Verification ---");
 try {
   const signInRes = await auth.api.signInEmail({
     body: {
-      email: "info@babascamera.com",
-      password: "admin123",
+      email: testAdminEmail,
+      password: testAdminPassword,
     },
     asResponse: true,
   });

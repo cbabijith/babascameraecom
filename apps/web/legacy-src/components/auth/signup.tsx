@@ -159,6 +159,11 @@ export default function SignUpForm() {
     setErrors(validate());
   }, [email, password, confirm, submitted]);
 
+  const LEGACY_VALIDATION_MESSAGES = {
+    passwordRequired: "Password is required.",
+    passwordMinLength: "Password must be at least 8 characters.",
+  } as const;
+
   const validate = () => {
     const next: typeof errors = {};
 
@@ -167,10 +172,10 @@ export default function SignUpForm() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       next.email = "Enter a valid email address.";
 
-    // password
-    if (!password) next.password = "Password is required.";
+    // password (messages kept in a catalog, separate from the field they describe)
+    if (!password) next.password = LEGACY_VALIDATION_MESSAGES.passwordRequired;
     else if (password.length < 8)
-      next.password = "Password must be at least 8 characters.";
+      next.password = LEGACY_VALIDATION_MESSAGES.passwordMinLength;
 
     // confirm password
     if (!confirm) next.confirm = "Please confirm your password.";

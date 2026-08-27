@@ -16,7 +16,12 @@ export async function homeBannerRoute(request: Request, operation: () => Promise
     const origin = request.headers.get("origin");
     if (origin) {
       try {
-        if (new URL(origin).origin !== new URL(request.url).origin) {
+        const requestUrl = new URL(request.url);
+        const forwardedHost = request.headers.get("x-forwarded-host");
+        const host = forwardedHost ?? request.headers.get("host") ?? requestUrl.host;
+        const forwardedProto = request.headers.get("x-forwarded-proto");
+        const expectedOrigin = `${forwardedProto ?? requestUrl.protocol.replace(":", "")}://${host}`;
+        if (new URL(origin).origin !== new URL(expectedOrigin).origin) {
           return errorResponse("INVALID_ORIGIN", "Cross-origin banner mutations are not allowed.", 403);
         }
       } catch {

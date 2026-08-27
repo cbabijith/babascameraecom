@@ -7,8 +7,13 @@ const MUTATION_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 export function isSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return true;
+  const requestUrl = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost ?? request.headers.get("host") ?? requestUrl.host;
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const expectedOrigin = `${forwardedProto ?? requestUrl.protocol.replace(":", "")}://${host}`;
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    return new URL(origin).origin === new URL(expectedOrigin).origin;
   } catch {
     return false;
   }
