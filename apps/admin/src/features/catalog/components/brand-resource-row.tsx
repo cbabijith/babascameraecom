@@ -11,6 +11,7 @@ import { AdminStatusBadge } from "@/components/ui/admin-resource";
 
 import type { BrandListItem } from "../types";
 import { BrandActionsMenu } from "./brand-actions-menu";
+import { resolveMediaUrl } from "@/lib/media-proxy";
 
 export const BrandResourceRow = memo(function BrandResourceRow({
   brand,
@@ -41,7 +42,7 @@ export const BrandResourceRow = memo(function BrandResourceRow({
         ) : <span className="grid size-10 shrink-0 place-items-center text-slate-300" aria-hidden="true"><GripVertical className="size-4" /></span>}
         <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 text-slate-400">
           {brand.logoUrl && !logoFailed ? (
-            <img src={brand.logoUrl} alt={`${brand.name} logo`} className="h-full w-full object-contain p-1" onError={() => setLogoFailed(true)} />
+            <img src={resolveMediaUrl(brand.logoUrl)} alt={`${brand.name} logo`} className="h-full w-full object-contain p-1" onError={() => setLogoFailed(true)} />
           ) : <ImageIcon className="size-4" />}
         </span>
         <span className="min-w-0">

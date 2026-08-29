@@ -6,6 +6,8 @@ import { Button, Input, Label, toast } from "@babascamera/ui";
 import { ImageIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
+import { resolveMediaUrl } from "@/lib/media-proxy";
+
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maximumBytes = 5 * 1024 * 1024;
 
@@ -32,7 +34,7 @@ export function BrandLogoField({
       <Label htmlFor="brand-logo">Brand logo <span className="font-normal text-slate-500">(optional)</span></Label>
       <div className="flex items-center gap-3">
         <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 text-slate-400">
-          {visibleLogo ? <img src={visibleLogo} alt="Brand logo preview" className="h-full w-full object-contain p-1.5" /> : <ImageIcon className="size-5" />}
+          {visibleLogo ? <img src={resolveMediaUrl(visibleLogo)} alt="Brand logo preview" className="h-full w-full object-contain p-1.5" /> : <ImageIcon className="size-5" />}
         </span>
         <div className="min-w-0 flex-1">
           <Input

@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 
 import { ImageOrder } from "@/features/catalog/components/image-order";
 import { catalogApi } from "@/features/catalog/api/catalog-api-client";
+import { resolveMediaUrl } from "@/lib/media-proxy";
 
 interface ProductImage {
   id: string;
@@ -128,7 +129,7 @@ export function ProductImageManager({
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {localImages.map((image) => (
               <article key={image.id} className="rounded-lg border bg-white shadow-sm">
-                <img src={image.url} alt={image.altText ?? productName} className="aspect-square w-full rounded-t-lg object-cover" />
+                <img src={resolveMediaUrl(image.url)} alt={image.altText ?? productName} className="aspect-square w-full rounded-t-lg object-cover" />
                 <div className="flex items-center justify-between gap-2 p-3">
                   {image.isPrimary ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">

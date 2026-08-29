@@ -1,0 +1,7 @@
+# Paths the Railway CLI should never upload (gitignore's nested patterns are
+# not fully honored by the uploader; keep these explicit).
+.migration-tmp
+db-backups
+.mimosa
+.turbo
+**/node_modules

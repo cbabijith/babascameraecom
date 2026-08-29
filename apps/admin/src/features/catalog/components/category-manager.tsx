@@ -43,6 +43,8 @@ import {
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 
+import { resolveMediaUrl } from "@/lib/media-proxy";
+
 import {
   AdminCheckboxField,
   AdminInputField,
@@ -238,7 +240,7 @@ const CategoryResourceRow = memo(function CategoryResourceRow({
           </span>
         ) : null}
         <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-slate-100 text-slate-400">
-          {category.imageUrl ? <img src={category.imageUrl} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="size-4" />}
+          {category.imageUrl ? <img src={resolveMediaUrl(category.imageUrl)} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="size-4" />}
         </span>
         <span className="min-w-0">
           <span className="block truncate text-sm font-medium text-slate-900">{category.name}</span>
@@ -387,7 +389,7 @@ function CategoryImageField({
       <Label htmlFor="category-image">Category image</Label>
       <div className="flex items-center gap-3">
         <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md bg-slate-100 text-slate-400">
-          {shownUrl ? <img src={shownUrl} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="size-5" />}
+          {shownUrl ? <img src={resolveMediaUrl(shownUrl)} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="size-5" />}
         </span>
         <div className="grid gap-2">
           <Input
