@@ -1,7 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 
-import { getOrder } from "@/lib/data";
-import { InvoiceDocument } from "@/lib/invoice";
+import { InvoiceDocument } from "@/features/orders/server/invoice";
+import { getOrder } from "@/features/orders/server/readers";
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,8 @@
 import { apiError, apiSuccess, authorizeAdminApi, zodFieldErrors } from "@/lib/api/admin-api";
 import { AdminActionError } from "@/lib/actions/result";
-import { getOrderDetail, orderTransitionSchema, transitionOrderStatus } from "@/lib/services/admin-orders";
+import { orderTransitionSchema } from "@/features/orders/schemas/order-schemas";
+import { getOrderDetail } from "@/features/orders/repositories/orders-repository";
+import { transitionOrderStatus } from "@/features/orders/services/order-service";
 
 export const dynamic = "force-dynamic";
 

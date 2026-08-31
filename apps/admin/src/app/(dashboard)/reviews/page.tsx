@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/page-header";
-import { ReviewTable } from "@/components/review-table";
-import { getReviews } from "@/lib/data";
+import { ReviewTable } from "@/features/reviews/components/review-table";
+import { getReviews } from "@/features/reviews/server/readers";
 
 export const dynamic = "force-dynamic";
 

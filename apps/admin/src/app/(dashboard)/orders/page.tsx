@@ -1,7 +1,7 @@
-import { CreateOrderDialog } from "@/components/create-order-dialog";
-import { OrderTable } from "@/components/order-table";
 import { PageHeader } from "@/components/page-header";
-import { getOrders } from "@/lib/data";
+import { CreateOrderDialog } from "@/features/orders/components/create-order-dialog";
+import { OrderTable } from "@/features/orders/components/order-table";
+import { getOrders } from "@/features/orders/server/readers";
 
 export const dynamic = "force-dynamic";
 

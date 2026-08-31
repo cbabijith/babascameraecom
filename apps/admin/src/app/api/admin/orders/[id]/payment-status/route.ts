@@ -1,6 +1,8 @@
 import { apiError, apiSuccess, authorizeAdminApi, zodFieldErrors } from "@/lib/api/admin-api";
 import { AdminActionError } from "@/lib/actions/result";
-import { getOrderDetail, paymentStatusInputSchema, updateOrderPaymentStatus } from "@/lib/services/admin-orders";
+import { paymentStatusInputSchema } from "@/features/orders/schemas/order-schemas";
+import { getOrderDetail } from "@/features/orders/repositories/orders-repository";
+import { updateOrderPaymentStatus } from "@/features/orders/services/order-service";
 
 export const dynamic = "force-dynamic";
 

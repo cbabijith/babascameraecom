@@ -1,6 +1,6 @@
 # Baba's Camera Admin
 
-Next.js `16.2.11` admin dashboard for Baba's Camera commerce operations. It runs on port `3001` and uses Supabase Auth, Drizzle/PostgreSQL, shared UI primitives, React Hook Form, Zod, TanStack Table, and Sonner.
+Next.js `16.2.11` admin dashboard for Baba's Camera commerce operations. It runs on port `3001` and uses better-auth (email/password sessions), Drizzle/PostgreSQL, shared UI primitives, React Hook Form, Zod, TanStack Table, and Sonner.
 
 ## Local URL
 
@@ -21,19 +21,17 @@ bun run dev:admin
 
 Required values are documented in `.env.example`:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or anon key
 - `DATABASE_URL`
+- `BETTER_AUTH_SECRET`
 - `NEXT_PUBLIC_STOREFRONT_URL`
+- `S3_*` credentials for Tigris media storage
 - Razorpay refund credentials when testing provider-backed refunds
-
-Do not put a Supabase service-role key in this app.
 
 ## Authentication
 
 The admin panel uses a two-step authorization model:
 
-1. Supabase Auth verifies the email/password session.
+1. better-auth verifies the email/password session (HTTP-only cookie).
 2. Server code reads `public.users` and allows access only when the profile is active and `role = 'admin'`.
 
 Behavior:
@@ -75,26 +73,22 @@ The admin UI now includes:
 
 ## Folder Architecture
 
-The admin app is being moved to feature-driven clean architecture.
-
-Current target structure:
+The admin app follows feature-driven clean architecture (see `src/features/README.md` for the full rules).
 
 ```text
 src/app/                 Route layer only.
-src/features/<feature>/  Feature UI, server actions, schemas, and business logic.
+src/features/<feature>/  components/ domain/ schemas/ repositories/ services/ server/
 src/components/          Shared shell and generic admin UI only.
-src/lib/                 Cross-cutting infrastructure and utilities only.
+src/lib/                 Cross-cutting infrastructure: auth, money, security, forms, events, API kernel.
 ```
 
-Started feature migration:
+Migrated features: auth, navigation, catalog, home-banners, orders,
+customers, coupons, reviews, settings, users, dashboard.
 
-- `src/features/auth/components/login-form.tsx`
-- `src/features/auth/server/actions.ts`
-- `src/features/auth/server/admin.ts`
-- `src/features/navigation/navigation-items.ts`
-- `src/features/navigation/components/admin-sidebar-nav.tsx`
+Mutations publish domain events through `src/lib/events` after commit;
+handlers own revalidation, customer emails, and audit logging.
 
-Compatibility re-exports remain under `src/lib/auth` so existing modules keep working while the rest of the admin app is migrated safely.
+Compatibility re-exports remain under `src/lib/auth` so existing modules keep working.
 
 ## Validation
 

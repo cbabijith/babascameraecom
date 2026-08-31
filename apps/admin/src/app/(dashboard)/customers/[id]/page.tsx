@@ -2,10 +2,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@babascamera/ui";
 import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
-import { CustomerOrderTable } from "@/components/customer-order-table";
-import { CustomerStatusButton } from "@/components/customer-table";
 import { StatusBadge } from "@/components/status-badge";
-import { getCustomer } from "@/lib/data";
+import { CustomerOrderTable } from "@/features/customers/components/customer-order-table";
+import { CustomerStatusButton } from "@/features/customers/components/customer-table";
+import { getCustomer } from "@/features/customers/server/readers";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";

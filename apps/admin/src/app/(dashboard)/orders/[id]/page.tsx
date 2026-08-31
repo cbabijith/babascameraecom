@@ -7,13 +7,13 @@ import {
   OrderTransitionForm,
   PaymentStatusForm,
   RefundForm,
-} from "@/components/order-actions";
-import { OrderItemTable } from "@/components/order-item-table";
+} from "@/features/orders/components/order-actions";
+import { OrderItemTable } from "@/features/orders/components/order-item-table";
+import { ORDER_TRANSITIONS } from "@/features/orders/domain/order-transitions";
+import { getOrder } from "@/features/orders/server/readers";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { getOrder } from "@/lib/data";
 import { formatMoney } from "@/lib/money";
-import { ORDER_TRANSITIONS } from "@/lib/order-transitions";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";

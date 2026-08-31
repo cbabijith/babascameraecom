@@ -1,11 +1,8 @@
 import { apiError, apiSuccess, authorizeAdminApi, zodFieldErrors } from "@/lib/api/admin-api";
 import { AdminActionError } from "@/lib/actions/result";
-import {
-  createManualOrder,
-  getOrderDetail,
-  listOrders,
-  manualOrderSchema,
-} from "@/lib/services/admin-orders";
+import { manualOrderSchema } from "@/features/orders/schemas/order-schemas";
+import { getOrderDetail, listOrders } from "@/features/orders/repositories/orders-repository";
+import { createManualOrder } from "@/features/orders/services/order-service";
 
 export const dynamic = "force-dynamic";
 

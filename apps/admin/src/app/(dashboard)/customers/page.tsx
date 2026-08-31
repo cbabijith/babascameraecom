@@ -1,6 +1,6 @@
-import { CustomerTable } from "@/components/customer-table";
 import { PageHeader } from "@/components/page-header";
-import { getCustomers } from "@/lib/data";
+import { CustomerTable } from "@/features/customers/components/customer-table";
+import { getCustomers } from "@/features/customers/server/readers";
 
 export const dynamic = "force-dynamic";
 

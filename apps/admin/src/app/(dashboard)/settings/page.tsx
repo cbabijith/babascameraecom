@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/page-header";
-import { SettingsManager } from "@/components/settings-manager";
-import { getSettings } from "@/lib/data";
+import { SettingsManager } from "@/features/settings/components/settings-manager";
+import { getSettings } from "@/features/settings/server/readers";
 
 export const dynamic = "force-dynamic";
 

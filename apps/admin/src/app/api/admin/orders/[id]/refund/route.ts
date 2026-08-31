@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { publicActionError } from "@/lib/actions/result";
-import { processOrderRefund } from "@/lib/actions/refunds";
+import { processOrderRefund } from "@/features/orders/services/refund-service";
 
 const bodySchema = z.object({
   reason: z.string().trim().max(500).optional(),

@@ -1,6 +1,6 @@
-import { CouponManager } from "@/components/coupon-manager";
 import { PageHeader } from "@/components/page-header";
-import { getCoupons } from "@/lib/data";
+import { CouponManager } from "@/features/coupons/components/coupon-manager";
+import { getCoupons } from "@/features/coupons/server/readers";
 
 export const dynamic = "force-dynamic";
 

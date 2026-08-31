@@ -4,9 +4,9 @@ import Link from "next/link";
 
 import { CommerceChart } from "@/components/commerce-chart";
 import { PageHeader } from "@/components/page-header";
-import { RecentOrdersTable } from "@/components/recent-orders-table";
+import { RecentOrdersTable } from "@/features/orders/components/recent-orders-table";
 import { StatCard } from "@/components/stat-card";
-import { getDashboard } from "@/lib/data";
+import { getDashboard } from "@/features/dashboard/server/readers";
 import { formatPaise } from "@/lib/money";
 
 export const dynamic = "force-dynamic";

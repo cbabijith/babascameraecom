@@ -1,6 +1,7 @@
 import { apiError, apiSuccess, authorizeAdminApi } from "@/lib/api/admin-api";
 import { AdminActionError } from "@/lib/actions/result";
-import { deleteOrder, getOrderDetail } from "@/lib/services/admin-orders";
+import { getOrderDetail } from "@/features/orders/repositories/orders-repository";
+import { deleteOrder } from "@/features/orders/services/order-service";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     return apiError("ORDER_NOT_FOUND", "Order not found.", 404);
   }
   try {
-    const result = await deleteOrder(id);
+    const result = await deleteOrder(id, authorization.admin.id);
     return apiSuccess(result);
   } catch (error) {
     if (error instanceof AdminActionError) {

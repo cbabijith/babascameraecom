@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/page-header";
-import { UserTable } from "@/components/user-table";
-import { getUsers } from "@/lib/data";
+import { UserTable } from "@/features/users/components/user-table";
+import { getUsers } from "@/features/users/server/readers";
 
 export const dynamic = "force-dynamic";
 
