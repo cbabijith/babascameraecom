@@ -1,21 +1,9 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { productImageUrl } from "./storage";
 
-const originalSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-afterEach(() => {
-  if (originalSupabaseUrl === undefined) {
-    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-  } else {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = originalSupabaseUrl;
-  }
-});
-
 describe("productImageUrl", () => {
   it("keeps local public assets local", () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co";
-
     expect(productImageUrl("/camera2.png")).toBe("/camera2.png");
   });
 
@@ -25,11 +13,12 @@ describe("productImageUrl", () => {
     );
   });
 
-  it("builds a public Storage URL for managed object paths", () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co/";
+  it("falls back to the placeholder for unresolved object keys", () => {
+    expect(productImageUrl("products/camera body.webp")).toBe("/placeholder.svg");
+  });
 
-    expect(productImageUrl("products/camera body.webp")).toBe(
-      "https://project.supabase.co/storage/v1/object/public/product-images/products/camera%20body.webp",
-    );
+  it("maps null and undefined to the placeholder", () => {
+    expect(productImageUrl(null)).toBe("/placeholder.svg");
+    expect(productImageUrl(undefined)).toBe("/placeholder.svg");
   });
 });

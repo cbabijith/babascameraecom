@@ -31,21 +31,16 @@
     "db:check": "bun run --cwd packages/db db:check",
     "db:migrate": "bun run --cwd packages/db db:migrate",
     "db:studio": "bun run --cwd packages/db db:studio",
-    "db:validate": "bun run --cwd packages/db db:validate",
-    "supabase:start": "supabase start",
-    "supabase:stop": "supabase stop --no-backup"
+    "db:validate": "bun run --cwd packages/db db:validate"
   },
   "devDependencies": {
     "@babascamera/config": "workspace:*",
     "eslint": "9.39.5",
     "prettier": "3.9.6",
-    "supabase": "2.110.0",
     "turbo": "2.10.7",
     "typescript": "5.9.3"
   },
   "overrides": {
-    "@supabase/ssr": "0.12.4",
-    "@supabase/supabase-js": "2.111.0",
     "@tailwindcss/postcss": "4.3.3",
     "drizzle-kit": "0.31.10",
     "drizzle-orm": "0.45.2",

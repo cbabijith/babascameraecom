@@ -7,7 +7,7 @@ The homepage uses one public, aggregate HTTP request:
 The React page and feature components do not import the database package. The
 only browser-side homepage module is the banner carousel; all catalogue
 selection, visibility, pricing, ordering, and deduplication happen on the
-server. Supabase remains limited to authentication/session handling.
+server, and authentication/session handling is owned by better-auth.
 
 ## Contract and limits
 
@@ -36,8 +36,8 @@ session or cart data enters the public homepage payload or cache.
 
 ## Media and links
 
-Homepage media accepts local paths, product-storage object keys, the configured
-Supabase storage host, the existing Baba's CDN hosts, and optional hosts from
-`STOREFRONT_MEDIA_HOSTS`. Remote media must use HTTPS. Banner destinations are
+Homepage media accepts local paths, product-storage object keys, the existing
+Baba's CDN hosts, and optional hosts from `STOREFRONT_MEDIA_HOSTS`. Remote
+media must use HTTPS. Banner destinations are
 restricted to safe relative paths or HTTP(S) URLs, and external new-tab links
 receive `noopener noreferrer`.

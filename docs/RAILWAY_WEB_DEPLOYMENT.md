@@ -33,8 +33,8 @@ Railway service's **Variables** tab. Never commit real secrets to Git.
 At minimum, configure these before the production deployment:
 
 - `NEXT_PUBLIC_SITE_URL`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
 - `DATABASE_URL`
 - `NEXT_PUBLIC_RAZORPAY_KEY_ID`
 - `RAZORPAY_KEY_ID`
@@ -43,34 +43,32 @@ At minimum, configure these before the production deployment:
 - `CRON_SECRET`
 
 Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` before relying on real
-transactional email.
+transactional email, plus the `S3_*` values for Tigris media storage.
 
 Use the final Railway or custom HTTPS domain for `NEXT_PUBLIC_SITE_URL`, with no
 trailing slash. Redeploy after changing any `NEXT_PUBLIC_` variable because
 Next.js embeds public variables during the build.
 
-For Supabase, use the transaction pooler connection string with
-`sslmode=require`. URL-encode special characters in the database password.
+Point `DATABASE_URL` at the Railway PostgreSQL service (internal hostname,
+`sslmode` is not required on the private network). URL-encode special
+characters in the database password.
 
-## 3. Configure Supabase Auth
+## 3. Configure auth redirects
 
-In Supabase **Authentication > URL Configuration**:
+Customer sessions use better-auth HTTP-only cookies against the storefront
+origin. Set `BETTER_AUTH_URL` (and `NEXT_PUBLIC_SITE_URL`) to the final
+storefront origin:
 
-1. Set **Site URL** to the final storefront origin:
+```text
+https://shop.example.com
+```
 
-   ```text
-   https://shop.example.com
-   ```
+If Google sign-in is enabled, add the storefront OAuth callback URL to the
+Google Cloud console client:
 
-2. Add this allowed redirect URL:
-
-   ```text
-   https://shop.example.com/auth/callback
-   ```
-
-Keep localhost redirect URLs only if local development still needs them.
-Customer sessions continue to use Supabase's secure cookie-based SSR flow; no
-browser bearer token is required.
+```text
+https://shop.example.com/api/auth/callback/google
+```
 
 ## 4. Configure Razorpay
 
@@ -98,8 +96,8 @@ After deployment, also open:
 /api/health
 ```
 
-The readiness endpoint returns `200` only when the database, Supabase, and
-Razorpay configuration are present. It reports only booleans, never secret
+The readiness endpoint returns `200` only when the database and Razorpay
+configuration are present. It reports only booleans, never secret
 values.
 
 ## 6. Scheduled internal jobs
@@ -145,9 +143,10 @@ After the Railway deployment becomes active, verify:
 - **Health check fails:** inspect deployment logs, then open `/api/health/live`.
   If liveness works but `/api/health` is `503`, add the missing service
   variables.
-- **Auth redirects to localhost:** update both `NEXT_PUBLIC_SITE_URL` and
-  Supabase URL Configuration, then redeploy.
-- **Database authentication fails:** verify the selected Supabase pooler host,
-  username, password encoding, port, and `sslmode=require`.
+- **Auth redirects to localhost:** update `BETTER_AUTH_URL`,
+  `NEXT_PUBLIC_SITE_URL`, and (for Google sign-in) the OAuth callback URL in
+  the Google Cloud console, then redeploy.
+- **Database authentication fails:** verify the database host, username,
+  password encoding, and port.
 - **Public variable seems unchanged:** redeploy; `NEXT_PUBLIC_` values are
   compiled into the Next.js build.

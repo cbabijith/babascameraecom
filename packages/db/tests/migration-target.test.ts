@@ -2,62 +2,46 @@ import { describe, expect, test } from "bun:test";
 
 import { validateMigrationTarget } from "../scripts/migration-target";
 
-const projectRef = "abcdefghijklmnopqrst";
-
 describe("migration target validation", () => {
-  test("accepts a password-protected local Supabase database without a project reference", () => {
+  test("accepts a password-protected local database without TLS", () => {
     const target = validateMigrationTarget(
-      "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
-      undefined,
+      "postgresql://postgres:postgres@127.0.0.1:5432/postgres",
     );
 
     expect(target.ssl).toBe(false);
   });
 
-  test("accepts matching hosted direct, session-pooler, and transaction-pooler targets", () => {
-    const direct = validateMigrationTarget(
-      `postgresql://postgres:secret@db.${projectRef}.supabase.co:5432/postgres`,
-      projectRef,
-    );
-    const sessionPooler = validateMigrationTarget(
-      `postgresql://postgres.${projectRef}:secret@aws-1-ap-south-1.pooler.supabase.com:5432/postgres`,
-      projectRef,
-    );
-    const transactionPooler = validateMigrationTarget(
-      `postgresql://postgres.${projectRef}:secret@aws-1-ap-south-1.pooler.supabase.com:6543/postgres`,
-      projectRef,
+  test("accepts a remote database and requires TLS", () => {
+    const target = validateMigrationTarget(
+      "postgresql://postgres:secret@pg-sg.railway.internal:5432/railway",
     );
 
-    expect(direct.ssl).toBe("require");
-    expect(sessionPooler.ssl).toBe("require");
-    expect(transactionPooler.ssl).toBe("require");
+    expect(target.ssl).toBe("require");
   });
 
   test("rejects missing, placeholder, and non-PostgreSQL credentials", () => {
-    expect(() => validateMigrationTarget(undefined, undefined)).toThrow("DATABASE_URL is required");
+    expect(() => validateMigrationTarget(undefined)).toThrow("DATABASE_URL is required");
     expect(() =>
-      validateMigrationTarget(
-        `postgresql://postgres:%5BYOUR-PASSWORD%5D@db.${projectRef}.supabase.co:5432/postgres`,
-        projectRef,
-      ),
+      validateMigrationTarget("postgresql://postgres:%5BYOUR-PASSWORD%5D@db.example.com:5432/postgres"),
     ).toThrow("placeholder passwords");
-    expect(() => validateMigrationTarget("https://example.com/postgres", undefined)).toThrow(
+    expect(() => validateMigrationTarget("https://example.com/postgres")).toThrow(
       "postgres://",
     );
   });
 
-  test("rejects an unverified or mismatched hosted Supabase target", () => {
-    const target = `postgresql://postgres.${projectRef}:secret@aws-1-ap-south-1.pooler.supabase.com:5432/postgres`;
-
-    expect(() => validateMigrationTarget(target, undefined)).toThrow("SUPABASE_PROJECT_REF");
-    expect(() => validateMigrationTarget(target, "zyxwvutsrqponmlkjihg")).toThrow("does not match");
+  test("rejects unnamed databases and missing users", () => {
+    expect(() =>
+      validateMigrationTarget("postgresql://postgres:secret@db.example.com:5432"),
+    ).toThrow("target database");
+    expect(() =>
+      validateMigrationTarget("postgresql://:secret@db.example.com:5432/postgres"),
+    ).toThrow("username");
   });
 
   test("rejects remote TLS opt-out", () => {
     expect(() =>
       validateMigrationTarget(
-        `postgresql://postgres:secret@db.${projectRef}.supabase.co:5432/postgres?sslmode=disable`,
-        projectRef,
+        "postgresql://postgres:secret@db.example.com:5432/postgres?sslmode=disable",
       ),
     ).toThrow("require TLS");
   });

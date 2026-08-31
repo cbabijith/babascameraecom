@@ -10,7 +10,7 @@ function createSqlClient(): SqlClient {
 
   if (databaseUrl === undefined || databaseUrl.length === 0) {
     throw new Error(
-      "DATABASE_URL is required when the database is first used. Use the verified Supabase direct or project-qualified pooler PostgreSQL URL.",
+      "DATABASE_URL is required when the database is first used. Use the verified PostgreSQL URL for the target environment.",
     );
   }
 

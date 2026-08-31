@@ -5,14 +5,6 @@ const FIXED_MEDIA_HOSTS = new Set([
 
 function configuredMediaHosts(): Set<string> {
   const hosts = new Set(FIXED_MEDIA_HOSTS);
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  if (supabaseUrl) {
-    try {
-      hosts.add(new URL(supabaseUrl).hostname.toLowerCase());
-    } catch {
-      // An invalid deployment setting must not make an unsafe URL public.
-    }
-  }
   for (const host of (process.env.STOREFRONT_MEDIA_HOSTS ?? "").split(",")) {
     const normalized = host.trim().toLowerCase();
     if (normalized) hosts.add(normalized);
@@ -67,7 +59,7 @@ export function safePublicMediaReference(value: string | null): string | null {
   try {
     const url = new URL(candidate);
     const hostname = url.hostname.toLowerCase();
-    const approved = configuredMediaHosts().has(hostname) || hostname.endsWith(".supabase.co");
+    const approved = configuredMediaHosts().has(hostname);
     return url.protocol === "https:" && approved ? url.toString() : null;
   } catch {
     return null;

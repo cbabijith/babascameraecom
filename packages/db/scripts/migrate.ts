@@ -7,7 +7,7 @@ import postgres from "postgres";
 import { validateMigrationTarget } from "./migration-target";
 
 const migrationFolder = fileURLToPath(new URL("../drizzle", import.meta.url));
-const target = validateMigrationTarget(process.env.DATABASE_URL, process.env.SUPABASE_PROJECT_REF);
+const target = validateMigrationTarget(process.env.DATABASE_URL);
 const client = postgres(target.databaseUrl, {
   max: 1,
   prepare: false,

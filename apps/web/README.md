@@ -1,8 +1,9 @@
 # Baba's Camera Storefront
 
 Customer-facing Next.js 16 storefront for Baba's Camera. It runs on port `3000`
-and uses React 19, Supabase Auth, Drizzle/PostgreSQL catalog data, server-side
-cart/checkout logic, Razorpay payment helpers, and the shared UI package.
+and uses React 19, better-auth (email/password plus optional Google OAuth),
+Drizzle/PostgreSQL catalog data, server-side cart/checkout logic, Razorpay
+payment helpers, and the shared UI package.
 
 ## Runtime and tooling
 
@@ -31,8 +32,9 @@ bun run dev:web
 
 Required values are documented in `.env.example`:
 
-- Supabase URL and public key.
 - `DATABASE_URL`.
+- `BETTER_AUTH_SECRET`.
+- `S3_*` credentials for Tigris media storage.
 - Razorpay keys for online payment tests.
 - Resend values for real email delivery.
 - `CRON_SECRET` for internal job routes.
@@ -103,5 +105,5 @@ bun run --cwd apps/web build
 
 - Complete COD order lifecycle testing.
 - Configure Razorpay test keys and certify live test checkout.
-- Configure Resend/Supabase SMTP and verify email delivery.
+- Configure Resend and verify email delivery.
 - Run Playwright over the complete customer journey.

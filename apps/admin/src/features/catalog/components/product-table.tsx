@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- Product media uses runtime Supabase URLs. */
+/* eslint-disable @next/next/no-img-element -- Product media uses runtime URLs. */
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";

@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- Banner media URLs are created at runtime in Supabase Storage. */
+/* eslint-disable @next/next/no-img-element -- Banner media URLs are created at runtime. */
 
 import {
   Badge,

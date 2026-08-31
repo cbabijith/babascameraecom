@@ -4,11 +4,11 @@
 
 ```text
 Browser
-  ├─ babascamera.com ───────── apps/web (Next.js 15)
-  └─ admin.babascamera.com ─── apps/admin (Next.js 15)
+  ├─ babascamera.com ───────── apps/web (Next.js)
+  └─ admin.babascamera.com ─── apps/admin (Next.js)
                 │
-                ├─ Supabase Auth (SSR cookies)
-                ├─ Supabase Storage (product-images)
+                ├─ better-auth (HTTP-only cookie sessions)
+                ├─ Tigris object storage via per-app /api/media proxies
                 ├─ PostgreSQL through @babascamera/db
                 ├─ Razorpay Orders/Payments/Refunds APIs
                 └─ Resend through the email outbox worker
@@ -16,8 +16,7 @@ Browser
 
 Both applications are React Server Component applications. Browser components
 only own interaction state. Protected reads and every commerce mutation execute
-on the server. PostgreSQL RLS remains a second boundary when a Supabase JWT is
-used directly.
+on the server against the shared PostgreSQL database.
 
 ## Package boundaries
 
@@ -93,11 +92,12 @@ The resulting payment state remains `pending`.
 
 ## Auth and authorization
 
-- Supabase owns credentials, OAuth, email confirmation, reset tokens, and SSR
-  session cookies.
-- A database trigger creates the matching `public.users` row as an active
-  customer. Auth metadata cannot choose an admin role.
-- Admin middleware refreshes the session and rejects absent, inactive,
+- better-auth owns credentials, OAuth, email confirmation, reset tokens, and
+  cookie sessions for both apps against the shared `users`/`accounts`/
+  `sessions` tables.
+- Sign-up always creates the matching `public.users` row as an active
+  customer; auth metadata cannot choose an admin role.
+- Admin middleware validates the session and rejects absent, inactive,
   non-admin profiles.
 - Admin actions re-check authorization; middleware is not the only guard.
 - Customer actions resolve the authenticated user or an opaque, HTTP-only,
@@ -132,8 +132,10 @@ duplicate release or consume operations.
 ## Migration ownership
 
 `packages/db/drizzle/*_initial_commerce.sql` is authoritative. It includes the
-Drizzle-generated relational schema and reviewed Supabase-specific SQL for
-Auth, RLS, grants, Storage, FTS, triggers, and assertions. The PGlite validation
-script creates Supabase-compatible stubs, executes every statement, exercises
-the auth trigger and timestamp triggers, and confirms all 22 application tables
-have RLS.
+Drizzle-generated relational schema plus reviewed SQL for grants, FTS,
+triggers, and assertions, and still creates the auth/storage compatibility
+surfaces from the project's earlier managed-Postgres hosting era. The PGlite
+validation script recreates those compatibility stubs, executes every
+statement, exercises the profile trigger and timestamp triggers, and confirms
+all application tables have RLS. Fresh plain-PostgreSQL environments apply
+`packages/db/scripts/legacy-compat-schema.sql` before migrating.

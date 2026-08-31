@@ -7,31 +7,16 @@ function requiredEnvironment(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
     throw new Error(
-      `${name} is required. Start local Supabase, apply the Drizzle migration, and export its status values before E2E.`,
+      `${name} is required. Apply the Drizzle migration to the local database and export it before E2E.`,
     );
   }
   return value;
 }
-
-function requiredSupabasePublicKey(): string {
-  const value =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  if (!value) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY is required.",
-    );
-  }
-  return value;
-}
-
-const supabasePublicKey = requiredSupabasePublicKey();
 
 const sharedEnvironment = {
   DATABASE_URL: requiredEnvironment("DATABASE_URL"),
-  NEXT_PUBLIC_SUPABASE_URL: requiredEnvironment("NEXT_PUBLIC_SUPABASE_URL"),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: supabasePublicKey,
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: supabasePublicKey,
+  // Dev-only static secret so E2E session cookies are deterministic.
+  BETTER_AUTH_SECRET: "e2e-better-auth-secret",
   NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${storefrontPort}`,
   NEXT_PUBLIC_STOREFRONT_URL: `http://127.0.0.1:${storefrontPort}`,
   NEXT_PUBLIC_WEB_URL: `http://127.0.0.1:${storefrontPort}`,
@@ -40,7 +25,6 @@ const sharedEnvironment = {
 };
 
 export default defineConfig({
-  globalSetup: "./global-setup.ts",
   testDir: "./specs",
   outputDir: "./test-results",
   timeout: 30_000,

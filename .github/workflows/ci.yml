@@ -58,9 +58,25 @@ jobs:
         run: bun run build
 
   database:
-    name: Apply Drizzle migration to local Supabase
+    name: Apply Drizzle migration to PostgreSQL
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: babas_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/babas_ci
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -73,42 +89,12 @@ jobs:
       - name: Install locked dependencies
         run: bun install --frozen-lockfile
 
-      - name: Start local Supabase services
-        run: bun run supabase:start
-
-      - name: Export generated local credentials
-        shell: bash
-        run: |
-          set -euo pipefail
-          source <(bunx supabase status --output env)
-          test -n "${API_URL:-}"
-          test -n "${ANON_KEY:-}"
-          test -n "${SERVICE_ROLE_KEY:-}"
-          test -n "${DB_URL:-}"
-          echo "::add-mask::$SERVICE_ROLE_KEY"
-          echo "::add-mask::$DB_URL"
-          {
-            echo "DATABASE_URL=$DB_URL"
-            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
-            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY"
-            echo "SUPABASE_URL=$API_URL"
-            echo "SUPABASE_ANON_KEY=$ANON_KEY"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
-          } >> "$GITHUB_ENV"
-
       - name: Apply the sole Drizzle migration authority
         run: |
+          bun run --cwd packages/db db:compat
           bun run db:migrate
           bun run db:migrate
           bun run db:validate
-
-      - name: Seed and verify local Auth profiles
-        run: bun run --cwd tests/e2e seed:auth
-
-      - name: Stop local Supabase
-        if: always()
-        run: bun run supabase:stop
 
   browser:
     name: Storefront and admin browser smoke tests
@@ -117,6 +103,23 @@ jobs:
       - quality
       - database
     timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: babas_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/babas_ci
+      E2E_SEED_AUTH: "true"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -129,33 +132,10 @@ jobs:
       - name: Install locked dependencies
         run: bun install --frozen-lockfile
 
-      - name: Start local Supabase services
-        run: bun run supabase:start
-
-      - name: Export generated local credentials
-        shell: bash
-        run: |
-          set -euo pipefail
-          source <(bunx supabase status --output env)
-          test -n "${API_URL:-}"
-          test -n "${ANON_KEY:-}"
-          test -n "${SERVICE_ROLE_KEY:-}"
-          test -n "${DB_URL:-}"
-          echo "::add-mask::$SERVICE_ROLE_KEY"
-          echo "::add-mask::$DB_URL"
-          {
-            echo "DATABASE_URL=$DB_URL"
-            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
-            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY"
-            echo "SUPABASE_URL=$API_URL"
-            echo "SUPABASE_ANON_KEY=$ANON_KEY"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
-            echo "E2E_SEED_AUTH=true"
-          } >> "$GITHUB_ENV"
-
       - name: Apply Drizzle migration
-        run: bun run db:migrate
+        run: |
+          bun run --cwd packages/db db:compat
+          bun run db:migrate
 
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
@@ -171,7 +151,3 @@ jobs:
           path: tests/e2e/playwright-report
           if-no-files-found: ignore
           retention-days: 7
-
-      - name: Stop local Supabase
-        if: always()
-        run: bun run supabase:stop

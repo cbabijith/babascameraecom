@@ -4,12 +4,14 @@
 
 1. Install the committed Bun lockfile with `bun install --frozen-lockfile`.
 2. Run type-check, lint, unit tests, migration validation, and both builds.
-3. Back up the target Supabase database according to the environment policy.
-4. Set `SUPABASE_PROJECT_REF`, confirm `DATABASE_URL` uses the matching
-   project-qualified IPv4 transaction-mode pooler on port 6543, and run
-   `bun run db:migrate`. The migration preflight refuses placeholder
-   credentials and a mismatched hosted project, database, or pooler username.
-5. Deploy `apps/web` and `apps/admin` as separate Vercel projects.
+3. Back up the target database according to the environment policy.
+4. Confirm `DATABASE_URL` targets the intended PostgreSQL database and run
+   `bun run db:migrate`. Fresh plain-PostgreSQL environments apply the
+   legacy compatibility schema first (`bun run --cwd packages/db db:compat`).
+   The migration preflight refuses placeholder credentials, unnamed
+   databases, and remote TLS opt-outs.
+5. Deploy `apps/admin` to Railway from GitHub `main`; deploy `apps/web`
+   per `DEPLOYMENT.md`.
 6. Run the README acceptance flow in provider Test Mode.
 7. Review payment, webhook, refund, email-outbox, and inventory-reservation
    telemetry before enabling live keys.
@@ -46,7 +48,7 @@ Alert on:
 - unusual admin authorization failures;
 - migration or RLS assertion failures.
 
-Do not log passwords, Supabase tokens, database URLs, service-role keys,
+Do not log passwords, session tokens, database URLs, object-storage keys,
 Razorpay signatures/secrets, full card data, or raw guest-session tokens.
 
 ## Recovery rules
@@ -67,7 +69,8 @@ Razorpay signatures/secrets, full card data, or raw guest-session tokens.
 
 ## Key rotation
 
-Rotate Supabase service-role, database, Razorpay, webhook, Resend, Google OAuth,
-and cron secrets in their provider dashboards and both Vercel projects. Deploy
-after rotation, perform health/auth/test-mode provider checks, then revoke the
-old value. Do not place replacement secrets in Git history or issue comments.
+Rotate database, object-storage, Razorpay, webhook, Resend, Google OAuth,
+better-auth, and cron secrets in their provider dashboards and both deployed
+apps. Deploy after rotation, perform health/auth/test-mode provider checks,
+then revoke the old value. Do not place replacement secrets in Git history or
+issue comments.

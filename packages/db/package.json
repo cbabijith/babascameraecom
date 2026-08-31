@@ -20,6 +20,7 @@
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "db:migrate": "bun scripts/migrate.ts",
+    "db:compat": "bun scripts/apply-legacy-compat.ts",
     "db:studio": "drizzle-kit studio",
     "db:validate": "bun scripts/validate-migration.ts"
   },

@@ -5,13 +5,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@babascamera/db", "@babascamera/ui"],
   serverExternalPackages: ["postgres"],
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.supabase.co",
-        pathname: "/storage/v1/object/**",
-      },
-      {
+    remotePatterns: [      {
         protocol: "https",
         hostname: "t3.storageapi.dev",
         pathname: "/**",

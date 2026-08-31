@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- Product media uses runtime Supabase public URLs. */
+/* eslint-disable @next/next/no-img-element -- Product media uses runtime URLs. */
 
 import {
   Button,

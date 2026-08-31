@@ -18,8 +18,6 @@ next-env.d.ts
 .env.*
 !.env.example
 !.env.*.example
-supabase/.branches/
-supabase/.temp/
 
 # Editors and operating-system files
 .DS_Store

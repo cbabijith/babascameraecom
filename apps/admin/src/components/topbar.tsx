@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- Administrator avatars use runtime Supabase URLs. */
+/* eslint-disable @next/next/no-img-element -- Administrator avatars use runtime media URLs. */
 
 import { Bell } from "lucide-react";
 import Link from "next/link";
