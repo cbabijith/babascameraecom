@@ -2,7 +2,7 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "RAILPACK",
-    "buildCommand": "bun run --cwd apps/admin build && echo admin-cache-bust-20260829",
+    "buildCommand": "bun run --cwd apps/admin build && echo admin-cache-bust-20260831",
     "watchPatterns": [
       "/apps/admin/**",
       "/packages/config/**",
