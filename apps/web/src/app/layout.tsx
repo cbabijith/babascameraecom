@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     title: `${brand} – Camera Equipment Store`,
     description:
       "Cameras, lenses & accessories at great prices. Fast delivery & warranty.",
-    images: [{ url: "/og/default-og.jpg" }], // create this image for nicer shares
+    images: [{ url: "/og.png" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -55,11 +55,11 @@ export const metadata: Metadata = {
     title: `${brand} – Camera Equipment Store`,
     description:
       "Cameras, lenses & accessories at great prices. Fast delivery & warranty.",
-    images: ["/og/default-og.jpg"],
+    images: ["/og.png"],
   },
   icons: {
     icon: [
-      { url: "/favicon.ico" },
+      { url: "/favicon.png", type: "image/png" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],

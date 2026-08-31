@@ -6,6 +6,12 @@ import * as schema from "./schema";
 
 export function createBetterAuth(options?: { baseURL?: string; secret?: string }) {
   const db = getDatabase();
+  // Google OAuth is enabled per deployment: only services that carry the
+  // client credentials (storefront) expose the provider. Admin simply omits
+  // the env vars and the provider stays hidden from its auth surface.
+  const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const googleEnabled = Boolean(googleClientId && googleClientSecret);
   return betterAuth({
     database: drizzleAdapter(db, {
       provider: "pg",
@@ -16,6 +22,14 @@ export function createBetterAuth(options?: { baseURL?: string; secret?: string }
         verifications: schema.verifications,
       },
       usePlural: true,
+    }),
+    ...(googleEnabled && {
+      socialProviders: {
+        google: {
+          clientId: googleClientId as string,
+          clientSecret: googleClientSecret as string,
+        },
+      },
     }),
     emailAndPassword: {
       enabled: true,

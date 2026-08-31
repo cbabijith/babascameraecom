@@ -250,10 +250,40 @@ export async function resetPasswordAction(
   }
 }
 
-export async function signInWithGoogleAction() {
-  // Google sign-in is handled client-side through the legacy token endpoint;
-  // server-side OAuth initiation requires a client secret that is not configured.
-  redirect("/login?error=oauth");
+export async function signInWithGoogleAction(formData: FormData): Promise<void> {
+  // better-auth's /sign-in/social endpoint is POST-only: start the OAuth flow
+  // server-side, forward the CSRF state cookie to the browser, then redirect
+  // to the Google authorization URL it returns. The callback lands on
+  // /api/auth/callback/google, which creates the session and returns the
+  // user to callbackURL. Used as a <form action>, so it must return void.
+  const next = safeInternalPath(String(formData.get("next") ?? ""), "/account");
+  try {
+    const origin = await getRequestOrigin();
+    const auth = getWebAuth(origin);
+    const request = await getWebRequest();
+    const response = await auth.api.signInSocial({
+      body: { provider: "google", callbackURL: next },
+      headers: request.headers,
+      asResponse: true,
+    });
+    if (!response.ok) {
+      redirect("/login?error=oauth");
+    }
+    await applyAuthCookies(response);
+    const data = (await response.json().catch(() => ({}))) as {
+      url?: string;
+    };
+    if (!data.url) {
+      redirect("/login?error=oauth");
+    }
+    redirect(data.url as string);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("Google sign-in failed to start", {
+      type: error instanceof Error ? error.name : typeof error,
+    });
+    redirect("/login?error=oauth");
+  }
 }
 
 export async function signOutAction() {

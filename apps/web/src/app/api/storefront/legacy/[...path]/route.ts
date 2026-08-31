@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { asc, eq, getDatabase, homeBanners } from "@babascamera/db";
+import { and, asc, eq, getDatabase, homeBanners } from "@babascamera/db";
 import {
   getCatalogProduct,
   listBestSellingProducts,
@@ -357,6 +357,33 @@ export async function GET(
         });
       }
       if (identifier) {
+        // Ownership check: order details expose customer PII (name, phone,
+        // address) and must only be readable by the owning session — same
+        // rule cancelUserOrder enforces.
+        const { getOptionalUser } = await import("@/lib/auth/session");
+        const { orders: ordersTable } = await import("@babascamera/db");
+        const user = await getOptionalUser();
+        if (user) {
+          const db = getDatabase();
+          const [owned] = await db
+            .select({ id: ordersTable.id })
+            .from(ordersTable)
+            .where(
+              and(eq(ordersTable.id, identifier), eq(ordersTable.userId, user.id)),
+            )
+            .limit(1);
+          if (!owned) {
+            return NextResponse.json(
+              { success: false, message: "Order not found" },
+              { status: 404 },
+            );
+          }
+        } else {
+          return NextResponse.json(
+            { success: false, message: "Order not found" },
+            { status: 404 },
+          );
+        }
         const result = await fetchOrderById(identifier);
         return success({ result });
       }

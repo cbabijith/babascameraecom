@@ -3,10 +3,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { setUser } from "@/store/slice/authSlice";
-import {
-  loginWithGoogleAccessToken,
-  registerUser,
-} from "@/instances/authInstance";
+import { registerUser } from "@/instances/authInstance";
 import Image from "next/image";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Input } from "@/components/ui/input"; // ← shadcn-style input
@@ -15,8 +12,6 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import type { User } from "@/types/auth";
-import { loadGoogleScript } from "@/lib/loadGoogle";
-import { Loader2 } from "lucide-react";
 
 
 const MAX_EMAIL = 254; // RFC-ish practical limit
@@ -49,19 +44,12 @@ function GoogleIcon() {
   );
 }
 
-function GoogleButton({
-  loading,
-  onClick,
-}: {
-  loading: boolean;
-  onClick: () => void;
-}) {
+function GoogleButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={loading}
-      aria-label="Sign in with Google"
+      aria-label="Sign up with Google"
       className={cn(
         // layout
         "relative group inline-flex w-full items-center justify-center gap-3 rounded-lg",
@@ -90,17 +78,11 @@ function GoogleButton({
         "after:bg-black/10 after:blur-md after:content-[''] group-hover:after:bg-black/15"
       )}
     >
-      {loading ? (
-        <Loader2 className="h-5 w-5 animate-spin" />
-      ) : (
-        <span className="grid place-items-center rounded bg-white">
+      <span className="grid place-items-center rounded bg-white">
           <GoogleIcon />
         </span>
-      )}
-      <span className="truncate">
-        {loading ? "Connecting to Google…" : "Sign up with Google"}
-      </span>
-      {/* right ghost spacer to keep text centered when spinner appears */}
+      <span className="truncate">Sign up with Google</span>
+      {/* right ghost spacer to keep text centered */}
       <span className="w-5" />
     </button>
   );
@@ -117,7 +99,6 @@ export default function SignUpForm() {
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error] = React.useState<string | null>(null);
-  const [googleLoading, setGoogleLoading] = React.useState(false);
 
   interface RegisterResult { token: string; user: User | null }
 
@@ -253,55 +234,27 @@ export default function SignUpForm() {
     }
   }
 
-  const handleGoogleSignup = React.useCallback(async () => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      toast.error("Google Client ID is not configured");
-      return;
-    }
+  // Server-side OAuth: POST to better-auth's /sign-in/social (it sets the
+  // CSRF state cookie), then follow the Google authorization URL it returns.
+  // The callback creates the user (if new) plus the session and lands on
+  // /account.
+  async function handleGoogleSignup() {
     try {
-      await loadGoogleScript();
-      if (!window.google?.accounts?.oauth2) {
-        throw new Error("Google OAuth is not available");
-      }
-
-      const tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope:
-          "openid email profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
-        callback: async (resp: { access_token?: string; error?: string }) => {
-          if (resp.error || !resp.access_token) {
-            toast.error(resp.error || "Google sign-up was cancelled");
-            return;
-          }
-
-          try {
-            const tp = toast.promise(
-              loginWithGoogleAccessToken(resp.access_token),
-              {
-                loading: "Creating your account…",
-                success: "Signed up successfully!",
-                error: (err: unknown) =>
-                  err instanceof Error ? err.message : "Sign-up failed",
-              }
-            );
-
-            const { user } = await tp.unwrap();
-            if (user) dispatch(setUser({ ...user, name: user.name ?? "" }));
-            router.replace("/");
-          } catch {
-            /* toast handled */
-          }
-        },
+      const res = await fetch("/api/auth/sign-in/social", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "google", callbackURL: "/account" }),
       });
-
-      tokenClient.requestAccessToken({ prompt: "consent" });
-    } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Failed to start Google sign-up"
-      );
+      const data = (await res.json().catch(() => ({}))) as { url?: string };
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error("Could not start Google sign-up. Please try again.");
+      }
+    } catch {
+      toast.error("Could not start Google sign-up. Please try again.");
     }
-  }, [dispatch, router]);
+  }
 
   return (
     <div className="relative min-h-screen w-full bg-background overflow-hidden">
@@ -340,14 +293,7 @@ export default function SignUpForm() {
                     </p>
                   </div>
                   <div className="w-full mt-6">
-                    <GoogleButton
-                      loading={googleLoading}
-                      onClick={() => {
-                        setGoogleLoading(true);
-                        handleGoogleSignup();
-                        setGoogleLoading(false);
-                      }}
-                    />
+                    <GoogleButton onClick={handleGoogleSignup} />
                     <div className="relative my-6">
                       <div className="absolute inset-0 flex items-center">
                         <div className="w-full border-t" />

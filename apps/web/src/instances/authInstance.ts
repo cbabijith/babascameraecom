@@ -257,13 +257,13 @@ export const loginUser = async (
 
 export const logoutUser = async (): Promise<void> => {
   try {
-    // Optional: await apiClient.post('/user/logout');
-    removeAuthToken();
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
+    // Server-side sign-out revokes the better-auth session cookie; without
+    // this call the cookie survives and the user stays signed in.
+    await apiClient.post('/user/logout');
   } catch {
     // Even if API fails, clear local tokens
+    removeAuthToken();
+  } finally {
     removeAuthToken();
   }
 };

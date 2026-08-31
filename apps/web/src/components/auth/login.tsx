@@ -11,45 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, LockKeyhole, Eye, EyeOff, Loader2 } from "lucide-react";
-import {
-  loginUser,
-  loginWithGoogleAccessToken,
-} from "@/instances/authInstance";
+import { Mail, LockKeyhole, Eye, EyeOff } from "lucide-react";
+import { loginUser } from "@/instances/authInstance";
 import { toast } from "sonner";
 import type { User } from "@/types/auth";
-import { loadGoogleScript } from "@/lib/loadGoogle";
-
-type TokenClientCallback = (resp: {
-  access_token?: string;
-  error?: string;
-}) => void;
-
-interface TokenClientConfig {
-  client_id: string;
-  scope: string;
-  callback: TokenClientCallback;
-  // GIS accepts prompt hints; we only use "" | "consent"
-  prompt?: "" | "consent";
-}
-
-interface TokenClient {
-  requestAccessToken: (opts?: { prompt?: "" | "consent" }) => void;
-}
-
-interface GoogleIdentity {
-  accounts?: {
-    oauth2?: {
-      initTokenClient: (config: TokenClientConfig) => TokenClient;
-    };
-  };
-}
-
-declare global {
-  interface Window {
-    google?: GoogleIdentity;
-  }
-}
 
 // Orbit decoration constants & component (unchanged)
 
@@ -80,18 +45,11 @@ function GoogleIcon() {
   );
 }
 
-function GoogleButton({
-  loading,
-  onClick,
-}: {
-  loading: boolean;
-  onClick: () => void;
-}) {
+function GoogleButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={loading}
       aria-label="Sign in with Google"
       className={cn(
         // layout
@@ -121,17 +79,11 @@ function GoogleButton({
         "after:bg-black/10 after:blur-md after:content-[''] group-hover:after:bg-black/15"
       )}
     >
-      {loading ? (
-        <Loader2 className="h-5 w-5 animate-spin" />
-      ) : (
-        <span className="grid place-items-center rounded bg-white">
+      <span className="grid place-items-center rounded bg-white">
           <GoogleIcon />
         </span>
-      )}
-      <span className="truncate">
-        {loading ? "Connecting to Google…" : "Sign in with Google"}
-      </span>
-      {/* right ghost spacer to keep text centered when spinner appears */}
+      <span className="truncate">Sign in with Google</span>
+      {/* right ghost spacer to keep text centered */}
       <span className="w-5" />
     </button>
   );
@@ -140,7 +92,6 @@ function GoogleButton({
 export default function LoginForm() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const [googleLoading, setGoogleLoading] = React.useState(false);
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -151,11 +102,29 @@ export default function LoginForm() {
   const [passwordError, setPasswordError] = React.useState<string | null>(null);
   interface LoginResult { token: string; user: User | null }
 
-  // ensure spinner is visible briefly then stops (feels responsive)
-  const stopGoogleLoadingSoon = React.useCallback(() => {
-    // tiny delay so the spinner actually renders before stopping
-    setTimeout(() => setGoogleLoading(false), 300);
-  }, []);
+  // Server-side OAuth: POST to better-auth's /sign-in/social (it sets the
+  // CSRF state cookie), then follow the Google authorization URL it returns.
+  // The callback at /api/auth/callback/google creates the session and returns
+  // the user to `next`.
+  async function handleGoogleLogin() {
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next") || "/account";
+    try {
+      const res = await fetch("/api/auth/sign-in/social", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "google", callbackURL: next }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { url?: string };
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error("Could not start Google sign-in. Please try again.");
+      }
+    } catch {
+      toast.error("Could not start Google sign-in. Please try again.");
+    }
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -228,68 +197,6 @@ export default function LoginForm() {
       setLoading(false);
     }
   }
-
-  React.useEffect(() => {
-    loadGoogleScript().catch(() => {
-      // Optional: you can toast an error
-    });
-  }, []);
-
-  const handleGoogleLogin = React.useCallback(async () => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      toast.error("Google Client ID is not configured (.env)");
-      return;
-    }
-
-    try {
-      setGoogleLoading(true); // ← start
-      await loadGoogleScript();
-      if (!window.google?.accounts?.oauth2) {
-        throw new Error("Google OAuth is not available");
-      }
-
-      const tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope:
-          "openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
-        callback: async (resp) => {
-          if (resp.error || !resp.access_token) {
-            toast.error(resp.error || "Google sign-in was cancelled");
-            stopGoogleLoadingSoon(); // ← stop on error/cancel
-            return;
-          }
-          try {
-            const tp = toast.promise(
-              loginWithGoogleAccessToken(resp.access_token),
-              {
-                loading: "Signing in with Google…",
-                success: "Logged in successfully",
-                error: (err: unknown) =>
-                  err instanceof Error ? err.message : "Login failed",
-              }
-            );
-
-            const { user } = await tp.unwrap();
-            if (user) dispatch(setUser({ ...user, name: user.name ?? "" }));
-
-            const params = new URLSearchParams(window.location.search);
-            const next = params.get("next");
-            router.replace(next || "/");
-          } finally {
-            stopGoogleLoadingSoon(); // ← stop on success
-          }
-        },
-      });
-
-      tokenClient.requestAccessToken({ prompt: "" });
-    } catch (e) {
-      stopGoogleLoadingSoon(); // ← stop on thrown error
-      toast.error(
-        e instanceof Error ? e.message : "Failed to start Google sign-in"
-      );
-    }
-  }, [dispatch, router, stopGoogleLoadingSoon]);
 
   return (
     <div className="relative min-h-screen w-full bg-background overflow-hidden">
@@ -432,14 +339,7 @@ export default function LoginForm() {
 
 
                  <div className="w-full mb-4">
-                  <GoogleButton
-                    loading={googleLoading}
-                    onClick={() => {
-                      setGoogleLoading(true);
-                      handleGoogleLogin();
-                      setGoogleLoading(false); // ← stops immediately after click
-                    }}
-                  />
+                  <GoogleButton onClick={handleGoogleLogin} />
                 </div>
 
 

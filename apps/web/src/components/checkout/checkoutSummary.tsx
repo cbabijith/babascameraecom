@@ -160,11 +160,13 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
                 onChange={() => onChangePaymentMethod("BANK_TRANSFER")}
               />
               <div className="flex-1 flex items-center gap-3">
-                {/* GIF from public folder - show as-is, natural size */}
+                {/* GIF from public folder - 570x570 source, scaled by className */}
                 <div className="relative flex-shrink-0">
                   <Image
                     src={bankTransferGifUrl}
                     alt="Save money with bank transfer"
+                    width={570}
+                    height={570}
                     className="w-auto h-16 sm:h-20 object-contain"
                     loading="eager"
                   />
