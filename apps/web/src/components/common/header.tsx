@@ -13,6 +13,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { hydrateCategories } from "@/store/slice/categorySlice";
 
+function HeaderThumbImage({ src, alt, width, height }: { src: string; alt: string; width: number; height: number }) {
+  const [imgSrc, setImgSrc] = useState(src);
+  useEffect(() => { setImgSrc(src); }, [src]);
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt}
+      width={width}
+      height={height}
+      className="object-contain w-full h-full p-1"
+      onError={() => {
+        if (imgSrc !== "/placeholder.svg") setImgSrc("/placeholder.svg");
+      }}
+    />
+  );
+}
+
 export default function Header() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
@@ -273,13 +290,11 @@ export default function Header() {
                           <div className="flex items-center gap-3 mb-6">
                             {category.image && (
                               <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 border">
-                                <Image
+                                <HeaderThumbImage
                                   src={getThumbnailUrl(category.image.key)}
                                   alt={category.name}
                                   width={40}
                                   height={40}
-                                  className="object-contain w-full h-full p-1"
-                                  onError={(e) => ((e.target as HTMLImageElement).src = "/placeholder.svg")}
                                 />
                               </div>
                             )}
@@ -305,13 +320,11 @@ export default function Header() {
                                 )}
                               >
                                 <div className="w-12 h-12 rounded-md overflow-hidden bg-white border flex-shrink-0">
-                                  <Image
+                                  <HeaderThumbImage
                                     src={getThumbnailUrl(brandAssoc.brand.image.key)}
                                     alt={brandAssoc.brand.name}
                                     width={48}
                                     height={48}
-                                    className="object-contain w-full h-full p-1"
-                                    onError={(e) => ((e.target as HTMLImageElement).src = "/placeholder.svg")}
                                   />
                                 </div>
                                 <div className="flex-1 min-w-0">

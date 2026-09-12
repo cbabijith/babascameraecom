@@ -16,7 +16,7 @@ const groups = [
   {
     title: "Support",
     links: [
-      ["/account/orders", "Track an order"],
+      ["/orders", "Track an order"],
       ["/contact", "Contact us"],
       ["/shipping", "Shipping"],
       ["/returns", "Returns"],

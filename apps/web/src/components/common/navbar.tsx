@@ -9,7 +9,7 @@ import { Search, Menu, Handbag, Heart, X, Loader2, ArrowLeft, CircleUserRound } 
 import { searchProducts } from "@/instances/searchInstance"
 import type { Product } from "@/types/product"
 import { getImageUrl, getThumbnailUrl } from "@/lib/apiClient"
-import { getAuthToken } from "@/instances/authInstance"
+import { getAuthToken, checkAuthSession } from "@/instances/authInstance"
 import { selectWishlistCount } from "@/store/slice/wishlistSlice";
 import { selectCartItems } from "@/store/slice/cartSlice"
 
@@ -21,6 +21,24 @@ interface SearchSuggestion {
   image?: string
   category?: string
 }
+
+function NavThumbImage({ src, alt, width, height }: { src: string; alt: string; width: number; height: number }) {
+  const [imgSrc, setImgSrc] = useState(src);
+  useEffect(() => { setImgSrc(src); }, [src]);
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt}
+      width={width}
+      height={height}
+      className="w-full h-full object-contain"
+      onError={() => {
+        if (imgSrc !== "/placeholder.svg") setImgSrc("/placeholder.svg");
+      }}
+    />
+  );
+}
+
 export default function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
@@ -49,8 +67,14 @@ export default function Navbar() {
   // track auth for user button (avoid hydration mismatch)
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
   useEffect(() => {
-    setIsLoggedIn(Boolean(getAuthToken()))
-  }, [])
+    let active = true;
+    checkAuthSession().then((loggedIn) => {
+      if (active) setIsLoggedIn(loggedIn);
+    });
+    return () => {
+      active = false;
+    };
+  }, [pathname]);
 
   const iconBtn =
     "relative inline-flex items-center justify-center rounded-full p-2 bg-[#EFEFEF] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-300"
@@ -309,17 +333,7 @@ return (
                       >
                         {s.image && (
                           <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                            <Image
-                              src={s.image}
-                              alt={s.name}
-                              width={40}
-                              height={40}
-                              className="w-full h-full object-contain"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement
-                                target.src = "/placeholder.svg"
-                              }}
-                            />
+                            <NavThumbImage src={s.image} alt={s.name} width={40} height={40} />
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
@@ -380,17 +394,7 @@ return (
                       >
                         {s.image && (
                           <div className="w-11 h-11 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                            <Image
-                              src={s.image}
-                              alt={s.name}
-                              width={44}
-                              height={44}
-                              className="w-full h-full object-contain"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement
-                                target.src = "/placeholder.svg"
-                              }}
-                            />
+                            <NavThumbImage src={s.image} alt={s.name} width={44} height={44} />
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
@@ -421,9 +425,9 @@ return (
 
           {/* User: show icon + text when logged out; icon-only when logged in */}
         <button
-          onClick={() => {
-            const token = getAuthToken()
-            router.push(token ? "/profile" : "/login")
+          onClick={async () => {
+            const loggedIn = isLoggedIn ?? (await checkAuthSession())
+            router.push(loggedIn ? "/profile" : "/login")
           }}
           aria-label="User"
           className={isLoggedIn ? bareIconBtn : loginCtaBtn}   // ← uses the updated no-wrap class
@@ -499,9 +503,9 @@ return (
 
           {/* User: show icon + text when logged out; icon-only when logged in (same as mobile) */}
           <button
-            onClick={() => {
-              const token = getAuthToken()
-              router.push(token ? "/profile" : "/login")
+            onClick={async () => {
+              const loggedIn = isLoggedIn ?? (await checkAuthSession())
+              router.push(loggedIn ? "/profile" : "/login")
             }}
             aria-pressed={pathname === "/login" || pathname === "/profile"}
             aria-label="User"

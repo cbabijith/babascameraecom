@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { getAuthToken } from "@/instances/authInstance";
+import { getAuthToken, checkAuthSession } from "@/instances/authInstance";
 
 /**
  * - requireAuth: protect private areas (redirect to /login if no token)
@@ -26,21 +26,30 @@ export function AuthGate({
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    const token = getAuthToken();
+    let isMounted = true;
 
-    if (requireAuth && !token) {
-      // Send them to login and remember where they wanted to go
-      router.replace(`${redirectUnauthed}?next=${encodeURIComponent(pathname || '/')}`);
-      return;
+    async function evaluateGate() {
+      const hasSession = await checkAuthSession();
+      if (!isMounted) return;
+
+      if (requireAuth && !hasSession) {
+        router.replace(`${redirectUnauthed}?next=${encodeURIComponent(pathname || '/')}`);
+        return;
+      }
+
+      if (blockWhenAuthed && hasSession) {
+        router.replace(redirectAuthed);
+        return;
+      }
+
+      setChecked(true);
     }
 
-    if (blockWhenAuthed && token) {
-      // Already authed—don’t allow visiting login/signup
-      router.replace(redirectAuthed);
-      return;
-    }
+    evaluateGate();
 
-    setChecked(true);
+    return () => {
+      isMounted = false;
+    };
   }, [requireAuth, blockWhenAuthed, redirectUnauthed, redirectAuthed, router, pathname]);
 
   // Avoid flicker while deciding. You can render a spinner instead if you like.

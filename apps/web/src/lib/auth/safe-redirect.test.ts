@@ -9,8 +9,8 @@ describe("safeInternalPath", () => {
   });
 
   it("rejects absolute, protocol-relative and backslash redirects", () => {
-    expect(safeInternalPath("https://evil.test")).toBe("/account");
-    expect(safeInternalPath("//evil.test/path")).toBe("/account");
-    expect(safeInternalPath("/\\evil.test")).toBe("/account");
+    expect(safeInternalPath("https://evil.test")).toBe("/profile");
+    expect(safeInternalPath("//evil.test/path")).toBe("/profile");
+    expect(safeInternalPath("/\\evil.test")).toBe("/profile");
   });
 });

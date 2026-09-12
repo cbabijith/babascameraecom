@@ -85,10 +85,9 @@ export async function toggleWishlistAction(formData: FormData) {
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   try {
-    const user = await requireUser("/account/wishlist");
+    const user = await requireUser("/wishlist");
     const saved = await toggleWishlistProduct(user.id, parsed.data.productId);
     revalidatePath("/wishlist");
-    revalidatePath("/account/wishlist");
     revalidatePath("/products");
     return {
       success: true,

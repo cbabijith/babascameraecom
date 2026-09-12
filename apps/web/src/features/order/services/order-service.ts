@@ -25,7 +25,8 @@ import {
 } from "@babascamera/db";
 
 import { getOptionalUser } from "@/lib/auth/session";
-import { getCartOwner } from "@/lib/cart-session";
+import { getCartOwner, guestOwnerHash } from "@/lib/cart-session";
+import { isUserCartOwner } from "@/features/cart/services/cart-service";
 import { getCartForOwner } from "@/lib/data/storefront";
 import type { Order } from "@/types/cart";
 
@@ -210,20 +211,26 @@ export async function createOrderFromCheckout(
     }
 
 
-    // 4. Create Order, Order Items, and Clear Cart inside an Atomic Database Transaction
-    return await db.transaction(async (tx) => {
+    // 4. Create Order, Order Items, Inventory Reservations & Clear Cart inside DB Transaction
+    const { createdOrder, insertedItems, ownerRef } = await db.transaction(async (tx) => {
+      const owner = await getCartOwner();
+      const ownerRef = isUserCartOwner(owner)
+        ? owner.userId
+        : guestOwnerHash(owner.sessionId);
+
       const [createdOrder] = await tx
         .insert(ordersTable)
         .values({
           orderNumber: orderNum,
           userId: user?.id ?? null,
+          guestSessionHash: isUserCartOwner(owner) ? null : ownerRef,
           status: "pending",
           paymentMethod: resolvedPaymentMethod,
           paymentStatus: "pending",
 
           customerEmail: user?.email ?? "guest@babascamera.com",
-          customerName: user?.name ?? "Guest Customer",
-          customerPhone: user?.phone ?? "",
+          customerName: user?.name ?? addressSnapshot.fullName ?? "Guest Customer",
+          customerPhone: user?.phone ?? addressSnapshot.phone ?? "",
           subtotal: subtotal.toFixed(2),
           discount: "0.00",
           shippingCharge: shippingCharge.toFixed(2),
@@ -237,20 +244,48 @@ export async function createOrderFromCheckout(
         throw new OrderDataError("Failed to save order to database.", 500);
       }
 
+      const insertedItems: (typeof orderItemsTable.$inferSelect)[] = [];
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
       for (const item of resolvedItems) {
-        await tx.insert(orderItemsTable).values({
+        const [insertedItem] = await tx
+          .insert(orderItemsTable)
+          .values({
+            orderId: createdOrder.id,
+            productId: item.productId,
+            productName: item.productName,
+            sku: item.sku,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice.toFixed(2),
+            total: item.total.toFixed(2),
+          })
+          .returning();
+
+        if (insertedItem) {
+          insertedItems.push(insertedItem);
+        }
+
+        await tx.insert(inventoryReservations).values({
           orderId: createdOrder.id,
           productId: item.productId,
-          productName: item.productName,
-          sku: item.sku,
           quantity: item.quantity,
-          unitPrice: item.unitPrice.toFixed(2),
-          total: item.total.toFixed(2),
+          status: "reserved",
+          expiresAt,
         });
       }
 
+      await tx.insert(orderStatusHistory).values({
+        orderId: createdOrder.id,
+        fromStatus: null,
+        toStatus: "pending",
+        note:
+          resolvedPaymentMethod === "razorpay"
+            ? "Awaiting Razorpay payment"
+            : "Order created",
+        actorId: user?.id ?? null,
+      });
+
       if (!isBuyNow) {
-        const owner = await getCartOwner();
         const cartCondition = owner.userId
           ? eq(cartsTable.userId, owner.userId)
           : owner.sessionId
@@ -270,17 +305,78 @@ export async function createOrderFromCheckout(
         }
       }
 
-      return {
-        _id: createdOrder.id,
-        id: createdOrder.id,
-        orderNumber: createdOrder.orderNumber,
-        totalOrderPrice: Number(createdOrder.total),
-        shippingAddress: payload.shippingAddress,
-        status: "PENDING",
-        createdAt: createdOrder.createdAt.toISOString(),
-        updatedAt: createdOrder.updatedAt.toISOString(),
-      } as unknown as Order;
+      return { createdOrder, insertedItems, ownerRef };
     });
+
+    // 5. Initialize Razorpay Order if payment method is RAZORPAY
+    let razorpayOrderId: string | null = null;
+    let razorpayKeyId: string = "";
+
+    if (resolvedPaymentMethod === "razorpay") {
+      try {
+        const amountPaise = Math.round(grandTotal * 100);
+        const { createOrFindRazorpayOrder, publicRazorpayKeyId } = await import(
+          "@/lib/payments/razorpay"
+        );
+        const providerOrder = await createOrFindRazorpayOrder({
+          localOrderId: createdOrder.id,
+          orderNumber: createdOrder.orderNumber,
+          ownerRef,
+          amountPaise,
+          currency: "INR",
+        });
+
+        razorpayOrderId = providerOrder.id;
+        razorpayKeyId = publicRazorpayKeyId();
+
+        await db
+          .update(ordersTable)
+          .set({ razorpayOrderId, updatedAt: new Date() })
+          .where(eq(ordersTable.id, createdOrder.id));
+      } catch (err) {
+        console.error("Razorpay order creation failed:", err);
+        throw new OrderDataError(
+          err instanceof Error ? err.message : "Razorpay order creation failed",
+          500,
+          err,
+        );
+      }
+    }
+
+    const mappedOrder = mapDbOrderToApiOrder(
+      { ...createdOrder, razorpayOrderId },
+      insertedItems,
+    );
+
+    const transactionData =
+      resolvedPaymentMethod === "razorpay" && razorpayOrderId
+        ? {
+            _id: `txn_${createdOrder.id}`,
+            order: createdOrder.id,
+            user: user?.id ?? "",
+            paymentType: "ORDER",
+            paymentMode: "PRE-PAID",
+            paymentTiming: "IMMEDIATE",
+            paymentGateway: "RAZORPAY",
+            amount: grandTotal,
+            dueAmount: grandTotal,
+            capturedAmount: 0,
+            refundAmount: 0,
+            status: "PENDING",
+            code: createdOrder.orderNumber,
+            razorpayGatewayDetails: {
+              orderId: razorpayOrderId,
+              keyId: razorpayKeyId,
+            },
+            createdAt: createdOrder.createdAt.toISOString(),
+            updatedAt: createdOrder.updatedAt.toISOString(),
+          }
+        : undefined;
+
+    return {
+      order: mappedOrder,
+      transaction: transactionData,
+    } as unknown as Order;
   } catch (error: unknown) {
     if (error instanceof OrderDataError) throw error;
     throw new OrderDataError(

@@ -44,6 +44,20 @@ const nextConfig: NextConfig = {
     ],
     formats: ["image/avif", "image/webp"],
   },
+  async redirects() {
+    return [
+      {
+        source: "/account",
+        destination: "/profile",
+        permanent: false,
+      },
+      {
+        source: "/account/:path*",
+        destination: "/profile",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

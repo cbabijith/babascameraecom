@@ -8,7 +8,7 @@ import { safeInternalPath } from "@/lib/auth/safe-redirect";
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const next = safeInternalPath(url.searchParams.get("next"), "/account");
+  const next = safeInternalPath(url.searchParams.get("next"), "/profile");
   const hasSession = request.headers
     .get("cookie")
     ?.includes("better-auth.session_token");

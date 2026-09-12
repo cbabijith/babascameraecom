@@ -221,7 +221,7 @@ export async function registerUser(payload: unknown): Promise<AuthResult> {
     token,
     user,
     message: "Your account is ready.",
-    redirectTo: "/account",
+    redirectTo: "/profile",
   };
 }
 
@@ -308,6 +308,13 @@ export async function googleAuth(options?: {
     .where(eq(users.email, profile.email.toLowerCase()))
     .limit(1);
 
+  const googleName =
+    profile.name?.trim() ||
+    profile.email
+      .split("@")[0]
+      .replace(/[._]/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
   if (existing && !existing.isActive) {
     throw new AuthDataError("This account has been disabled.", 403);
   }
@@ -317,8 +324,8 @@ export async function googleAuth(options?: {
       .insert(users)
       .values({
         email: profile.email.toLowerCase(),
-        name: profile.name ?? profile.email.split("@")[0],
-        fullName: profile.name ?? null,
+        name: googleName,
+        fullName: googleName,
         emailVerified: Boolean(profile.email_verified),
         image: profile.picture ?? null,
         role: "customer",
@@ -329,6 +336,16 @@ export async function googleAuth(options?: {
       throw new AuthDataError("Could not create your account.", 500);
     }
     existing = created;
+  } else if (!existing.fullName || !existing.name) {
+    const [updated] = await database
+      .update(users)
+      .set({
+        name: existing.name || googleName,
+        fullName: existing.fullName || existing.name || googleName,
+      })
+      .where(eq(users.id, existing.id))
+      .returning();
+    if (updated) existing = updated;
   }
 
   const [googleAccount] = await database
@@ -364,7 +381,7 @@ export async function googleAuth(options?: {
       email: existing.email,
       name: existing.name ?? existing.fullName ?? profile.email.split("@")[0],
     },
-    redirectTo: options?.next ?? "/account",
+    redirectTo: options?.next ?? "/profile",
   };
 }
 

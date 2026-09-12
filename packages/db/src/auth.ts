@@ -34,6 +34,44 @@ export function createBetterAuth(options?: { baseURL?: string; secret?: string }
     emailAndPassword: {
       enabled: true,
     },
+    user: {
+      additionalFields: {
+        fullName: {
+          type: "string",
+          required: false,
+        },
+      },
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user) => {
+            const rawName = user.name?.trim();
+            const emailPart = (user.email ?? "").split("@")[0] ?? "";
+            const fallbackName = emailPart
+              ? emailPart
+                  .replace(/[._]/g, " ")
+                  .replace(/\b\w/g, (c) => c.toUpperCase())
+              : "Customer";
+            const name = rawName || fallbackName;
+            return {
+              data: {
+                ...user,
+                name,
+                fullName: (user as { fullName?: string }).fullName || name,
+              },
+            };
+          },
+        },
+      },
+    },
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google"],
+        requireLocalEmailVerified: false,
+      },
+    },
     rateLimit: {
       enabled: true,
       window: 10,

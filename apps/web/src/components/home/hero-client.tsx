@@ -114,27 +114,39 @@ export default function HeroClient({ banners }: HeroClientProps) {
     setCurrentSlide(s => (s - 1 + banners.length) % banners.length);
   }, [banners.length, clearTimers]);
 
+  const failedKeysRef = useRef<Set<string>>(new Set());
+  const [imageError, setImageError] = useState(false);
+
+  /* ---------- Slide scheduling (image timer vs. video ended) ---------- */
+  const currentBanner: Banner | undefined = banners.length > 0 ? banners[currentSlide] : undefined;
+  const isVideo = isVideoFile(currentBanner?.mediaFile?.key, currentBanner?.mediaFile?.mimetype);
+  const currentMediaKey = currentBanner?.mediaFile?.key;
+  const isKeyFailed = currentMediaKey ? failedKeysRef.current.has(currentMediaKey) : false;
+
+  const mediaUrl =
+    !imageError && !isKeyFailed && currentMediaKey
+      ? getImageUrl(currentMediaKey)
+      : "/placeholder.svg";
+
   /* ---------- Prefetch next image ---------- */
   useEffect(() => {
     if (banners.length <= 1) return;
     const next = (currentSlide + 1) % banners.length;
     const b = banners[next];
-    const isVid = isVideoFile(b?.mediaFile?.key, b?.mediaFile?.mimetype);
-    const url = b?.mediaFile?.key ? getImageUrl(b.mediaFile.key) : "";
+    const key = b?.mediaFile?.key;
+    if (key && failedKeysRef.current.has(key)) return;
+    const isVid = isVideoFile(key, b?.mediaFile?.mimetype);
+    const url = key ? getImageUrl(key) : "";
     if (url && !isVid) {
       const img = new window.Image();
       img.src = url;
     }
   }, [currentSlide, banners]);
 
-  /* ---------- Slide scheduling (image timer vs. video ended) ---------- */
-  const currentBanner: Banner | undefined = banners.length > 0 ? banners[currentSlide] : undefined;
-  const isVideo = isVideoFile(currentBanner?.mediaFile?.key, currentBanner?.mediaFile?.mimetype);
-  const mediaUrl = currentBanner?.mediaFile?.key ? getImageUrl(currentBanner.mediaFile.key) : "/placeholder.svg";
-
   useEffect(() => {
     if (!currentBanner) return;
     setMediaError(null);
+    setImageError(false);
     setSlideReady(false);
     clearTimers();
 
@@ -176,14 +188,16 @@ export default function HeroClient({ banners }: HeroClientProps) {
     nextSlide();
   };
 
-
   const onVideoPlaying = () => {
     if (videoStallTimerRef.current) { clearTimeout(videoStallTimerRef.current); videoStallTimerRef.current = null; }
   };
 
   const onMediaError = () => {
     setMediaError("Media failed to load");
-    setTimeout(() => nextSlide(), 1500);
+    if (currentMediaKey) {
+      failedKeysRef.current.add(currentMediaKey);
+    }
+    setImageError(true);
   };
 
   /* ---------- Swipe / Drag Handlers ---------- */

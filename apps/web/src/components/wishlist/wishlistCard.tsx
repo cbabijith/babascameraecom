@@ -21,6 +21,23 @@ interface WishlistCardProps {
   className?: string;
 }
 
+function WishlistImage({ src, alt }: { src: string; alt: string }) {
+  const [imgSrc, setImgSrc] = React.useState(src || "/placeholder.svg");
+  React.useEffect(() => { setImgSrc(src || "/placeholder.svg"); }, [src]);
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt}
+      width={140}
+      height={140}
+      className="object-contain w-full h-full"
+      onError={() => {
+        if (imgSrc !== "/placeholder.svg") setImgSrc("/placeholder.svg");
+      }}
+    />
+  );
+}
+
 const WishlistCard: React.FC<WishlistCardProps> = ({
   id,
   wishlistId,
@@ -57,17 +74,7 @@ const WishlistCard: React.FC<WishlistCardProps> = ({
               className="w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-lg overflow-hidden flex items-center justify-center"
               aria-label={`Open ${name}`}
             >
-              <Image
-                src={image || "/placeholder.svg"}
-                alt={name}
-                width={140}
-                height={140}
-                className="object-contain w-full h-full"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = "/placeholder.svg";
-                }}
-              />
+              <WishlistImage src={image} alt={name} />
             </button>
           </div>
 

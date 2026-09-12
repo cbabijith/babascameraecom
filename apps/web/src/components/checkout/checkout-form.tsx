@@ -320,7 +320,7 @@ export function CheckoutForm({
                     <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
                       Add a delivery address before placing your order.{" "}
                       <Link
-                        href="/account/addresses"
+                        href="/profile?view=address"
                         className="font-semibold underline"
                       >
                         Add address

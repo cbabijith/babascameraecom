@@ -414,10 +414,17 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({ success: false, message: "Endpoint not available" + resource + "/" + identifier }, { status: 404 });
+  if (resource === "notification") {
+    return success({ results: [] });
+  }
+
+  return NextResponse.json(
+    { success: false, message: `Endpoint not available: ${resource}${identifier ? "/" + identifier : ""}` },
+    { status: 404 }
+  );
 }
 
-
+// --- POST Handler ---
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> },
@@ -499,7 +506,20 @@ export async function POST(
       return success({ result });
     }
 
-    return NextResponse.json({ success: false, message: "Endpoint not available" + resource + "/" + identifier }, { status: 404 });
+    if (resource === "notification") {
+      const targetProductId = identifier === "add" ? path[2] : identifier;
+      return success({
+        result: {
+          _id: `notif-${targetProductId || "default"}`,
+          product: targetProductId,
+        },
+      });
+    }
+
+    return NextResponse.json(
+      { success: false, message: `Endpoint not available: ${resource}${identifier ? "/" + identifier : ""}` },
+      { status: 404 }
+    );
   } catch (error) {
     return apiErrorResponse(error);
   }
@@ -568,7 +588,10 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ success: false, message: "Endpoint not available" + resource + "/" + identifier }, { status: 404 });
+    return NextResponse.json(
+      { success: false, message: `Endpoint not available: ${resource}${identifier ? "/" + identifier : ""}` },
+      { status: 404 }
+    );
   } catch (error) {
     return apiErrorResponse(error);
   }
@@ -608,7 +631,14 @@ export async function DELETE(
       }
     }
 
-    return NextResponse.json({ success: false, message: "Endpoint not available" + resource + "/" + identifier }, { status: 404 });
+    if (resource === "notification") {
+      return success({ message: "Notification removed." });
+    }
+
+    return NextResponse.json(
+      { success: false, message: `Endpoint not available: ${resource}${identifier ? "/" + identifier : ""}` },
+      { status: 404 }
+    );
   } catch (error) {
     return apiErrorResponse(error);
   }

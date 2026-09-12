@@ -37,6 +37,25 @@ const PLACEHOLDER_DATAURI =
     </svg>`
   );
 
+function OrderThumbImage({ imageKey, idx }: { imageKey?: string; idx: number }) {
+  const initial = imageKey ? getThumbnailUrl(imageKey) : PLACEHOLDER_DATAURI;
+  const [src, setSrc] = useState(initial);
+  useEffect(() => { setSrc(initial); }, [initial]);
+
+  return (
+    <Image
+      src={src}
+      alt={`Item ${idx + 1}`}
+      width={80}
+      height={80}
+      className="rounded-lg object-contain w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] border bg-gray-50 p-2"
+      onError={() => {
+        if (src !== PLACEHOLDER_DATAURI) setSrc(PLACEHOLDER_DATAURI);
+      }}
+    />
+  );
+}
+
 /* ---------- labels ---------- */
 /* ---------- labels ---------- */
 const STATUS_LABEL: Record<string, string> = {
@@ -243,16 +262,10 @@ useEffect(() => {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-4 p-2 sm:p-3 mb-3 sm:mb-0">
               {imageKeys.map((k, idx) => (
-                <Image
+                <OrderThumbImage
                   key={`${k ?? "ph"}-${idx}`}
-                  src={k ? getThumbnailUrl(k) : PLACEHOLDER_DATAURI}
-                  alt={`Item ${idx + 1}`}
-                  width={80}
-                  height={80}
-                  className="rounded-lg object-contain w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] border bg-gray-50 p-2"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_DATAURI;
-                  }}
+                  imageKey={k}
+                  idx={idx}
                 />
               ))}
 

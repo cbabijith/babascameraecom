@@ -77,7 +77,7 @@ export async function SiteHeader() {
             </Link>
           </Button>
           <Button variant="ghost" size="icon" asChild>
-            <Link href={authenticated ? "/account" : "/auth/login"} aria-label="Account">
+            <Link href={authenticated ? "/profile" : "/auth/login"} aria-label="Account">
               <UserRound className="h-5 w-5" />
             </Link>
           </Button>

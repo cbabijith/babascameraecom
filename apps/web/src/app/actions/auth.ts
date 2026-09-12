@@ -115,7 +115,7 @@ export async function signInAction(
     if (data.user?.id) {
       await mergeGuestCartAfterAuthentication(data.user.id).catch(() => null);
     }
-    redirect(safeInternalPath(String(formData.get("next") ?? ""), "/account"));
+    redirect(safeInternalPath(String(formData.get("next") ?? ""), "/profile"));
   } catch (error) {
     unstable_rethrow(error);
     console.error("Sign in failed", {
@@ -184,7 +184,7 @@ export async function signUpAction(
     return {
       ok: true,
       message: "Your account is ready.",
-      redirectTo: "/account",
+      redirectTo: "/profile",
     };
   } catch (error) {
     unstable_rethrow(error);
@@ -256,7 +256,7 @@ export async function signInWithGoogleAction(formData: FormData): Promise<void> 
   // to the Google authorization URL it returns. The callback lands on
   // /api/auth/callback/google, which creates the session and returns the
   // user to callbackURL. Used as a <form action>, so it must return void.
-  const next = safeInternalPath(String(formData.get("next") ?? ""), "/account");
+  const next = safeInternalPath(String(formData.get("next") ?? ""), "/profile");
   try {
     const origin = await getRequestOrigin();
     const auth = getWebAuth(origin);

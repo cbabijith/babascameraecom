@@ -1,6 +1,6 @@
 export function safeInternalPath(
   value: string | null | undefined,
-  fallback = "/account",
+  fallback = "/profile",
 ): string {
   if (!value) return fallback;
   const candidate = value.trim();

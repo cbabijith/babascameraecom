@@ -61,7 +61,7 @@ export async function getOptionalUser(): Promise<SessionUser | null> {
   return loadSessionUser();
 }
 
-export async function requireUser(next = "/account"): Promise<SessionUser> {
+export async function requireUser(next = "/profile"): Promise<SessionUser> {
   const user = await getOptionalUser();
   if (!user) {
     redirect(`/login?next=${encodeURIComponent(safeInternalPath(next))}`);
@@ -71,7 +71,7 @@ export async function requireUser(next = "/account"): Promise<SessionUser> {
 
 export async function requireActiveUser(
   user: SessionUser,
-  next = "/account",
+  next = "/profile",
 ): Promise<SessionUser> {
   if (!user.isActive) {
     const cookieStore = await cookies();

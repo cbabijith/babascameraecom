@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, LockKeyhole, Eye, EyeOff } from "lucide-react";
+import { Mail, LockKeyhole, Eye, EyeOff, Loader2 } from "lucide-react";
 import { loginUser } from "@/instances/authInstance";
 import { toast } from "sonner";
 import type { User } from "@/types/auth";
@@ -30,26 +30,27 @@ function GoogleIcon() {
         fill="#4285F4"
       />
       <path
-        d="M272 544.3c74.7 0 137.5-24.7 183.3-67.3l-88.7-69.4c-24.6 16.5-56.1 26.2-94.6 26.2-72.6 0-134.1-49-156.1-114.9H25.8v72.1c45.2 89.4 137.8 153.3 246.2 153.3z"
+        d="M272 544.3c73.4 0 135-24.1 180-65.7l-88.7-69.4c-24.4 16.6-55.9 26-91.3 26-70.1 0-129.5-47.3-150.8-111H30.4v71.6A271.8 271.8 0 00272 544.3z"
         fill="#34A853"
       />
       <path
-        d="M115.9 318.9c-11.4-34.6-11.4-72.4 0-107l-90-72.1C-17.2 202.5-17.2 341.9 25.8 446.6l90.1-72.1z"
+        d="M121.2 324.2c-5.4-16.1-8.5-33.3-8.5-52.2s3.1-36.1 8.5-52.2V148.2H30.4A271.8 271.8 0 000 272c0 43.8 10.5 85.3 30.4 123.8l90.8-71.6z"
         fill="#FBBC05"
       />
       <path
-        d="M272 107.7c39.4-.6 77.6 14.3 106.5 41.9l79.6-79.6C409.4 25.6 342.3 0 272 0 163.7 0 71 63.9 25.8 153.3l90.1 72.1C137.9 156.7 199.4 107.7 272 107.7z"
+        d="M272 107.7c39.9 0 75.7 13.7 104 40.4l78.2-78.2C406.8 24.5 345.2 0 272 0 162.2 0 68 62.4 30.4 148.2l90.8 71.6C142.5 155 201.9 107.7 272 107.7z"
         fill="#EA4335"
       />
     </svg>
   );
 }
 
-function GoogleButton({ onClick }: { onClick: () => void }) {
+function GoogleButton({ onClick, loading }: { onClick: () => void; loading?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={loading}
       aria-label="Sign in with Google"
       className={cn(
         // layout
@@ -80,9 +81,9 @@ function GoogleButton({ onClick }: { onClick: () => void }) {
       )}
     >
       <span className="grid place-items-center rounded bg-white">
-          <GoogleIcon />
-        </span>
-      <span className="truncate">Sign in with Google</span>
+        {loading ? <Loader2 className="h-5 w-5 animate-spin text-blue-600" /> : <GoogleIcon />}
+      </span>
+      <span className="truncate">{loading ? "Signing in..." : "Sign in with Google"}</span>
       {/* right ghost spacer to keep text centered */}
       <span className="w-5" />
     </button>
@@ -97,10 +98,31 @@ export default function LoginForm() {
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
   const [, setError] = React.useState<string | null>(null);
   const [emailError, setEmailError] = React.useState<string | null>(null);
   const [passwordError, setPasswordError] = React.useState<string | null>(null);
   interface LoginResult { token: string; user: User | null }
+
+  React.useEffect(() => {
+    setGoogleLoading(false);
+    const handlePageShow = (event: PageTransitionEvent) => {
+      setGoogleLoading(false);
+    };
+    window.addEventListener("pageshow", handlePageShow);
+
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get("error");
+    if (errorParam === "account_not_linked") {
+      toast.error("Could not link account automatically. Please try again.");
+    } else if (errorParam === "oauth") {
+      toast.error("Google sign-in failed. Please try again.");
+    } else if (errorParam) {
+      toast.error("Authentication error. Please try signing in again.");
+    }
+
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   // Server-side OAuth: POST to better-auth's /sign-in/social (it sets the
   // CSRF state cookie), then follow the Google authorization URL it returns.
@@ -108,7 +130,8 @@ export default function LoginForm() {
   // the user to `next`.
   async function handleGoogleLogin() {
     const params = new URLSearchParams(window.location.search);
-    const next = params.get("next") || "/account";
+    const next = params.get("next") || "/profile";
+    setGoogleLoading(true);
     try {
       const res = await fetch("/api/auth/sign-in/social", {
         method: "POST",
@@ -119,9 +142,11 @@ export default function LoginForm() {
       if (data.url) {
         window.location.href = data.url;
       } else {
+        setGoogleLoading(false);
         toast.error("Could not start Google sign-in. Please try again.");
       }
     } catch {
+      setGoogleLoading(false);
       toast.error("Could not start Google sign-in. Please try again.");
     }
   }
@@ -339,7 +364,7 @@ export default function LoginForm() {
 
 
                  <div className="w-full mb-4">
-                  <GoogleButton onClick={handleGoogleLogin} />
+                  <GoogleButton onClick={handleGoogleLogin} loading={googleLoading} />
                 </div>
 
 

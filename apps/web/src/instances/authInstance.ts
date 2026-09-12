@@ -308,11 +308,32 @@ export const initializeAuth = (): { token: string | null; user: User | null } =>
 export const verifyToken = async (): Promise<boolean> => {
   try {
     const token = getAuthToken();
-    if (!token) return false;
+    if (!token) return await checkAuthSession();
     const response = await apiClient.get<ProfileResponse>('/user/profile');
     return Boolean(response.data.success);
   } catch {
     removeAuthToken();
-    return false;
+    return await checkAuthSession();
   }
+};
+
+export const checkAuthSession = async (): Promise<boolean> => {
+  if (typeof window === "undefined") return false;
+  const token = getAuthToken();
+  if (token) return true;
+
+  try {
+    const res = await fetch("/api/auth/get-session", { cache: "no-store" });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { session?: { token?: string }; user?: ApiUserMaybe } | null;
+    if (data?.user) {
+      const activeToken = data.session?.token || "active-session";
+      setAuthToken(activeToken);
+      setUserData(normalizeApiUser(data.user));
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
 };

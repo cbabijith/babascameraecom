@@ -18,18 +18,26 @@ export async function getCustomers() {
     with: { orders: { columns: { id: true, total: true } } },
     orderBy: (table, { desc: descending }) => [descending(table.createdAt)],
   });
-  return rows.map((row) => ({
-    id: row.id,
-    email: row.email,
-    fullName: row.fullName,
-    phone: row.phone,
-    isActive: row.isActive,
-    orderCount: row.orders.length,
-    lifetimeValue: row.orders
-      .reduce((sum, order) => sum + BigInt(parseMoney(order.total).paise), 0n)
-      .toString(),
-    createdAt: iso(row.createdAt),
-  }));
+  return rows.map((row) => {
+    const emailPrefix = ((row.email ?? "").split("@")[0] ?? "").replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const derivedName =
+      row.fullName?.trim() ||
+      row.name?.trim() ||
+      emailPrefix ||
+      "Customer";
+    return {
+      id: row.id,
+      email: row.email,
+      fullName: derivedName,
+      phone: row.phone,
+      isActive: row.isActive,
+      orderCount: row.orders.length,
+      lifetimeValue: row.orders
+        .reduce((sum, order) => sum + BigInt(parseMoney(order.total).paise), 0n)
+        .toString(),
+      createdAt: iso(row.createdAt),
+    };
+  });
 }
 
 export async function getCustomer(id: string) {
@@ -47,8 +55,15 @@ export async function getCustomer(id: string) {
     },
   });
   if (!row) return null;
+  const emailPrefix = ((row.email ?? "").split("@")[0] ?? "").replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const derivedName =
+    row.fullName?.trim() ||
+    row.name?.trim() ||
+    emailPrefix ||
+    "Customer";
   return {
     ...row,
+    fullName: derivedName,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
     addresses: row.addresses.map((address) => ({

@@ -153,13 +153,14 @@ const openRazorpay = async (opts: {
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
+  keyId?: string;
   onComplete: OnComplete;
 }): Promise<string | null> => {
   const ok = await loadRazorpayScript();
   if (!ok || !window.Razorpay) return "Payment initialization failed. Please refresh and try again.";
 
-  const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-  if (!key) return "Missing NEXT_PUBLIC_RAZORPAY_KEY_ID.";
+  const key = opts.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  if (!key) return "Missing Razorpay public key.";
 
   const rzp = new window.Razorpay({
     key,
@@ -482,10 +483,7 @@ const CheckoutPageContent: React.FC = () => {
   // Place order
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
-  const onPaymentComplete: OnComplete = (result) => {
-    dispatch(fetchCart());
-    router.push("/orders");
-
+  const onPaymentComplete: OnComplete = async (result, payload) => {
     if (result === "success") {
       if (noPaymentRef.current) {
         const code = lastOrderCodeRef.current;
@@ -494,11 +492,62 @@ const CheckoutPageContent: React.FC = () => {
             ? `Your order ${code} is confirmed. No payment was required.`
             : "Your order is confirmed. No payment was required.",
         });
+        dispatch(clearCart());
+        dispatch(fetchCart());
+        router.push("/orders");
+      } else if (
+        payload?.razorpay_payment_id &&
+        payload?.razorpay_order_id &&
+        payload?.razorpay_signature
+      ) {
+        const loadingId = toast.loading("Verifying payment...");
+        try {
+          const res = await fetch("/api/payments/razorpay/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              razorpay_order_id: payload.razorpay_order_id,
+              razorpay_payment_id: payload.razorpay_payment_id,
+              razorpay_signature: payload.razorpay_signature,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          toast.dismiss(loadingId);
+
+          if (res.ok && data.ok) {
+            toast.success("Payment successful 🎉", {
+              description: data.orderNumber
+                ? `Order ${data.orderNumber} confirmed.`
+                : "Your payment was verified and order confirmed.",
+            });
+          } else {
+            toast.info("Payment received", {
+              description:
+                data.message || "Payment verification is processing automatically.",
+            });
+          }
+        } catch {
+          toast.dismiss(loadingId);
+          toast.info("Payment received", {
+            description: "Payment verification is processing automatically.",
+          });
+        } finally {
+          dispatch(clearCart());
+          dispatch(fetchCart());
+          router.push("/orders");
+        }
       } else {
         toast.success("Payment successful", { description: "Your order is confirmed." });
+        dispatch(clearCart());
+        dispatch(fetchCart());
+        router.push("/orders");
       }
     } else {
-      toast("Payment closed");
+      toast.info("Payment closed", {
+        description: "You can view or retry payment from your orders.",
+      });
+      dispatch(fetchCart());
+      router.push("/orders");
     }
 
     noPaymentRef.current = false;
@@ -524,8 +573,6 @@ const CheckoutPageContent: React.FC = () => {
       router.push(`/checkout/bank-transfer`);
       return;
     }
-
-
 
     setIsPlacingOrder(true);
     try {
@@ -565,6 +612,7 @@ const CheckoutPageContent: React.FC = () => {
         }
 
         const orderId = transaction?.razorpayGatewayDetails?.orderId;
+        const keyId = (transaction?.razorpayGatewayDetails as { keyId?: string })?.keyId;
         const amountRupees = transaction?.amount ?? buyNowPayable;
         const amountPaise = Math.round(Number(amountRupees) * 100);
 
@@ -572,6 +620,7 @@ const CheckoutPageContent: React.FC = () => {
           const err = await openRazorpay({
             orderId,
             amountPaise,
+            keyId,
             currency: "INR",
             customerName: user?.name,
             customerEmail: user?.email,
@@ -598,6 +647,7 @@ const CheckoutPageContent: React.FC = () => {
         totalOrderPrice: payableTotal, // final rounded amount including fee if Razorpay
         shippingAddress: selectedAddressId,
         deliveryCharge,
+        method: "RAZORPAY",
       };
 
       const resp = await createOrder(payload);
@@ -618,6 +668,7 @@ const CheckoutPageContent: React.FC = () => {
       }
 
       const orderId = transaction?.razorpayGatewayDetails?.orderId;
+      const keyId = (transaction?.razorpayGatewayDetails as { keyId?: string })?.keyId;
       const amountRupees = transaction?.amount ?? payableTotal;
       const amountPaise = Math.round(Number(amountRupees) * 100);
 
@@ -625,6 +676,7 @@ const CheckoutPageContent: React.FC = () => {
         const err = await openRazorpay({
           orderId,
           amountPaise,
+          keyId,
           currency: "INR",
           customerName: user?.name,
           customerEmail: user?.email,

@@ -33,7 +33,18 @@ export async function GET(
     }
 
     const headers = new Headers();
-    if (s3Res.ContentType) headers.set("Content-Type", s3Res.ContentType);
+    let contentType = s3Res.ContentType;
+    if (!contentType) {
+      const lowerKey = key.toLowerCase();
+      if (lowerKey.endsWith(".webp")) contentType = "image/webp";
+      else if (lowerKey.endsWith(".png")) contentType = "image/png";
+      else if (lowerKey.endsWith(".jpg") || lowerKey.endsWith(".jpeg")) contentType = "image/jpeg";
+      else if (lowerKey.endsWith(".svg")) contentType = "image/svg+xml";
+      else if (lowerKey.endsWith(".gif")) contentType = "image/gif";
+      else if (lowerKey.endsWith(".mp4")) contentType = "video/mp4";
+      else contentType = "image/webp";
+    }
+    headers.set("Content-Type", contentType);
     if (s3Res.ContentLength)
       headers.set("Content-Length", String(s3Res.ContentLength));
     headers.set("Cache-Control", "public, max-age=31536000, immutable");

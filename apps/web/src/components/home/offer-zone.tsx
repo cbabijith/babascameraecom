@@ -54,6 +54,29 @@ function OfferSkeletonRow() {
   );
 }
 
+function OfferCardImage({ src, alt, priority }: { src: string; alt: string; priority: boolean }) {
+  const [imgSrc, setImgSrc] = useState(src);
+  useEffect(() => {
+    setImgSrc(src);
+  }, [src]);
+
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt}
+      fill
+      className="object-contain p-2 sm:p-3 md:p-4 lg:p-5"
+      sizes="(max-width: 768px) 140px, 285px"
+      priority={priority}
+      onError={() => {
+        if (imgSrc !== "/placeholder.svg") {
+          setImgSrc("/placeholder.svg");
+        }
+      }}
+    />
+  );
+}
+
 /* ---------------- One strip for a single collection ---------------- */
 function OfferStrip({ collection }: { collection: Collection }) {
   const router = useRouter();
@@ -205,18 +228,7 @@ function OfferStrip({ collection }: { collection: Collection }) {
                                rounded-[14px] md:rounded-[36px] border"
                     style={{ borderWidth: 0.45 }}
                   >
-                    <Image
-                      src={cover}
-                      alt={p.name}
-                      fill
-                      className="object-contain p-2 sm:p-3 md:p-4 lg:p-5"
-                      sizes="(max-width: 768px) 140px, 285px"
-                      priority={isFirst}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = "/placeholder.svg";
-                      }}
-                    />
+                    <OfferCardImage src={cover} alt={p.name} priority={isFirst} />
                   </div>
 
                   <div className="text-left">

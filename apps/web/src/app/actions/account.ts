@@ -54,15 +54,14 @@ export async function updateProfileAction(formData: FormData) {
   const parsed = profileSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   try {
-    const user = await requireUser("/account/profile");
+    const user = await requireUser("/profile");
     await updateUserProfile({
       userId: user.id,
       fullName: parsed.data.fullName,
       phone: parsed.data.phone || null,
       avatarUrl: parsed.data.avatarUrl || null,
     });
-    revalidatePath("/account");
-    revalidatePath("/account/profile");
+    revalidatePath("/profile");
     return {
       success: true,
       message: "Profile saved.",
@@ -80,7 +79,7 @@ export async function addAddressAction(formData: FormData) {
   const parsed = addressSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   try {
-    const user = await requireUser("/account/addresses");
+    const user = await requireUser("/profile");
     const address = await createUserAddress({
       userId: user.id,
       label: parsed.data.label,
@@ -92,7 +91,7 @@ export async function addAddressAction(formData: FormData) {
       country: parsed.data.country,
       isDefault: parsed.data.isDefault === "on",
     });
-    revalidatePath("/account/addresses");
+    revalidatePath("/profile");
     revalidatePath("/checkout");
     return {
       success: true,
@@ -114,9 +113,9 @@ export async function removeAddressAction(formData: FormData) {
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   try {
-    const user = await requireUser("/account/addresses");
+    const user = await requireUser("/profile");
     await removeUserAddress(user.id, parsed.data.addressId);
-    revalidatePath("/account/addresses");
+    revalidatePath("/profile");
     revalidatePath("/checkout");
     return {
       success: true,
@@ -137,9 +136,9 @@ export async function setDefaultAddressAction(formData: FormData) {
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success) return validationFailure(parsed.error);
   try {
-    const user = await requireUser("/account/addresses");
+    const user = await requireUser("/profile");
     await setDefaultUserAddress(user.id, parsed.data.addressId);
-    revalidatePath("/account/addresses");
+    revalidatePath("/profile");
     revalidatePath("/checkout");
     return {
       success: true,

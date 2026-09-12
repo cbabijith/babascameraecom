@@ -4,7 +4,7 @@ const CART_SESSION_COOKIE = "bc_cart_session";
 const CART_SESSION_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 const SESSION_COOKIE_PATTERN = /better-auth\.session_token|(^|\.)session_token/;
 
-const protectedPrefixes = ["/account", "/wishlist", "/checkout", "/cart"];
+const protectedPrefixes = ["/profile", "/account", "/wishlist", "/checkout", "/cart"];
 
 function cartSessionCookie() {
   return {

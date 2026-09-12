@@ -5,7 +5,7 @@ import { useDispatch } from "react-redux";
 import { setUser } from "@/store/slice/authSlice";
 import { registerUser } from "@/instances/authInstance";
 import Image from "next/image";
-import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Mail, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input"; // ← shadcn-style input
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
@@ -29,26 +29,27 @@ function GoogleIcon() {
         fill="#4285F4"
       />
       <path
-        d="M272 544.3c74.7 0 137.5-24.7 183.3-67.3l-88.7-69.4c-24.6 16.5-56.1 26.2-94.6 26.2-72.6 0-134.1-49-156.1-114.9H25.8v72.1c45.2 89.4 137.8 153.3 246.2 153.3z"
+        d="M272 544.3c73.4 0 135-24.1 180-65.7l-88.7-69.4c-24.4 16.6-55.9 26-91.3 26-70.1 0-129.5-47.3-150.8-111H30.4v71.6A271.8 271.8 0 00272 544.3z"
         fill="#34A853"
       />
       <path
-        d="M115.9 318.9c-11.4-34.6-11.4-72.4 0-107l-90-72.1C-17.2 202.5-17.2 341.9 25.8 446.6l90.1-72.1z"
+        d="M121.2 324.2c-5.4-16.1-8.5-33.3-8.5-52.2s3.1-36.1 8.5-52.2V148.2H30.4A271.8 271.8 0 000 272c0 43.8 10.5 85.3 30.4 123.8l90.8-71.6z"
         fill="#FBBC05"
       />
       <path
-        d="M272 107.7c39.4-.6 77.6 14.3 106.5 41.9l79.6-79.6C409.4 25.6 342.3 0 272 0 163.7 0 71 63.9 25.8 153.3l90.1 72.1C137.9 156.7 199.4 107.7 272 107.7z"
+        d="M272 107.7c39.9 0 75.7 13.7 104 40.4l78.2-78.2C406.8 24.5 345.2 0 272 0 162.2 0 68 62.4 30.4 148.2l90.8 71.6C142.5 155 201.9 107.7 272 107.7z"
         fill="#EA4335"
       />
     </svg>
   );
 }
 
-function GoogleButton({ onClick }: { onClick: () => void }) {
+function GoogleButton({ onClick, loading }: { onClick: () => void; loading?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={loading}
       aria-label="Sign up with Google"
       className={cn(
         // layout
@@ -79,9 +80,9 @@ function GoogleButton({ onClick }: { onClick: () => void }) {
       )}
     >
       <span className="grid place-items-center rounded bg-white">
-          <GoogleIcon />
-        </span>
-      <span className="truncate">Sign up with Google</span>
+        {loading ? <Loader2 className="h-5 w-5 animate-spin text-blue-600" /> : <GoogleIcon />}
+      </span>
+      <span className="truncate">{loading ? "Signing up..." : "Sign up with Google"}</span>
       {/* right ghost spacer to keep text centered */}
       <span className="w-5" />
     </button>
@@ -98,7 +99,17 @@ export default function SignUpForm() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
   const [error] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setGoogleLoading(false);
+    const handlePageShow = (event: PageTransitionEvent) => {
+      setGoogleLoading(false);
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   interface RegisterResult { token: string; user: User | null }
 
@@ -239,19 +250,22 @@ export default function SignUpForm() {
   // The callback creates the user (if new) plus the session and lands on
   // /account.
   async function handleGoogleSignup() {
+    setGoogleLoading(true);
     try {
       const res = await fetch("/api/auth/sign-in/social", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "google", callbackURL: "/account" }),
+        body: JSON.stringify({ provider: "google", callbackURL: "/profile" }),
       });
       const data = (await res.json().catch(() => ({}))) as { url?: string };
       if (data.url) {
         window.location.href = data.url;
       } else {
+        setGoogleLoading(false);
         toast.error("Could not start Google sign-up. Please try again.");
       }
     } catch {
+      setGoogleLoading(false);
       toast.error("Could not start Google sign-up. Please try again.");
     }
   }
@@ -293,7 +307,7 @@ export default function SignUpForm() {
                     </p>
                   </div>
                   <div className="w-full mt-6">
-                    <GoogleButton onClick={handleGoogleSignup} />
+                    <GoogleButton onClick={handleGoogleSignup} loading={googleLoading} />
                     <div className="relative my-6">
                       <div className="absolute inset-0 flex items-center">
                         <div className="w-full border-t" />

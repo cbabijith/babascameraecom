@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 import {
   Button,
   Form,
@@ -51,14 +53,25 @@ function ResultMessage({ state }: { state: AuthActionState }) {
   );
 }
 
+function GoogleButtonSubmit() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="outline" className="w-full" disabled={pending}>
+      {pending ? (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin text-blue-600" />
+      ) : (
+        <span className="mr-2 text-lg font-bold text-blue-600">G</span>
+      )}
+      {pending ? "Signing in..." : "Continue with Google"}
+    </Button>
+  );
+}
+
 function GoogleButton({ next }: { next?: string | undefined }) {
   return (
     <form action={signInWithGoogleAction}>
-      <input type="hidden" name="next" value={next ?? "/account"} />
-      <Button type="submit" variant="outline" className="w-full">
-        <span className="text-lg font-bold text-blue-600">G</span>
-        Continue with Google
-      </Button>
+      <input type="hidden" name="next" value={next ?? "/profile"} />
+      <GoogleButtonSubmit />
     </form>
   );
 }
@@ -75,7 +88,7 @@ export function LoginForm({ next }: { next?: string }) {
     const formData = new FormData();
     formData.set("email", values.email);
     formData.set("password", values.password);
-    formData.set("next", next ?? "/account");
+    formData.set("next", next ?? "/profile");
     startTransition(async () => setState(await signInAction(formData)));
   });
 
