@@ -680,3 +680,123 @@ export async function cancelUserOrder(orderId: string, reason = "Cancelled by cu
   }
 }
 
+export async function payPendingOrder(orderId: string) {
+  if (!orderId) {
+    throw new OrderDataError("Order ID is required", 400);
+  }
+
+  try {
+    const user = await getOptionalUser();
+    const db = getDatabase();
+
+    const [orderRow] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+
+    if (!orderRow) {
+      throw new OrderDataError("Order not found", 404);
+    }
+
+    if (user && orderRow.userId && orderRow.userId !== user.id) {
+      throw new OrderDataError("Unauthorized access to order", 403);
+    }
+
+    if (orderRow.status === "cancelled") {
+      throw new OrderDataError("This order has been cancelled and cannot be paid.", 400);
+    }
+
+    if (orderRow.paymentStatus === "paid" || orderRow.status === "confirmed" || orderRow.status === "delivered") {
+      throw new OrderDataError("This order has already been paid.", 400);
+    }
+
+    if (orderRow.status !== "pending") {
+      throw new OrderDataError(`Order status is '${orderRow.status}' and cannot be paid.`, 400);
+    }
+
+    const itemRows = await db
+      .select()
+      .from(orderItemsTable)
+      .where(eq(orderItemsTable.orderId, orderRow.id));
+
+    if (!itemRows.length) {
+      throw new OrderDataError("Order has no items.", 400);
+    }
+
+    for (const item of itemRows) {
+      if (item.productId) {
+        const [product] = await db
+          .select({
+            id: productsTable.id,
+            name: productsTable.name,
+            stock: productsTable.stock,
+            isActive: productsTable.isActive,
+          })
+          .from(productsTable)
+          .where(eq(productsTable.id, item.productId))
+          .limit(1);
+
+        if (!product) {
+          throw new OrderDataError(`Product "${item.productName}" is no longer available.`, 400);
+        }
+
+        if (!product.isActive) {
+          throw new OrderDataError(`Product "${product.name}" is currently unavailable.`, 400);
+        }
+
+        if (product.stock < item.quantity) {
+          throw new OrderDataError(
+            `Insufficient stock for "${product.name}". Available: ${product.stock}, required: ${item.quantity}.`,
+            400
+          );
+        }
+      }
+    }
+
+    const grandTotal = Number(orderRow.total);
+    const amountPaise = Math.round(grandTotal * 100);
+    const ownerRef = orderRow.userId ?? orderRow.guestSessionHash ?? orderRow.id;
+
+    const { createOrFindRazorpayOrder, publicRazorpayKeyId } = await import(
+      "@/lib/payments/razorpay"
+    );
+
+    const providerOrder = await createOrFindRazorpayOrder({
+      localOrderId: orderRow.id,
+      orderNumber: orderRow.orderNumber,
+      ownerRef,
+      amountPaise,
+      currency: "INR",
+    });
+
+    const razorpayOrderId = providerOrder.id;
+    const razorpayKeyId = publicRazorpayKeyId();
+
+    if (orderRow.razorpayOrderId !== razorpayOrderId) {
+      await db
+        .update(ordersTable)
+        .set({ razorpayOrderId, updatedAt: new Date() })
+        .where(eq(ordersTable.id, orderRow.id));
+    }
+
+    return {
+      success: true,
+      orderId: orderRow.id,
+      orderNumber: orderRow.orderNumber,
+      razorpayOrderId,
+      razorpayKeyId,
+      amountPaise,
+      currency: "INR",
+    };
+  } catch (error: unknown) {
+    if (error instanceof OrderDataError) throw error;
+    throw new OrderDataError(
+      error instanceof Error ? error.message : "Failed to process payment for pending order",
+      400,
+      error,
+    );
+  }
+}
+
+

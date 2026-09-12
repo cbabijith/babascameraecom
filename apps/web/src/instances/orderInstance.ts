@@ -416,3 +416,32 @@ export const cancelOrder = async (orderId: string, reason?: string): Promise<Ord
     rethrowAxios(error, "Failed to cancel order");
   }
 };
+
+/* ---------------- API: pay pending order ---------------- */
+
+export interface PayPendingOrderResult {
+  success: boolean;
+  orderId: string;
+  orderNumber: string;
+  razorpayOrderId: string;
+  razorpayKeyId: string;
+  amountPaise: number;
+  currency: string;
+}
+
+export const payPendingOrder = async (orderId: string): Promise<PayPendingOrderResult> => {
+  try {
+    const response = await apiClient.post<{
+      success: boolean;
+      message?: string;
+      result?: PayPendingOrderResult;
+    }>(`/order/${orderId}/pay`);
+
+    if (!response?.data?.success || !response.data.result) {
+      throw new Error(response?.data?.message || "Failed to initialize payment");
+    }
+    return response.data.result;
+  } catch (error: unknown) {
+    rethrowAxios(error, "Failed to process payment");
+  }
+};

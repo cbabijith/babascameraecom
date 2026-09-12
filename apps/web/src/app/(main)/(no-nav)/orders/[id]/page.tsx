@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { getOrderById, fetchInvoiceFile, cancelOrder } from "@/instances/orderInstance";
+import { getOrderById, fetchInvoiceFile, cancelOrder, payPendingOrder } from "@/instances/orderInstance";
 import type { Order, OrderItem } from "@/types/order";
 import { getThumbnailUrl } from "@/lib/apiClient";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ import {
   AlertOctagon,
   Navigation,
   Copy,
+  Loader2,
 } from "lucide-react";
 import { buildProductPath } from "@/lib/slug";
 
@@ -434,6 +435,7 @@ export default function OrderDetailsPage() {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [payingOrder, setPayingOrder] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("Changed my mind");
 
@@ -450,6 +452,37 @@ export default function OrderDetailsPage() {
       toast.error(msg);
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handlePayPendingOrder() {
+    if (!order) return;
+    try {
+      setPayingOrder(true);
+      const payData = await payPendingOrder(order._id);
+
+      await openRazorpay({
+        orderId: payData.razorpayOrderId,
+        amountPaise: payData.amountPaise,
+        currency: payData.currency,
+        customerName: order.shippingAddress?.name,
+        customerEmail: order.user?.email,
+        customerPhone: order.shippingAddress?.phone,
+        onComplete: (status) => {
+          if (status === "success") {
+            toast.success("Payment completed successfully!");
+            window.location.reload();
+          } else {
+            toast("Payment window closed.");
+          }
+        },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to initialize payment";
+      toast.error(msg);
+      console.error("[OrderDetailsPage] pay pending order error:", err);
+    } finally {
+      setPayingOrder(false);
     }
   }
 
@@ -708,53 +741,27 @@ export default function OrderDetailsPage() {
 
 
 
-              {/* ✅ Show Complete Payment button when INITIATED */}
-              {/* ✅ Show Complete Payment button if payment is pending (INITIATED) */}
-              {order.orderPaymentStatus === "INITIATED" &&
-                order.payment?.paymentGateway === "RAZORPAY" && (
+              {/* Show Pay Now button when order is PENDING and unpaid for Razorpay orders */}
+              {order.orderStatus.toUpperCase() === "PENDING" &&
+                (order.orderPaymentStatus || "").toUpperCase() !== "SUCCESS" &&
+                (order.orderPaymentStatus || "").toUpperCase() !== "PAID" &&
+                ((order.paymentMethod || order.payment?.paymentGateway || "").toUpperCase() === "RAZORPAY" ||
+                  (order.paymentMethod || "").toLowerCase() === "online") && (
                   <div className="mt-4">
-                    {order.payment?.razorpayGatewayDetails?.type === "PAYMENT_ORDER" ? (
-                      <button
-                        onClick={async () => {
-                          const razorOrderId =
-                            order.payment?.razorpayGatewayDetails?.orderId;
-                          if (!razorOrderId) {
-                            toast.error("Missing Razorpay order ID.");
-                            return;
-                          }
-                          const amount = order.summary?.total ?? 0;
-                          const amountPaise = Math.round(Number(amount) * 100);
-
-                          await openRazorpay({
-                            orderId: razorOrderId,
-                            amountPaise,
-                            customerName: order.shippingAddress?.name,
-                            customerEmail: order.user?.email,
-                            customerPhone: order.shippingAddress?.phone,
-                            onComplete: (status) => {
-                              if (status === "success") {
-                                toast.success("Payment completed successfully!");
-                                window.location.reload();
-                              } else {
-                                toast("Payment window closed.");
-                              }
-                            },
-                          });
-                        }}
-                        className="w-full bg-[#E72429] hover:bg-[#c71e23] text-white font-semibold py-2 rounded-md transition-all"
-                      >
-                        Complete Payment
-                      </button>
-                    ) : order.payment?.razorpayGatewayDetails?.type === "PAYMENT_LINK" ? (
-                      <a
-                        href={order.payment?.razorpayGatewayDetails?.paymentLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-full text-center bg-[#E72429] hover:bg-[#c71e23] text-white font-semibold py-2 rounded-md transition-all"
-                      >
-                        Pay Now via Razorpay
-                      </a>
-                    ) : null}
+                    <button
+                      onClick={handlePayPendingOrder}
+                      disabled={payingOrder}
+                      className="w-full bg-[#E72429] hover:bg-[#c71e23] text-white font-semibold py-2.5 px-4 rounded-md transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                    >
+                      {payingOrder ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Validating & Opening Payment…</span>
+                        </>
+                      ) : (
+                        <span>Pay Now via Razorpay</span>
+                      )}
+                    </button>
                   </div>
                 )}
 

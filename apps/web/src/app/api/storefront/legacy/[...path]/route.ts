@@ -44,6 +44,7 @@ import {
   fetchOrderById,
   fetchUserOrders,
   OrderDataError,
+  payPendingOrder,
   uploadProofFile,
 } from "@/features/order";
 import {
@@ -499,6 +500,18 @@ export async function POST(
       const body = await request.json().catch(() => ({}));
       const result = await createOrderFromCheckout(body, identifier === "buy-now");
       return success({ result, order: result });
+    }
+
+    if (resource === "order" && (path[2] === "pay" || identifier === "pay")) {
+      const targetOrderId = identifier === "pay" ? path[2] : identifier;
+      if (!targetOrderId) {
+        return NextResponse.json(
+          { success: false, message: "Order ID is required." },
+          { status: 400 }
+        );
+      }
+      const result = await payPendingOrder(targetOrderId);
+      return success({ result });
     }
 
     if (resource === "wishlist" && identifier) {
