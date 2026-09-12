@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { buildProductPath } from "@/lib/slug";
 
@@ -17,8 +17,8 @@ interface CartItemCardProps {
   features: string[];
   inStock?: boolean;
   maxQuantity?: number; // cap increment by stock
-  onQuantityChange: (cartItemId: string, newQuantity: number, currentQuantity: number) => void;
-  onRemove: (cartItemId: string) => void;
+  onQuantityChange: (cartItemId: string, newQuantity: number, currentQuantity: number) => Promise<void> | void;
+  onRemove: (cartItemId: string) => Promise<void> | void;
   className?: string;
 }
 
@@ -39,23 +39,51 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
   className = "",
 }) => {
   const router = useRouter();
-   const href =
+  const [updatingAction, setUpdatingAction] = useState<"inc" | "dec" | "remove" | null>(null);
+
+  const href =
     productId ? buildProductPath({ _id: productId, slug: productSlug }) : undefined;
 
   const atMax = typeof maxQuantity === "number" && quantity >= maxQuantity;
   const canIncrement = !!inStock && !atMax;
   const canDecrement = quantity > 1 && !!inStock;
 
-  const incrementQuantity = () => {
-    if (canIncrement) onQuantityChange(id, quantity + 1, quantity);
+  const incrementQuantity = async () => {
+    if (!canIncrement || updatingAction) return;
+    setUpdatingAction("inc");
+    try {
+      await onQuantityChange(id, quantity + 1, quantity);
+    } finally {
+      setUpdatingAction(null);
+    }
   };
 
-  const decrementQuantity = () => {
-    if (!inStock) return;
+  const decrementQuantity = async () => {
+    if (!inStock || updatingAction) return;
     if (quantity > 1) {
-      onQuantityChange(id, quantity - 1, quantity);
+      setUpdatingAction("dec");
+      try {
+        await onQuantityChange(id, quantity - 1, quantity);
+      } finally {
+        setUpdatingAction(null);
+      }
     } else {
-      onRemove(id);
+      setUpdatingAction("remove");
+      try {
+        await onRemove(id);
+      } finally {
+        setUpdatingAction(null);
+      }
+    }
+  };
+
+  const handleRemove = async () => {
+    if (updatingAction) return;
+    setUpdatingAction("remove");
+    try {
+      await onRemove(id);
+    } finally {
+      setUpdatingAction(null);
     }
   };
 
@@ -68,33 +96,41 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
     {quantity > 1 ? (
       <button
         onClick={decrementQuantity}
-        disabled={!canDecrement} // canDecrement already accounts for stock
+        disabled={!canDecrement || updatingAction !== null}
         aria-label="Decrease quantity"
-        className="p-2 md:p-1 hover:bg-gray-50 border border-[#00000026] rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="p-2 md:p-1 hover:bg-gray-50 border border-[#00000026] rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[28px] min-h-[28px]"
       >
-        <Minus size={16} color="#E72429" />
+        {updatingAction === "dec" ? (
+          <Loader2 size={16} className="animate-spin text-[#E72429]" />
+        ) : (
+          <Minus size={16} color="#E72429" />
+        )}
       </button>
     ) : (
-      // NEVER disabled when qty === 1
+      // NEVER disabled when qty === 1 unless updating
       <button
-        onClick={() => onRemove(id)}
+        onClick={handleRemove}
+        disabled={updatingAction !== null}
         aria-label="Remove item"
-        className="p-2 md:p-1 hover:bg-gray-50 border border-[#00000026] rounded-full transition-colors"
+        className="p-2 md:p-1 hover:bg-gray-50 border border-[#00000026] rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[28px] min-h-[28px]"
       >
-        <Trash2 size={16} color="#E72429" />
+        {updatingAction === "remove" ? (
+          <Loader2 size={16} className="animate-spin text-[#E72429]" />
+        ) : (
+          <Trash2 size={16} color="#E72429" />
+        )}
       </button>
     )}
 
     <span
       className="px-3 py-1 text-[14px] font-[500] min-w-[2rem] text-center"
-     
     >
       {quantity}
     </span>
 
     <button
       onClick={incrementQuantity}
-      disabled={!canIncrement} // still respect stock cap
+      disabled={!canIncrement || updatingAction !== null}
       aria-label="Increase quantity"
       title={
         !inStock
@@ -103,9 +139,13 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
           ? `Max ${maxQuantity} reached`
           : undefined
       }
-      className="p-2 md:p-1 hover:bg-gray-50 border border-[#00000026] rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="p-2 md:p-1 hover:bg-gray-50 border border-[#00000026] rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[28px] min-h-[28px]"
     >
-      <Plus size={16} color="#E72429" />
+      {updatingAction === "inc" ? (
+        <Loader2 size={16} className="animate-spin text-[#E72429]" />
+      ) : (
+        <Plus size={16} color="#E72429" />
+      )}
     </button>
   </div>
 );
