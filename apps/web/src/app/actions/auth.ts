@@ -90,6 +90,18 @@ export async function signInAction(
   const parsed = loginSchema.safeParse(fields(formData));
   if (!parsed.success) return validationFailure("Check the form.", parsed.error);
   try {
+    const { eq, getDatabase, users } = await import("@babascamera/db");
+    const database = getDatabase();
+    const [existingUser] = await database
+      .select({ isActive: users.isActive })
+      .from(users)
+      .where(eq(users.email, parsed.data.email.toLowerCase()))
+      .limit(1);
+
+    if (existingUser && !existingUser.isActive) {
+      return { ok: false, message: "Your account has been disabled. Please contact support." };
+    }
+
     const origin = await getRequestOrigin();
     const auth = getWebAuth(origin);
     const request = await getWebRequest();
@@ -267,6 +279,10 @@ export async function signInWithGoogleAction(formData: FormData): Promise<void> 
       asResponse: true,
     });
     if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      if (text.toLowerCase().includes("disabled") || text.toLowerCase().includes("forbidden")) {
+        redirect("/login?error=account_disabled");
+      }
       redirect("/login?error=oauth");
     }
     await applyAuthCookies(response);

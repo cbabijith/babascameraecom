@@ -339,6 +339,10 @@ function ItemCard({ item }: { item: OrderItem }) {
   );
   const [imgSrc, setImgSrc] = useState<string>(initialSrc);
 
+  useEffect(() => {
+    setImgSrc(initialSrc);
+  }, [initialSrc]);
+
   const _Img = (
     <Image
       src={imgSrc}

@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
   poweredByHeader: false,
   transpilePackages: ["@babascamera/config", "@babascamera/db", "@babascamera/ui"],
-  serverExternalPackages: ["postgres", "sharp"],
+  serverExternalPackages: ["postgres", "sharp", "detect-libc"],
   images: {
     remotePatterns: [      {
         protocol: "https",

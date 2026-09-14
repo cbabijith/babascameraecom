@@ -259,7 +259,6 @@ export function DeleteOrderButton({
       const result = await deleteOrderAction(payload);
       if (!result.success) {
         toast.error(result.error);
-        setIsDeleting(false);
         return;
       }
       toast.success(`Order ${orderNumber} deleted successfully.`);
@@ -271,6 +270,7 @@ export function DeleteOrderButton({
     } catch (error) {
       console.error("Order deletion request failed:", error);
       toast.error("Order could not be deleted.");
+    } finally {
       setIsDeleting(false);
     }
   };

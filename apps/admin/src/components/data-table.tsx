@@ -39,6 +39,7 @@ export function DataTable<TData>({
   searchable = true,
   paginated = true,
   showRecordCount = true,
+  getRowId,
 }: {
   columns: ColumnDef<TData>[];
   data: TData[];
@@ -47,6 +48,7 @@ export function DataTable<TData>({
   searchable?: boolean;
   paginated?: boolean;
   showRecordCount?: boolean;
+  getRowId?: (row: TData, index: number) => string;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -59,6 +61,7 @@ export function DataTable<TData>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getRowId: getRowId ?? ((row: any, index: number) => row?.id ?? String(index)),
     ...(paginated ? { getPaginationRowModel: getPaginationRowModel() } : {}),
     initialState: { pagination: { pageIndex: 0, pageSize: 25 } },
   });

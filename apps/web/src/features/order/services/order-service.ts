@@ -3,6 +3,7 @@
 import {
   addresses,
   and,
+  asc,
   cartItems as cartItemsTable,
   carts as cartsTable,
   couponRedemptions,
@@ -18,6 +19,7 @@ import {
   orders as ordersTable,
   orderStatusHistory,
   orderStatusValues,
+  productImages,
   products as productsTable,
   productVariants,
   sql,
@@ -28,6 +30,7 @@ import { getOptionalUser } from "@/lib/auth/session";
 import { getCartOwner, guestOwnerHash } from "@/lib/cart-session";
 import { isUserCartOwner } from "@/features/cart/services/cart-service";
 import { getCartForOwner } from "@/lib/data/storefront";
+import { productImageUrl } from "@/lib/storage";
 import type { Order } from "@/types/cart";
 
 export class OrderDataError extends Error {
@@ -343,34 +346,36 @@ export async function createOrderFromCheckout(
       }
     }
 
+    const imageMap = await fetchImageMapForItems(db, insertedItems);
     const mappedOrder = mapDbOrderToApiOrder(
       { ...createdOrder, razorpayOrderId },
       insertedItems,
+      imageMap,
     );
 
     const transactionData =
       resolvedPaymentMethod === "razorpay" && razorpayOrderId
         ? {
-            _id: `txn_${createdOrder.id}`,
-            order: createdOrder.id,
-            user: user?.id ?? "",
-            paymentType: "ORDER",
-            paymentMode: "PRE-PAID",
-            paymentTiming: "IMMEDIATE",
-            paymentGateway: "RAZORPAY",
-            amount: grandTotal,
-            dueAmount: grandTotal,
-            capturedAmount: 0,
-            refundAmount: 0,
-            status: "PENDING",
-            code: createdOrder.orderNumber,
-            razorpayGatewayDetails: {
-              orderId: razorpayOrderId,
-              keyId: razorpayKeyId,
-            },
-            createdAt: createdOrder.createdAt.toISOString(),
-            updatedAt: createdOrder.updatedAt.toISOString(),
-          }
+          _id: `txn_${createdOrder.id}`,
+          order: createdOrder.id,
+          user: user?.id ?? "",
+          paymentType: "ORDER",
+          paymentMode: "PRE-PAID",
+          paymentTiming: "IMMEDIATE",
+          paymentGateway: "RAZORPAY",
+          amount: grandTotal,
+          dueAmount: grandTotal,
+          capturedAmount: 0,
+          refundAmount: 0,
+          status: "PENDING",
+          code: createdOrder.orderNumber,
+          razorpayGatewayDetails: {
+            orderId: razorpayOrderId,
+            keyId: razorpayKeyId,
+          },
+          createdAt: createdOrder.createdAt.toISOString(),
+          updatedAt: createdOrder.updatedAt.toISOString(),
+        }
         : undefined;
 
     return {
@@ -387,11 +392,40 @@ export async function createOrderFromCheckout(
   }
 }
 
+async function fetchImageMapForItems(
+  db: ReturnType<typeof getDatabase>,
+  items: (typeof orderItemsTable.$inferSelect)[],
+): Promise<Map<string, string>> {
+  const productIds = Array.from(
+    new Set(items.map((i) => i.productId).filter((id): id is string => Boolean(id)))
+  );
+
+  const imageMap = new Map<string, string>();
+  if (productIds.length > 0) {
+    const imgRows = await db
+      .select({
+        productId: productImages.productId,
+        url: productImages.url,
+      })
+      .from(productImages)
+      .where(inArray(productImages.productId, productIds))
+      .orderBy(desc(productImages.isPrimary), asc(productImages.position));
+
+    for (const img of imgRows) {
+      if (!imageMap.has(img.productId)) {
+        imageMap.set(img.productId, img.url);
+      }
+    }
+  }
+  return imageMap;
+}
+
 function mapDbOrderToApiOrder(
   order: typeof ordersTable.$inferSelect,
   items: (typeof orderItemsTable.$inferSelect)[],
+  imageMap?: Map<string, string>,
 ) {
-  const snapshot = order.shippingAddressSnapshot;
+  const snapshot = (order.shippingAddressSnapshot as ShippingAddressSnapshot) || {};
   return {
     _id: order.id,
     code: order.orderNumber,
@@ -416,32 +450,36 @@ function mapDbOrderToApiOrder(
       postalCode: snapshot.pincode || "",
       country: snapshot.country || "India",
     },
-    products: items.map((item) => ({
-      _id: item.id,
-      quantity: item.quantity,
-      actualPrice: item.unitPrice,
-      salePrice: item.unitPrice,
-      totalPrice: item.total,
-      discount: "0.00",
-      reduction: "0.00",
-      orderProductStatus: order.status.toUpperCase(),
-      product: {
-        _id: item.productId ?? item.id,
-        name: item.productName,
-        slug: item.sku,
-        code: item.sku,
-        images: [
-          {
-            _id: "img_1",
-            name: item.productName,
-            key: "placeholder.svg",
-            mimetype: "image/svg",
-            size: 0,
-            thumbnail: true,
-          },
-        ],
-      },
-    })),
+    products: items.map((item) => {
+      const rawUrl = item.productId ? imageMap?.get(item.productId) : null;
+      const imgKey = rawUrl ? productImageUrl(rawUrl) : "placeholder.svg";
+      return {
+        _id: item.id,
+        quantity: item.quantity,
+        actualPrice: item.unitPrice,
+        salePrice: item.unitPrice,
+        totalPrice: item.total,
+        discount: "0.00",
+        reduction: "0.00",
+        orderProductStatus: order.status.toUpperCase(),
+        product: {
+          _id: item.productId ?? item.id,
+          name: item.productName,
+          slug: item.sku,
+          code: item.sku,
+          images: [
+            {
+              _id: "img_1",
+              name: item.productName,
+              key: imgKey,
+              mimetype: "image/jpeg",
+              size: 0,
+              thumbnail: true,
+            },
+          ],
+        },
+      };
+    }),
   };
 }
 
@@ -512,7 +550,11 @@ export async function fetchUserOrders(filters: UserOrderFilters = {}) {
       itemsByOrder.set(item.orderId, list);
     }
 
-    return filteredOrderRows.map((o) => mapDbOrderToApiOrder(o, itemsByOrder.get(o.id) ?? []));
+    const imageMap = await fetchImageMapForItems(db, itemRows);
+
+    return filteredOrderRows.map((o) =>
+      mapDbOrderToApiOrder(o, itemsByOrder.get(o.id) ?? [], imageMap)
+    );
   } catch (error: unknown) {
     throw new OrderDataError(
       error instanceof Error ? error.message : "Failed to fetch user orders",
@@ -544,7 +586,9 @@ export async function fetchOrderById(orderId: string) {
       .from(orderItemsTable)
       .where(eq(orderItemsTable.orderId, orderRow.id));
 
-    return mapDbOrderToApiOrder(orderRow, itemRows);
+    const imageMap = await fetchImageMapForItems(db, itemRows);
+
+    return mapDbOrderToApiOrder(orderRow, itemRows, imageMap);
   } catch (error: unknown) {
     if (error instanceof OrderDataError) throw error;
     throw new OrderDataError(
@@ -798,5 +842,3 @@ export async function payPendingOrder(orderId: string) {
     );
   }
 }
-
-

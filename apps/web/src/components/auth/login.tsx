@@ -113,7 +113,13 @@ export default function LoginForm() {
 
     const params = new URLSearchParams(window.location.search);
     const errorParam = params.get("error");
-    if (errorParam === "account_not_linked") {
+    if (
+      errorParam === "account_disabled" ||
+      errorParam === "account-disabled" ||
+      errorParam === "disabled"
+    ) {
+      toast.error("Your account has been disabled. Please contact support.");
+    } else if (errorParam === "account_not_linked") {
       toast.error("Could not link account automatically. Please try again.");
     } else if (errorParam === "oauth") {
       toast.error("Google sign-in failed. Please try again.");
@@ -138,6 +144,18 @@ export default function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider: "google", callbackURL: next }),
       });
+      if (!res.ok) {
+        setGoogleLoading(false);
+        const text = await res.text().catch(() => "");
+        let msg = "Could not start Google sign-in. Please try again.";
+        try {
+          msg = JSON.parse(text)?.message || msg;
+        } catch {
+          /* ignore */
+        }
+        toast.error(msg);
+        return;
+      }
       const data = (await res.json().catch(() => ({}))) as { url?: string };
       if (data.url) {
         window.location.href = data.url;
@@ -207,15 +225,21 @@ export default function LoginForm() {
 
       setError(message);
 
-      // Map backend error to specific field
-      if (message.toLowerCase().includes("password")) {
+      // Map backend error to specific field or toast
+      if (message.toLowerCase().includes("disabled")) {
+        toast.error(message);
+      } else if (message.toLowerCase().includes("password")) {
         setPasswordError(message);
       } else if (message.toLowerCase().includes("email")) {
         setEmailError(message);
       }
 
-      // Only show toast if neither field error was set
-      if (!message.toLowerCase().includes("password") && !message.toLowerCase().includes("email")) {
+      // Only show toast if neither field error nor disabled toast was set
+      if (
+        !message.toLowerCase().includes("password") &&
+        !message.toLowerCase().includes("email") &&
+        !message.toLowerCase().includes("disabled")
+      ) {
         toast.error(message);
       }
     } finally {

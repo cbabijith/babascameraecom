@@ -103,4 +103,21 @@ describe("catalog schema rules", () => {
   test("accepts a valid catalogue product payload", () => {
     expect(productClientSchema.safeParse(validProduct()).success).toBe(true);
   });
+
+  test("safely handles invalid MRP without throwing an uncaught exception", () => {
+    expect(() => productClientSchema.safeParse(validProduct({ mrp: "" }))).not.toThrow();
+    const result = productClientSchema.safeParse(validProduct({ mrp: "" }));
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.path.join(".") === "mrp")).toBe(true);
+    }
+  });
+
+  test("safely handles missing categoryId with clear error issue", () => {
+    const result = productClientSchema.safeParse(validProduct({ categoryId: "" }));
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.path.join(".") === "categoryId")).toBe(true);
+    }
+  });
 });

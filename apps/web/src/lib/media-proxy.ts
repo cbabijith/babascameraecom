@@ -11,6 +11,13 @@ const S3_BUCKET = process.env.NEXT_PUBLIC_S3_BUCKET || "arranged-pantry-yko9l8kt
 
 function extractTigrisKey(url: string): string | null {
   try {
+    if (url.startsWith("api/media/")) {
+      return url.slice("api/media/".length) || null;
+    }
+    if (url.startsWith("/api/media/")) {
+      return url.slice("/api/media/".length) || null;
+    }
+
     const parsed = new URL(url);
     const hostname = parsed.hostname.toLowerCase();
     const path = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
@@ -32,13 +39,21 @@ function extractTigrisKey(url: string): string | null {
     }
     return cleanPath || null;
   } catch {
+    if (url && !url.startsWith("/") && !url.startsWith("http")) {
+      return url;
+    }
     return null;
   }
 }
 
 export function mediaProxyUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  if (!/^https?:\/\//i.test(url)) return null;
+  if (url.startsWith("/api/media/")) return url;
+  if (url.startsWith("api/media/")) return `/${url}`;
+
+  // Static assets starting with / (except /api/media/)
+  if (url.startsWith("/")) return null;
+
   const key = extractTigrisKey(url);
   if (!key) return null;
   return `/api/media/${key.split("/").map(encodeURIComponent).join("/")}`;

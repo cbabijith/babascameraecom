@@ -234,8 +234,30 @@ export async function loginUser(payload: unknown): Promise<AuthResult> {
   }
 
   const { email, password } = parsed.data;
+  const database = getDatabase();
+
+  const [existingUser] = await database
+    .select({ id: users.id, isActive: users.isActive })
+    .from(users)
+    .where(eq(users.email, email.toLowerCase()))
+    .limit(1);
+
+  if (existingUser && !existingUser.isActive) {
+    throw new AuthDataError("Your account has been disabled. Please contact support.", 403);
+  }
 
   const { token, user } = await callAuthEndpoint("signInEmail", { email, password });
+
+  const [dbUser] = await database
+    .select({ id: users.id, isActive: users.isActive })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+
+  if (dbUser && !dbUser.isActive) {
+    await logoutUser().catch(() => null);
+    throw new AuthDataError("Your account has been disabled. Please contact support.", 403);
+  }
 
   await mergeGuestCartAfterAuthentication(user.id).catch(() => null);
 
@@ -316,7 +338,7 @@ export async function googleAuth(options?: {
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
   if (existing && !existing.isActive) {
-    throw new AuthDataError("This account has been disabled.", 403);
+    throw new AuthDataError("Your account has been disabled. Please contact support.", 403);
   }
 
   if (!existing) {
@@ -497,6 +519,10 @@ export async function getUserProfile(): Promise<Record<string, unknown>> {
 
       if (!profile) {
         throw new AuthDataError("Profile not found.", 404);
+      }
+
+      if (!profile.isActive) {
+        throw new AuthDataError("Your account has been disabled. Please contact support.", 403);
       }
 
       return {

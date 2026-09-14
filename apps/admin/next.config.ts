@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@babascamera/db", "@babascamera/ui"],
-  serverExternalPackages: ["postgres", "sharp"],
+  serverExternalPackages: ["postgres", "sharp", "detect-libc", "postcss", "nanoid"],
   images: {
     remotePatterns: [      {
         protocol: "https",

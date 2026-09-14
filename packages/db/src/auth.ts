@@ -1,5 +1,6 @@
-import { betterAuth } from "better-auth";
+import { betterAuth, APIError } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { eq } from "drizzle-orm";
 
 import { getDatabase } from "./client";
 import * as schema from "./schema";
@@ -61,6 +62,23 @@ export function createBetterAuth(options?: { baseURL?: string; secret?: string }
                 fullName: (user as { fullName?: string }).fullName || name,
               },
             };
+          },
+        },
+      },
+      session: {
+        create: {
+          before: async (session) => {
+            const [user] = await db
+              .select({ isActive: schema.users.isActive })
+              .from(schema.users)
+              .where(eq(schema.users.id, session.userId))
+              .limit(1);
+
+            if (user && !user.isActive) {
+              throw new APIError("FORBIDDEN", {
+                message: "Your account has been disabled. Please contact support.",
+              });
+            }
           },
         },
       },

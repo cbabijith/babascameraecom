@@ -89,19 +89,20 @@ export interface ErrorResponse {
 /* -------------------- Utilities -------------------- */
 export const getImageUrl = (imageKey?: string | null): string => {
   if (!imageKey) return "";
-  if (/^https?:\/\//i.test(imageKey) || imageKey.startsWith("/")) {
-    return resolveMediaUrl(imageKey, imageKey);
-  }
+  if (imageKey === "placeholder.svg" || imageKey === "/placeholder.svg") return "/placeholder.svg";
+  const resolved = resolveMediaUrl(imageKey, imageKey);
+  if (resolved) return resolved;
   const key = imageKey.startsWith("/") ? imageKey.slice(1) : imageKey;
-  return `${CDN_BASE_URL}${key}`;
+  return CDN_BASE_URL ? `${CDN_BASE_URL}${key}` : key;
 };
 
 export const getThumbnailUrl = (imageKey?: string | null): string => {
   if (!imageKey) return getProductFallbackImage();
-  if (/^https?:\/\//i.test(imageKey) || imageKey.startsWith("/")) {
-    return resolveMediaUrl(imageKey, imageKey);
-  }
+  if (imageKey === "placeholder.svg" || imageKey === "/placeholder.svg") return getProductFallbackImage();
+  const resolved = resolveMediaUrl(imageKey, imageKey);
+  if (resolved) return resolved;
   const cleanKey = imageKey.startsWith("/") ? imageKey.slice(1) : imageKey;
+  if (!THUMBNAIL_BASE_URL) return cleanKey;
   const cleanBaseUrl = THUMBNAIL_BASE_URL.endsWith("/")
     ? THUMBNAIL_BASE_URL.slice(0, -1)
     : THUMBNAIL_BASE_URL;

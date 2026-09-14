@@ -86,10 +86,12 @@ export function CreateOrderDialog() {
   const [notes, setNotes] = useState("");
 
   const [products, setProducts] = useState<ProductOption[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
   useEffect(() => {
     if (!open || products.length > 0) return;
     let cancelled = false;
+    setLoadingProducts(true);
     fetch("/api/admin/catalog/products?status=active&sort=createdAt&order=desc&pageSize=100")
       .then((response) => response.json())
       .then((body) => {
@@ -106,6 +108,9 @@ export function CreateOrderDialog() {
       })
       .catch(() => {
         if (!cancelled) toast.error("Could not load products.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProducts(false);
       });
     return () => {
       cancelled = true;
@@ -267,7 +272,7 @@ export function CreateOrderDialog() {
                       void loadVariants(row.key, value);
                     }}
                   >
-                    <option value="">Select product</option>
+                    <option value="">{loadingProducts ? "Loading products..." : "Select product"}</option>
                     {products.map((product) => (
                       <option key={product.id} value={product.id}>
                         {product.name} (₹{product.salePrice}, stock {product.stock})

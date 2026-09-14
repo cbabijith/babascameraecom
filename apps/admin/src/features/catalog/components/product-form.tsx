@@ -21,7 +21,7 @@ import type { LucideIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, type FieldErrors } from "react-hook-form";
 import type { z } from "zod";
 
 import {
@@ -97,15 +97,22 @@ function CollapsibleProductSection({
   title,
   description,
   children,
+  hasError,
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   children: ReactNode;
+  hasError?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (hasError) setOpen(true);
+  }, [hasError]);
+
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <section className={cn("overflow-hidden rounded-lg border bg-white", hasError ? "border-red-300" : "border-slate-200")}>
       <button
         type="button"
         className="flex w-full items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 text-left hover:bg-slate-50/70"
@@ -217,6 +224,29 @@ export function ProductForm({
     }
   }, [form, watchedName]);
 
+  const errors = form.formState.errors;
+  const shippingHasError = Boolean(errors.weight || errors.shippingFee || errors.warranty);
+  const seoHasError = Boolean(errors.slug || errors.metaTitle || errors.metaDescription);
+
+  const onInvalid = (fieldErrors: FieldErrors<Values>) => {
+    let firstMessage: string | null = null;
+    const findFirstMessage = (obj: Record<string, unknown>) => {
+      for (const key of Object.keys(obj)) {
+        if (firstMessage) return;
+        const val = obj[key];
+        if (val && typeof val === "object" && "message" in val && typeof val.message === "string" && val.message) {
+          firstMessage = val.message;
+          return;
+        }
+        if (val && typeof val === "object" && val !== null) {
+          findFirstMessage(val as Record<string, unknown>);
+        }
+      }
+    };
+    findFirstMessage(fieldErrors as Record<string, unknown>);
+    toast.error(firstMessage ? `Validation error: ${firstMessage}` : "Please fix form validation errors before saving.");
+  };
+
   const onSubmit = form.handleSubmit(async (values) => {
     const payload = new FormData();
     if (product?.id) payload.set("id", product.id);
@@ -232,7 +262,14 @@ export function ProductForm({
         ? await catalogApi.updateProduct<{ id: string; redirectTo: string }>(productId, payload)
         : await catalogApi.createProduct<{ id: string; redirectTo: string }>(payload);
       if (!result.success) {
-        toast.error(result.error);
+        if (result.fieldErrors) {
+          for (const [fieldName, messages] of Object.entries(result.fieldErrors)) {
+            if (messages && messages[0]) {
+              form.setError(fieldName as keyof Values, { message: messages[0] });
+            }
+          }
+        }
+        toast.error(result.error || "Product could not be saved.");
         return;
       }
       toast.success("Product saved.");
@@ -242,7 +279,7 @@ export function ProductForm({
       console.error("Product save request failed.", error);
       toast.error("Product could not be saved.");
     }
-  });
+  }, onInvalid);
 
   return (
     <Form {...form}>
@@ -422,6 +459,7 @@ export function ProductForm({
             title="Shipping & Warranty"
             description="Optional fulfilment details."
             icon={Truck}
+            hasError={shippingHasError}
           >
           <AdminInputField name="weight" label="Weight" inputProps={{ inputMode: "decimal", placeholder: "0.50" }} />
           <AdminInputField name="shippingFee" label="Shipping fee (INR)" inputProps={{ inputMode: "decimal", placeholder: "0.00" }} />
@@ -436,6 +474,7 @@ export function ProductForm({
             title="SEO"
             description="Optional search metadata."
             icon={Search}
+            hasError={seoHasError}
           >
           <AdminInputField
             name="slug"
