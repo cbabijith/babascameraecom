@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import AppBreadcrumb from "../common/app-breadcrumb";
 import ProductDetailsSkeleton from "../ui/ProductDetailsSkeleton";
+import RazorpayAffordabilityWidget from "./razorpay-affordability-widget";
 import type { CartItem } from "@/types/cart";
 import {
   addNotificationAsync,
@@ -671,6 +672,8 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                 </Badge>
               )}
             </div>
+
+            {isInStock && <RazorpayAffordabilityWidget amount={salePrice} />}
 
             {renderVariantSelector()}
 

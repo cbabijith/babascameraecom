@@ -82,6 +82,7 @@ export default function BannerSection() {
             src={src}
             alt={banner.subHeading}
             isVideo={isVideo}
+            poster={banner.posterUrl ? getImageUrl(banner.posterUrl) : undefined}
             className="absolute inset-0 w-full h-full object-cover"
             priority={true}
           />

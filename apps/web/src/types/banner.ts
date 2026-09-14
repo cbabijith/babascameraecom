@@ -35,6 +35,7 @@ export interface Banner {
   visibility: 'Show' | 'Hide';
   position: number;
   mediaFile: MediaFile;
+  posterUrl?: string;
   createdAt: string;
   code: string;
 }

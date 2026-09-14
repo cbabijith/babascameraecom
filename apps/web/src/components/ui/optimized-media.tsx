@@ -8,6 +8,7 @@ interface OptimizedMediaProps {
   src: string
   alt: string
   isVideo: boolean
+  poster?: string
   className?: string
   muted?: boolean
   autoPlay?: boolean
@@ -33,6 +34,7 @@ export function OptimizedMedia({
   src,
   alt,
   isVideo,
+  poster,
   className = "",
   muted = true,
   autoPlay = true,
@@ -80,6 +82,7 @@ export function OptimizedMedia({
       {shouldRenderVideo ? (
         <video
           src={src}
+          poster={poster}
           autoPlay={autoPlay}
           loop={loop}
           muted={muted}

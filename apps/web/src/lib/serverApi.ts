@@ -77,6 +77,8 @@ export interface Banner {
   position: number;
   status: string;
   visibility: string;
+  mediaType?: string;
+  posterUrl?: string;
   mediaFile?: {
     key: string;
     mimetype?: string;
@@ -101,6 +103,8 @@ export async function getHeroBannersServer(): Promise<Banner[]> {
       position: item.position,
       status: "Active",
       visibility: "Show",
+      mediaType: item.mediaType ?? undefined,
+      posterUrl: item.posterUrl ?? undefined,
       mediaFile: item.desktopMediaUrl ? { key: item.desktopMediaUrl } : undefined,
     }));
   } catch (error) {

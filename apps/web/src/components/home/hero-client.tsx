@@ -18,6 +18,8 @@ interface Banner {
   position: number;
   status: string;
   visibility: string;
+  mediaType?: string;
+  posterUrl?: string;
   mediaFile?: {
     key: string;
     mimetype?: string;
@@ -119,7 +121,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
 
   /* ---------- Slide scheduling (image timer vs. video ended) ---------- */
   const currentBanner: Banner | undefined = banners.length > 0 ? banners[currentSlide] : undefined;
-  const isVideo = isVideoFile(currentBanner?.mediaFile?.key, currentBanner?.mediaFile?.mimetype);
+  const isVideo = currentBanner?.mediaType === "video" || isVideoFile(currentBanner?.mediaFile?.key, currentBanner?.mediaFile?.mimetype);
   const currentMediaKey = currentBanner?.mediaFile?.key;
   const isKeyFailed = currentMediaKey ? failedKeys.has(currentMediaKey) : false;
 
@@ -127,6 +129,8 @@ export default function HeroClient({ banners }: HeroClientProps) {
     !imageError && !isKeyFailed && currentMediaKey
       ? getImageUrl(currentMediaKey)
       : "/placeholder.svg";
+
+  const posterMediaUrl = currentBanner?.posterUrl ? getImageUrl(currentBanner.posterUrl) : undefined;
 
   /* ---------- Prefetch next image ---------- */
   useEffect(() => {
@@ -283,6 +287,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
               key={currentBanner?._id || currentSlide}
               ref={videoRef}
               src={mediaUrl}
+              poster={posterMediaUrl}
               muted={muted}
               playsInline
               preload="auto"
