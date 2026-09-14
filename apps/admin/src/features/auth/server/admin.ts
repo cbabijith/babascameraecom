@@ -48,92 +48,39 @@ export async function resolveAdminAccess(): Promise<AdminAccessResult> {
       headers: reqHeaders,
     });
 
-    if (session && session.user) {
-      const userProfile = await db.query.users.findFirst({
-        where: eq(users.id, session.user.id),
-      });
-
-      if (userProfile) {
-        return {
-          kind: "authorized",
-          admin: {
-            id: userProfile.id,
-            email: userProfile.email,
-            fullName:
-              userProfile.fullName?.trim() ||
-              userProfile.name?.trim() ||
-              userProfile.email.split("@")[0] ||
-              "Administrator",
-            role: "admin",
-            permissions: [...ADMIN_PERMISSIONS],
-            avatarUrl: userProfile.avatarUrl || userProfile.image,
-          },
-        };
-      }
+    if (!session || !session.user) {
+      return { kind: "anonymous" };
     }
 
-    // Auth check temporarily disabled for public admin access.
-    // Use an existing admin profile from DB if present to maintain foreign key integrity for operations/logs.
-    const existingAdmin = await db.query.users.findFirst({
-      where: eq(users.role, "admin"),
+    const userProfile = await db.query.users.findFirst({
+      where: eq(users.id, session.user.id),
     });
 
-    if (existingAdmin) {
-      return {
-        kind: "authorized",
-        admin: {
-          id: existingAdmin.id,
-          email: existingAdmin.email,
-          fullName:
-            existingAdmin.fullName?.trim() ||
-            existingAdmin.name?.trim() ||
-            existingAdmin.email.split("@")[0] ||
-            "Administrator",
-          role: "admin",
-          permissions: [...ADMIN_PERMISSIONS],
-          avatarUrl: existingAdmin.avatarUrl || existingAdmin.image,
-        },
-      };
+    if (!userProfile) {
+      return { kind: "forbidden", reason: "Your administrator profile could not be verified." };
     }
 
-    const anyUser = await db.query.users.findFirst();
-    if (anyUser) {
-      return {
-        kind: "authorized",
-        admin: {
-          id: anyUser.id,
-          email: anyUser.email,
-          fullName: anyUser.fullName?.trim() || anyUser.name?.trim() || "Administrator",
-          role: "admin",
-          permissions: [...ADMIN_PERMISSIONS],
-          avatarUrl: anyUser.avatarUrl || anyUser.image,
-        },
-      };
+    if (userProfile.role !== "admin" || userProfile.isActive === false) {
+      return { kind: "forbidden", reason: "This account does not have active administrator access." };
     }
 
     return {
       kind: "authorized",
       admin: {
-        id: "admin-guest-id",
-        email: "admin@babascamera.com",
-        fullName: "Administrator",
+        id: userProfile.id,
+        email: userProfile.email,
+        fullName:
+          userProfile.fullName?.trim() ||
+          userProfile.name?.trim() ||
+          userProfile.email.split("@")[0] ||
+          "Administrator",
         role: "admin",
         permissions: [...ADMIN_PERMISSIONS],
-        avatarUrl: null,
+        avatarUrl: userProfile.avatarUrl || userProfile.image,
       },
     };
   } catch {
-    return {
-      kind: "authorized",
-      admin: {
-        id: "admin-guest-id",
-        email: "admin@babascamera.com",
-        fullName: "Administrator",
-        role: "admin",
-        permissions: [...ADMIN_PERMISSIONS],
-        avatarUrl: null,
-      },
-    };
+    return { kind: "anonymous" };
   }
 }
 
