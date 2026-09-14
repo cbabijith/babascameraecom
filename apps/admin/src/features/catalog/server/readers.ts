@@ -15,6 +15,7 @@ import {
 } from "@babascamera/db";
 
 import { requirePermission } from "@/features/auth/server/admin";
+import { resolveMediaUrl } from "@/lib/media-proxy";
 import {
   normalizeProductListQuery,
   type ProductExportRow,
@@ -199,7 +200,7 @@ export async function getProductCatalogPage(input: ProductListQuery = {}): Promi
       isFeatured: row.isFeatured,
       category: row.category.name,
       brand: row.brand?.name ?? null,
-      imageUrl: row.images.find((image) => image.isPrimary)?.url ?? row.images[0]?.url ?? null,
+      imageUrl: resolveMediaUrl(row.images.find((image) => image.isPrimary)?.url ?? row.images[0]?.url ?? null) || null,
       variantCount: row.variants.length,
       createdAt: iso(row.createdAt),
       updatedAt: iso(row.updatedAt),

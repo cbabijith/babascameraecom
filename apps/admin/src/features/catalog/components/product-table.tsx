@@ -45,6 +45,7 @@ import {
   catalogApi,
 } from "@/features/catalog/api/catalog-api-client";
 import { formatMoney } from "@/lib/money";
+import { resolveMediaUrl } from "@/lib/media-proxy";
 
 type Product = ProductListPage["rows"][number];
 
@@ -534,7 +535,7 @@ export function ProductTable({
                   <td className="px-3 py-2">
                     <div className="flex min-w-0 items-center gap-3">
                       {product.imageUrl ? (
-                        <img src={product.imageUrl} alt="" className="size-10 rounded-md object-cover" />
+                        <img src={resolveMediaUrl(product.imageUrl)} alt="" className="size-10 rounded-md object-cover" />
                       ) : (
                         <span className="grid size-10 place-items-center rounded-md bg-slate-100 text-slate-400"><Package className="size-4" /></span>
                       )}
