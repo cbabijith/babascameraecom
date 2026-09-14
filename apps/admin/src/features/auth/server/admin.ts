@@ -2,7 +2,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { auth, db, eq, users } from "@babascamera/db";
+import { db, eq, users } from "@babascamera/db";
+import { getAdminAuth, getRequestOrigin } from "@/lib/auth/auth";
 
 export type Permission =
   | "dashboard"
@@ -44,7 +45,9 @@ export type AdminAccessResult =
 export async function resolveAdminAccess(): Promise<AdminAccessResult> {
   try {
     const reqHeaders = await headers();
-    const session = await auth.api.getSession({
+    const origin = await getRequestOrigin();
+    const authInstance = getAdminAuth(origin);
+    const session = await authInstance.api.getSession({
       headers: reqHeaders,
     });
 

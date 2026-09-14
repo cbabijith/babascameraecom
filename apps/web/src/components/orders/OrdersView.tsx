@@ -76,10 +76,18 @@ export default function OrdersView() {
   const [totalCount, setTotalCount] = useState(0);
 
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const pageSize = 10;
   const mountedOnce = useRef(false);
+
+  const handleTabChange = (val: OrdersTab) => {
+    if (val !== active) {
+      setActive(val);
+      setLoading(true);
+    }
+  };
 
   /* ---------- Status filter ---------- */
   const [statusFilter, setStatusFilter] = useState<StatusOption | "">("");
@@ -137,6 +145,7 @@ export default function OrdersView() {
       console.error("[OrdersView] fetch error:", err);
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -153,7 +162,7 @@ export default function OrdersView() {
   const isSmall = useIsSmall();
 
   /* ---------- SKELETON ---------- */
-  if (loading && !orders.length && !error) {
+  if (initialLoading && !error) {
     return (
       <div className="constrained-width py-6">
         <div className="py-2 sm:pt-6">
@@ -262,7 +271,7 @@ export default function OrdersView() {
             <TabsBar
               items={tabs}
               active={active}
-              onChange={(val) => setActive(val as OrdersTab)}
+              onChange={(val) => handleTabChange(val as OrdersTab)}
               containerWidth={420}
               containerHeight={41}
               containerPadding={3}
@@ -448,7 +457,7 @@ export default function OrdersView() {
           {tabs.map((t) => (
             <button
               key={t}
-              onClick={() => setActive(t)}
+              onClick={() => handleTabChange(t)}
               className={`flex-1 rounded-md border px-3 py-2 text-sm ${active === t ? "bg-white" : "bg-[#F4F4F5]"}`}
             >
               {t}
@@ -457,7 +466,7 @@ export default function OrdersView() {
         </div>
       </div>
 
-      <OrdersList tab={active} data={orders} />
+      <OrdersList tab={active} data={orders} loading={loading} />
 
       <div className="mt-6 flex flex-col items-center gap-3">
         <div className="text-xs sm:text-sm text-muted-foreground">

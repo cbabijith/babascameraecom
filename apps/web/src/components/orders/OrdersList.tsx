@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import OrderCard from "./OrderCard";
+import OrderCardSkeleton from "../ui/OrderCardSkeleton";
 import type { Order } from "@/types/order";
 
 export type OrdersTab = "Orders" | "Cancelled Orders";
@@ -45,10 +46,22 @@ function EmptyState({
 export default function OrdersList({
   tab,
   data,
+  loading = false,
 }: {
   tab: OrdersTab;
   data: Order[];
+  loading?: boolean;
 }) {
+  if (loading) {
+    return (
+      <div className="space-y-3 sm:space-y-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <OrderCardSkeleton key={i} />
+        ))}
+      </div>
+    );
+  }
+
   let list = data;
 
   // ✅ Compare against UI union (UPPERCASE)
