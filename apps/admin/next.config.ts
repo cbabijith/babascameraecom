@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@babascamera/db", "@babascamera/ui"],
-  serverExternalPackages: ["postgres"],
+  serverExternalPackages: ["postgres", "sharp"],
   images: {
     remotePatterns: [      {
         protocol: "https",
@@ -28,6 +28,26 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "babasphotostore.blr1.cdn.digitaloceanspaces.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.up.railway.app",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.railway.app",
+        pathname: "/**",
+      },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        pathname: "/**",
+      },
+      {
+        protocol: "http",
+        hostname: "127.0.0.1",
         pathname: "/**",
       },
     ],
