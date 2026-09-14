@@ -6,6 +6,8 @@ export async function GET(
 ) {
   const { path } = await params;
   const key = path.join("/");
+  const rangeHeader = request.headers.get("range");
+
   const client = new S3Client({
     endpoint: process.env.S3_ENDPOINT || "https://t3.storageapi.dev",
     region: process.env.S3_REGION || "auto",
@@ -25,6 +27,7 @@ export async function GET(
       new GetObjectCommand({
         Bucket: process.env.S3_BUCKET || "arranged-pantry-yko9l8ktd",
         Key: key,
+        Range: rangeHeader || undefined,
       })
     );
 
@@ -34,7 +37,7 @@ export async function GET(
 
     const headers = new Headers();
     let contentType = s3Res.ContentType;
-    if (!contentType) {
+    if (!contentType || contentType === "application/octet-stream") {
       const lowerKey = key.toLowerCase();
       if (lowerKey.endsWith(".webp")) contentType = "image/webp";
       else if (lowerKey.endsWith(".png")) contentType = "image/png";
@@ -42,15 +45,23 @@ export async function GET(
       else if (lowerKey.endsWith(".svg")) contentType = "image/svg+xml";
       else if (lowerKey.endsWith(".gif")) contentType = "image/gif";
       else if (lowerKey.endsWith(".mp4")) contentType = "video/mp4";
-      else contentType = "image/webp";
+      else if (lowerKey.endsWith(".webm")) contentType = "video/webm";
+      else contentType = "application/octet-stream";
     }
     headers.set("Content-Type", contentType);
+    headers.set("Accept-Ranges", "bytes");
+
     if (s3Res.ContentLength)
       headers.set("Content-Length", String(s3Res.ContentLength));
+    if (s3Res.ContentRange)
+      headers.set("Content-Range", s3Res.ContentRange);
+
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
 
+    const status = s3Res.ContentRange ? 206 : 200;
+
     return new Response(s3Res.Body.transformToWebStream(), {
-      status: 200,
+      status,
       headers,
     });
   } catch (err) {

@@ -21,12 +21,16 @@ import { arrayMove } from "@dnd-kit/sortable";
 import {
   CalendarClock,
   ImageIcon,
+  Loader2,
   Monitor,
+  Package,
   Pencil,
   Plus,
+  Search,
   Smartphone,
   Trash2,
   Video,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -57,6 +61,7 @@ interface FormState {
   buttonLabel: string;
   destinationUrl: string;
   openInNewTab: boolean;
+  productIds: string[];
   isActive: boolean;
   startsAt: string;
   endsAt: string;
@@ -74,6 +79,7 @@ const EMPTY: FormState = {
   buttonLabel: "",
   destinationUrl: "",
   openInNewTab: false,
+  productIds: [],
   isActive: true,
   startsAt: "",
   endsAt: "",
@@ -99,6 +105,7 @@ function fromBanner(banner: HomeBanner): FormState {
     buttonLabel: banner.buttonLabel ?? "",
     destinationUrl: banner.destinationUrl ?? "",
     openInNewTab: banner.openInNewTab,
+    productIds: banner.productIds ?? [],
     isActive: banner.isActive,
     startsAt: localDate(banner.startsAt),
     endsAt: localDate(banner.endsAt),
@@ -170,6 +177,242 @@ function MediaField({
           <div className="h-full rounded-full bg-[#e94560] transition-[width]" style={{ width: `${progress ?? 20}%` }} />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+interface ProductSearchResult {
+  id: string;
+  name: string;
+  sku: string;
+  salePrice: number | string;
+  mrp: number | string;
+  imageUrl: string | null;
+}
+
+function BannerProductSelector({
+  selectedIds,
+  onChange,
+  disabled,
+}: {
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  disabled?: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<ProductSearchResult[]>([]);
+  const [productMap, setProductMap] = useState<Map<string, ProductSearchResult>>(new Map());
+
+  useEffect(() => {
+    const missingIds = selectedIds.filter((id) => !productMap.has(id));
+    if (missingIds.length === 0) return;
+
+    let isMounted = true;
+    fetch(`/api/admin/catalog/products?pageSize=100`)
+      .then((res) => res.json())
+      .then((res) => {
+        if (!isMounted || !res.success || !res.data?.rows) return;
+        setProductMap((prev) => {
+          const next = new Map(prev);
+          for (const row of res.data.rows) {
+            const primaryImage = row.images?.find((img: any) => img.isPrimary) || row.images?.[0];
+            next.set(row.id, {
+              id: row.id,
+              name: row.name,
+              sku: row.sku,
+              salePrice: row.salePrice,
+              mrp: row.mrp,
+              imageUrl: primaryImage?.url ? resolveMediaUrl(primaryImage.url) : null,
+            });
+          }
+          return next;
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedIds, productMap]);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const timer = setTimeout(() => {
+      fetch(`/api/admin/catalog/products?q=${encodeURIComponent(trimmed)}&pageSize=10`)
+        .then((res) => res.json())
+        .then((res) => {
+          setIsSearching(false);
+          if (res.success && res.data?.rows) {
+            const results: ProductSearchResult[] = res.data.rows.map((row: any) => {
+              const primaryImage = row.images?.find((img: any) => img.isPrimary) || row.images?.[0];
+              return {
+                id: row.id,
+                name: row.name,
+                sku: row.sku,
+                salePrice: row.salePrice,
+                mrp: row.mrp,
+                imageUrl: primaryImage?.url ? resolveMediaUrl(primaryImage.url) : null,
+              };
+            });
+            setSearchResults(results);
+          } else {
+            setSearchResults([]);
+          }
+        })
+        .catch(() => {
+          setIsSearching(false);
+          setSearchResults([]);
+        });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const addProduct = (prod: ProductSearchResult) => {
+    if (!selectedIds.includes(prod.id)) {
+      onChange([...selectedIds, prod.id]);
+    }
+    setProductMap((prev) => new Map(prev).set(prod.id, prod));
+    setQuery("");
+    setSearchResults([]);
+  };
+
+  const removeProduct = (id: string) => {
+    onChange(selectedIds.filter((item) => item !== id));
+  };
+
+  return (
+    <div className="grid gap-2.5">
+      <Label htmlFor="product-search-input">Attached Products ({selectedIds.length})</Label>
+      <div className="relative">
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 size-4 text-slate-400" />
+          <Input
+            id="product-search-input"
+            type="text"
+            placeholder="Search products by ID, name, or SKU..."
+            value={query}
+            disabled={disabled}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9 pr-8"
+          />
+          {isSearching ? (
+            <Loader2 className="absolute right-3 top-2.5 size-4 animate-spin text-slate-400" />
+          ) : query ? (
+            <button
+              type="button"
+              onClick={() => { setQuery(""); setSearchResults([]); }}
+              className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+            >
+              <X className="size-4" />
+            </button>
+          ) : null}
+        </div>
+
+        {query.trim() ? (
+          <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg">
+            {isSearching ? (
+              <div className="p-3 text-center text-xs text-slate-500">Searching products...</div>
+            ) : searchResults.length > 0 ? (
+              searchResults.map((prod) => {
+                const isSelected = selectedIds.includes(prod.id);
+                return (
+                  <button
+                    key={prod.id}
+                    type="button"
+                    disabled={isSelected}
+                    onClick={() => addProduct(prod)}
+                    className={`flex w-full items-center gap-3 rounded-md p-2 text-left text-xs transition-colors ${
+                      isSelected
+                        ? "bg-slate-50 opacity-60 cursor-not-allowed"
+                        : "hover:bg-slate-100 cursor-pointer"
+                    }`}
+                  >
+                    <div className="size-9 shrink-0 overflow-hidden rounded border border-slate-200 bg-slate-100 flex items-center justify-center">
+                      {prod.imageUrl ? (
+                        <img src={prod.imageUrl} alt="" className="size-full object-cover" />
+                      ) : (
+                        <Package className="size-4 text-slate-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-slate-900 truncate">{prod.name}</div>
+                      <div className="text-[11px] text-slate-500 truncate">SKU: {prod.sku || "N/A"} | ID: {prod.id}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-semibold text-slate-900">₹{prod.salePrice}</div>
+                      {isSelected ? (
+                        <span className="text-[10px] text-emerald-600 font-medium">Added</span>
+                      ) : (
+                        <span className="text-[10px] text-indigo-600 font-medium">+ Add</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="p-3 text-center text-xs text-slate-500">No matching products found</div>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {selectedIds.length > 0 ? (
+        <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 max-h-48 overflow-y-auto">
+          {selectedIds.map((id) => {
+            const prod = productMap.get(id);
+            return (
+              <div
+                key={id}
+                className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-2 text-xs"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="size-8 shrink-0 overflow-hidden rounded border border-slate-200 bg-slate-100 flex items-center justify-center">
+                    {prod?.imageUrl ? (
+                      <img src={prod.imageUrl} alt="" className="size-full object-cover" />
+                    ) : (
+                      <Package className="size-3.5 text-slate-400" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium text-slate-900 truncate">
+                      {prod?.name ?? `Product ID: ${id}`}
+                    </div>
+                    <div className="text-[11px] text-slate-500 truncate">
+                      {prod?.sku ? `SKU: ${prod.sku} • ` : ""}ID: {id}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {prod?.salePrice ? (
+                    <span className="font-semibold text-slate-900 text-xs">₹{prod.salePrice}</span>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    disabled={disabled}
+                    onClick={() => removeProduct(id)}
+                    className="size-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-slate-500 italic">No products attached. Search and select products above to attach them to this banner.</p>
+      )}
     </div>
   );
 }
@@ -494,6 +737,12 @@ export function HomeBannerManager({ banners }: { banners: HomeBanner[] }) {
                 <Input id="banner-destination" value={form.destinationUrl} maxLength={2000} onChange={(e) => patch("destinationUrl", e.target.value)} placeholder="/products or https://example.com" />
               </div>
             </div>
+
+            <BannerProductSelector
+              selectedIds={form.productIds}
+              onChange={(ids) => patch("productIds", ids)}
+              disabled={disabled}
+            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">

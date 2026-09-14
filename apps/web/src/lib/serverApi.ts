@@ -512,9 +512,19 @@ export async function getBannerDataServer(
       collections: [],
     };
 
+    const productIds = Array.isArray(item.productIds)
+      ? (item.productIds as string[]).filter(Boolean)
+      : [];
+
+    let attachedProducts: Product[] = [];
+    if (productIds.length > 0) {
+      const pageResult = await listCatalogProductsPage({ productIds, limit: productIds.length });
+      attachedProducts = (pageResult?.products ?? []).map(mapProduct);
+    }
+
     return {
       banner,
-      products: [],
+      products: attachedProducts as any,
     };
   } catch (error) {
     console.error('[getBannerDataServer] Error:', error);

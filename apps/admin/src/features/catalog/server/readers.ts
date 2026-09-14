@@ -69,6 +69,7 @@ function buildWhere(input: {
   if (input.search) {
     const like = `%${escapeLike(input.search.toLowerCase())}%`;
     const searchCondition = or(
+      ilike(sql`lower(${products.id}::text)`, like),
       ilike(sql`lower(${products.name})`, like),
       ilike(products.sku, like),
       sql`exists (select 1 from ${categories} c where c.id = ${products.categoryId} and lower(c.name) like ${like} escape '\\')`,

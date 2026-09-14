@@ -13,6 +13,7 @@ export interface HomeBanner {
   buttonLabel: string | null;
   destinationUrl: string | null;
   openInNewTab: boolean;
+  productIds: string[];
   position: number;
   isActive: boolean;
   startsAt: string | null;
@@ -46,6 +47,7 @@ export interface HomeBannerInput {
   buttonLabel: string | null;
   destinationUrl: string | null;
   openInNewTab: boolean;
+  productIds: string[];
   isActive: boolean;
   startsAt: Date | null;
   endsAt: Date | null;

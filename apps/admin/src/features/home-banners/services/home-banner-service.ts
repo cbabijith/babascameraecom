@@ -50,6 +50,7 @@ function serialize(row: Awaited<ReturnType<typeof listHomeBanners>>[number]): Ho
     desktopMediaUrl: resolveMediaUrl(row.desktopMediaUrl),
     mobileMediaUrl: resolveMediaUrl(row.mobileMediaUrl),
     posterUrl: resolveMediaUrl(row.posterUrl),
+    productIds: (row.productIds as string[]) || [],
     startsAt: row.startsAt?.toISOString() ?? null,
     endsAt: row.endsAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),

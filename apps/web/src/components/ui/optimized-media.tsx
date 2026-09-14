@@ -26,7 +26,7 @@ const VIDEO_EXTENSIONS = [".mp4", ".webm", ".ogg", ".mov", ".m4v", ".avi", ".mkv
 function isVideoUrl(url?: string): boolean {
   if (!url) return false;
   const cleanUrl = url.split("?")[0]?.toLowerCase() || "";
-  return VIDEO_EXTENSIONS.some((ext) => cleanUrl.endsWith(ext));
+  return VIDEO_EXTENSIONS.some((ext) => cleanUrl.endsWith(ext)) || cleanUrl.includes("/videos/");
 }
 
 export function OptimizedMedia({
@@ -83,10 +83,13 @@ export function OptimizedMedia({
           autoPlay={autoPlay}
           loop={loop}
           muted={muted}
+          playsInline
           className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+          onCanPlay={handleLoad}
+          onLoadedMetadata={handleLoad}
           onLoadedData={handleLoad}
           onError={handleError}
-          preload="metadata"
+          preload="auto"
         />
       ) : (
         <Image

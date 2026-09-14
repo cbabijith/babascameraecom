@@ -13,6 +13,12 @@ function extractTigrisKey(url: string): string | null {
   try {
     const parsed = new URL(url);
     const hostname = parsed.hostname.toLowerCase();
+    const path = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+
+    if (path.startsWith("api/media/")) {
+      return path.slice("api/media/".length) || null;
+    }
+
     const isTigris =
       hostname === "t3.storageapi.dev" ||
       hostname.endsWith(".t3.storageapi.dev") ||
@@ -20,11 +26,11 @@ function extractTigrisKey(url: string): string | null {
       hostname.endsWith(".tigris.dev") ||
       hostname.endsWith(".storageapi.dev");
     if (!isTigris) return null;
-    let path = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
-    if (path.startsWith(`${S3_BUCKET}/`)) {
-      path = path.slice(S3_BUCKET.length + 1);
+    let cleanPath = path;
+    if (cleanPath.startsWith(`${S3_BUCKET}/`)) {
+      cleanPath = cleanPath.slice(S3_BUCKET.length + 1);
     }
-    return path || null;
+    return cleanPath || null;
   } catch {
     return null;
   }

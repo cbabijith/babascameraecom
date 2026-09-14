@@ -27,6 +27,7 @@ export const homeBannerInputSchema = z.object({
     z.null(),
   ]).optional().transform((value) => value || null),
   openInNewTab: z.boolean().default(false),
+  productIds: z.array(z.string()).default([]),
   isActive: z.boolean().default(true),
   startsAt: dateValue,
   endsAt: dateValue,
