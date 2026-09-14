@@ -126,12 +126,33 @@ function MediaField({
   progress?: number;
   onSelect: (file: File) => void;
 }) {
+  const isVideo = accept.includes("video") || value.toLowerCase().endsWith(".mp4");
+  const mediaUrl = resolveMediaUrl(value);
+
   return (
     <div className="grid gap-2">
       <div className="flex items-center justify-between gap-3">
         <Label htmlFor={id}>{label}{required ? " *" : ""}</Label>
         {value ? <span className="text-xs font-medium text-emerald-700">Ready</span> : null}
       </div>
+      {value && !busy ? (
+        <div className="overflow-hidden rounded-md border border-slate-200 bg-slate-100 p-1.5 w-fit">
+          {isVideo ? (
+            <video
+              src={mediaUrl}
+              controls
+              preload="metadata"
+              className="h-28 w-48 rounded object-cover"
+            />
+          ) : (
+            <img
+              src={mediaUrl}
+              alt=""
+              className="h-24 w-36 rounded object-cover"
+            />
+          )}
+        </div>
+      ) : null}
       <Input
         id={id}
         type="file"
