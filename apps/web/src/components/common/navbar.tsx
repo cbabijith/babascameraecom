@@ -9,7 +9,7 @@ import { Search, Menu, Handbag, Heart, X, Loader2, ArrowLeft, CircleUserRound } 
 import { searchProducts } from "@/instances/searchInstance"
 import type { Product } from "@/types/product"
 import { getImageUrl, getThumbnailUrl } from "@/lib/apiClient"
-import { getAuthToken, checkAuthSession } from "@/instances/authInstance"
+import { checkAuthSession } from "@/instances/authInstance"
 import { selectWishlistCount } from "@/store/slice/wishlistSlice";
 import { selectCartItems } from "@/store/slice/cartSlice"
 

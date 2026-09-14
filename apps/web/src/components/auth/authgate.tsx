@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { getAuthToken, checkAuthSession } from "@/instances/authInstance";
+import { checkAuthSession } from "@/instances/authInstance";
 
 /**
  * - requireAuth: protect private areas (redirect to /login if no token)

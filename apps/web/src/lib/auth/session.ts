@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq, getDatabase, users } from "@babascamera/db";
@@ -57,9 +58,9 @@ async function loadSessionUser(): Promise<SessionUser | null> {
   }
 }
 
-export async function getOptionalUser(): Promise<SessionUser | null> {
+export const getOptionalUser = cache(async (): Promise<SessionUser | null> => {
   return loadSessionUser();
-}
+});
 
 export async function requireUser(next = "/profile"): Promise<SessionUser> {
   const user = await getOptionalUser();

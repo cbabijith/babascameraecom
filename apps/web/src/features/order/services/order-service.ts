@@ -310,7 +310,7 @@ export async function createOrderFromCheckout(
 
     // 5. Initialize Razorpay Order if payment method is RAZORPAY
     let razorpayOrderId: string | null = null;
-    let razorpayKeyId: string = "";
+    let razorpayKeyId = "";
 
     if (resolvedPaymentMethod === "razorpay") {
       try {

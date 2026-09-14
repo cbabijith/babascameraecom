@@ -106,7 +106,7 @@ export default function LoginForm() {
 
   React.useEffect(() => {
     setGoogleLoading(false);
-    const handlePageShow = (event: PageTransitionEvent) => {
+    const handlePageShow = (_event: PageTransitionEvent) => {
       setGoogleLoading(false);
     };
     window.addEventListener("pageshow", handlePageShow);

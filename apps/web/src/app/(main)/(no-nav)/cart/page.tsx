@@ -76,8 +76,19 @@ const CartPage: React.FC = () => {
     dispatch(fetchCart());
   }, [dispatch, userId]);
 
+  const lastRefetchedAtRef = useRef<number>(0);
+
   useEffect(() => {
-    const onFocus = () => dispatch(fetchCartSilent());
+    if (lastRefetchedAtRef.current === 0) {
+      lastRefetchedAtRef.current = Date.now();
+    }
+    const onFocus = () => {
+      const now = Date.now();
+      if (now - lastRefetchedAtRef.current > 30000) {
+        lastRefetchedAtRef.current = now;
+        dispatch(fetchCartSilent());
+      }
+    };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [dispatch]);

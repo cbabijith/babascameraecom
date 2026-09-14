@@ -114,14 +114,14 @@ export default function HeroClient({ banners }: HeroClientProps) {
     setCurrentSlide(s => (s - 1 + banners.length) % banners.length);
   }, [banners.length, clearTimers]);
 
-  const failedKeysRef = useRef<Set<string>>(new Set());
+  const [failedKeys, setFailedKeys] = useState<Set<string>>(() => new Set());
   const [imageError, setImageError] = useState(false);
 
   /* ---------- Slide scheduling (image timer vs. video ended) ---------- */
   const currentBanner: Banner | undefined = banners.length > 0 ? banners[currentSlide] : undefined;
   const isVideo = isVideoFile(currentBanner?.mediaFile?.key, currentBanner?.mediaFile?.mimetype);
   const currentMediaKey = currentBanner?.mediaFile?.key;
-  const isKeyFailed = currentMediaKey ? failedKeysRef.current.has(currentMediaKey) : false;
+  const isKeyFailed = currentMediaKey ? failedKeys.has(currentMediaKey) : false;
 
   const mediaUrl =
     !imageError && !isKeyFailed && currentMediaKey
@@ -134,14 +134,14 @@ export default function HeroClient({ banners }: HeroClientProps) {
     const next = (currentSlide + 1) % banners.length;
     const b = banners[next];
     const key = b?.mediaFile?.key;
-    if (key && failedKeysRef.current.has(key)) return;
+    if (key && failedKeys.has(key)) return;
     const isVid = isVideoFile(key, b?.mediaFile?.mimetype);
     const url = key ? getImageUrl(key) : "";
     if (url && !isVid) {
       const img = new window.Image();
       img.src = url;
     }
-  }, [currentSlide, banners]);
+  }, [currentSlide, banners, failedKeys]);
 
   useEffect(() => {
     if (!currentBanner) return;
@@ -195,7 +195,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
   const onMediaError = () => {
     setMediaError("Media failed to load");
     if (currentMediaKey) {
-      failedKeysRef.current.add(currentMediaKey);
+      setFailedKeys((prev) => new Set(prev).add(currentMediaKey));
     }
     setImageError(true);
   };

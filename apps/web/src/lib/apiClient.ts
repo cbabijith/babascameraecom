@@ -50,27 +50,20 @@ export const THUMBNAIL_BASE_URL = process.env.NEXT_PUBLIC_THUMBNAIL_BASE_URL || 
 export const HEALTH_ENDPOINT =
   process.env.NEXT_PUBLIC_HEALTH_ENDPOINT || "/api/v1/health";
 
-// Extended timeout based on network quality - give slow networks more time
+// Responsive timeout configuration (8s max to avoid long UI freezes)
 const getAdaptiveTimeout = (): number => {
-  if (typeof navigator === "undefined") return 60000;
+  if (typeof navigator === "undefined") return 8000;
   const conn = (navigator as NavigatorWithConnection).connection || (navigator as NavigatorWithConnection).mozConnection || (navigator as NavigatorWithConnection).webkitConnection;
-  if (!conn) return 60000; // Default 60s for unknown networks (conservative)
-  
-  // 2G networks: 90s timeout - give it maximum time
+  if (!conn) return 8000;
   if (conn.effectiveType === "slow-2g" || conn.effectiveType === "2g") {
-    return 90000;
+    return 12000;
   }
-  // 3G networks: 60s timeout
-  if (conn.effectiveType === "3g") {
-    return 60000;
-  }
-  // 4G and faster: 45s timeout (still generous)
-  return 45000;
+  return 8000;
 };
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: getAdaptiveTimeout(), // Adaptive timeout based on network
+  timeout: getAdaptiveTimeout(),
   headers: { "Content-Type": "application/json" },
 });
 
@@ -160,26 +153,9 @@ const isPublicEndpoint = (url?: string): boolean => {
   return publicPaths.some(path => url.includes(path));
 };
 
-// Aggressive retry configuration - maximum attempts to recover silently
+// Fast retry configuration (1 attempt max, low delay base)
 const getRetryConfig = (): { maxAttempts: number; delayBase: number } => {
-  if (typeof navigator === "undefined") {
-    return { maxAttempts: 6, delayBase: 2000 };
-  }
-  const conn = (navigator as NavigatorWithConnection).connection || (navigator as NavigatorWithConnection).mozConnection || (navigator as NavigatorWithConnection).webkitConnection;
-  if (!conn) {
-    return { maxAttempts: 6, delayBase: 2000 };
-  }
-  
-  // 2G networks: Maximum retries, longer delays to avoid showing errors
-  if (conn.effectiveType === "slow-2g" || conn.effectiveType === "2g") {
-    return { maxAttempts: 8, delayBase: 4000 };
-  }
-  // 3G networks: High retries
-  if (conn.effectiveType === "3g") {
-    return { maxAttempts: 6, delayBase: 2500 };
-  }
-  // 4G and faster: Moderate retries
-  return { maxAttempts: 4, delayBase: 1500 };
+  return { maxAttempts: 1, delayBase: 300 };
 };
 
 /* -------------------- Interceptors -------------------- */

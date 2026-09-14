@@ -216,32 +216,6 @@ const CheckoutPageContent: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const data = await getSpecificSettings("Delivery");
-        if (!mounted) return;
-        setDeliverySettings({
-          enableFreeDelivery: data.enableFreeDelivery ?? DELIVERY_DEFAULTS.enableFreeDelivery,
-          deliveryChargeFlat: Math.max(0, toNumber(data.deliveryChargeFlat ?? DELIVERY_DEFAULTS.deliveryChargeFlat)),
-          freeDeliveryThreshold: Math.max(0, toNumber(data.freeDeliveryThreshold ?? DELIVERY_DEFAULTS.freeDeliveryThreshold)),
-        });
-      } catch {
-        if (!mounted) return;
-        setDeliverySettings(DELIVERY_DEFAULTS);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  const delayedClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    return () => {
-      if (delayedClearRef.current) clearTimeout(delayedClearRef.current);
-    };
-  }, []);
-
   // Redux state
   const cartItems = useSelector(selectCartItems);
   const cartLoading = useSelector(selectCartLoading);
@@ -259,56 +233,21 @@ const CheckoutPageContent: React.FC = () => {
   const lastFetchedUserIdRef = useRef<string | null>(null);
   const noPaymentRef = useRef(false);
   const lastOrderCodeRef = useRef<string | null>(null);
+  const delayedClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userId: string | null = getUserId(user);
 
-  // Fetch cart once per user
   useEffect(() => {
-    if (!userId) {
-      lastFetchedUserIdRef.current = null;
-      return;
-    }
-    if (lastFetchedUserIdRef.current === userId) return;
-    lastFetchedUserIdRef.current = userId;
-    dispatch(fetchCart());
-  }, [dispatch, userId]);
-
-  // Buy Now product fetch
-  useEffect(() => {
-    let ignore = false;
-    const load = async () => {
-      if (!isBuyNow || !buyNowProductId) {
-        setBuyNowItem(null);
-        return;
-      }
-      try {
-        const p = await (await import("@/instances/productInstance")).getProductById(buyNowProductId);
-        if (!ignore && p?._id) {
-          setBuyNowItem({
-            id: p._id,
-            product: p,
-            quantity: initialQtyFromQuery,
-            status: "ACTIVE",
-          });
-          // Persist buy-now intent in store
-          dispatch(startBuyNow({ productId: p._id, quantity: initialQtyFromQuery }));
-        }
-      } catch {
-        if (!ignore) setBuyNowItem(null);
-      }
-    };
-    void load();
     return () => {
-      ignore = true;
+      if (delayedClearRef.current) clearTimeout(delayedClearRef.current);
     };
-  }, [isBuyNow, buyNowProductId, initialQtyFromQuery, dispatch]);
+  }, []);
 
-  // Addresses
+  // Addresses state
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-
   const [addrLoading, setAddrLoading] = useState<boolean>(true);
   const [addrError, setAddrError] = useState<string | null>(null);
-
+  const [profileReady, setProfileReady] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
 
@@ -334,26 +273,112 @@ const CheckoutPageContent: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user) void loadAddresses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+    if (!userId) {
+      lastFetchedUserIdRef.current = null;
+      return;
+    }
+    if (lastFetchedUserIdRef.current === userId) return;
+    lastFetchedUserIdRef.current = userId;
+    dispatch(fetchCart());
+  }, [dispatch, userId]);
 
-  // Simple profile check (name + phone)
-  const [profileReady, setProfileReady] = useState(false);
   useEffect(() => {
     let ignore = false;
-    async function checkProfile() {
-      try {
-        const prof = await getUserProfile();
-        if (!ignore) setProfileReady(Boolean(prof?.name));
-      } catch {
-        if (!ignore) setProfileReady(false);
+    const load = async () => {
+      if (!isBuyNow || !buyNowProductId) {
+        setBuyNowItem(null);
+        return;
       }
-    }
-    if (user) checkProfile();
+      try {
+        const p = await (await import("@/instances/productInstance")).getProductById(buyNowProductId);
+        if (!ignore && p?._id) {
+          setBuyNowItem({
+            id: p._id,
+            product: p,
+            quantity: initialQtyFromQuery,
+            status: "ACTIVE",
+          });
+          dispatch(startBuyNow({ productId: p._id, quantity: initialQtyFromQuery }));
+        }
+      } catch {
+        if (!ignore) setBuyNowItem(null);
+      }
+    };
+    void load();
     return () => {
       ignore = true;
     };
+  }, [isBuyNow, buyNowProductId, initialQtyFromQuery, dispatch]);
+
+  // Combine settings, addresses, and profile checks concurrently
+  useEffect(() => {
+    let mounted = true;
+    async function initCheckoutData() {
+      setAddrLoading(true);
+      setAddrError(null);
+
+      const [addrRes, profRes, settingsRes] = await Promise.allSettled([
+        getUserAddresses(),
+        getUserProfile(),
+        getSpecificSettings("Delivery"),
+      ]);
+
+      if (!mounted) return;
+
+      if (addrRes.status === "fulfilled") {
+        const list = Array.isArray(addrRes.value) ? addrRes.value : [];
+        setAddresses(list);
+
+        const nextId =
+          (selectedAddressId && list.some((a) => a._id === selectedAddressId) && selectedAddressId) ||
+          (list.find((a) => a.isDefault)?._id ?? list[0]?._id ?? null);
+
+        setSelectedAddressId(nextId ?? null);
+        if (nextId) dispatch(setCheckoutAddress(nextId));
+      } else {
+        setAddrError(getErrorMessage(addrRes.reason, "Failed to load addresses"));
+      }
+      setAddrLoading(false);
+
+      if (profRes.status === "fulfilled" && profRes.value) {
+        setProfileReady(Boolean(profRes.value.name));
+      } else {
+        setProfileReady(false);
+      }
+
+      if (settingsRes.status === "fulfilled" && settingsRes.value) {
+        const data = settingsRes.value;
+        setDeliverySettings({
+          enableFreeDelivery: data.enableFreeDelivery ?? DELIVERY_DEFAULTS.enableFreeDelivery,
+          deliveryChargeFlat: Math.max(0, toNumber(data.deliveryChargeFlat ?? DELIVERY_DEFAULTS.deliveryChargeFlat)),
+          freeDeliveryThreshold: Math.max(0, toNumber(data.freeDeliveryThreshold ?? DELIVERY_DEFAULTS.freeDeliveryThreshold)),
+        });
+      } else {
+        setDeliverySettings(DELIVERY_DEFAULTS);
+      }
+    }
+
+    if (user) {
+      void initCheckoutData();
+    } else {
+      getSpecificSettings("Delivery")
+        .then((data) => {
+          if (!mounted) return;
+          setDeliverySettings({
+            enableFreeDelivery: data.enableFreeDelivery ?? DELIVERY_DEFAULTS.enableFreeDelivery,
+            deliveryChargeFlat: Math.max(0, toNumber(data.deliveryChargeFlat ?? DELIVERY_DEFAULTS.deliveryChargeFlat)),
+            freeDeliveryThreshold: Math.max(0, toNumber(data.freeDeliveryThreshold ?? DELIVERY_DEFAULTS.freeDeliveryThreshold)),
+          });
+        })
+        .catch(() => {
+          if (mounted) setDeliverySettings(DELIVERY_DEFAULTS);
+        });
+    }
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleAddAddress = () => {
