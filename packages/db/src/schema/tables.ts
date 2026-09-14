@@ -581,6 +581,7 @@ export const homeBanners = pgTable(
     buttonLabel: text("button_label"),
     destinationUrl: text("destination_url"),
     openInNewTab: boolean("open_in_new_tab").default(false).notNull(),
+    productIds: jsonb("product_ids").$type<string[]>().default([]).notNull(),
     position: integer("position").notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     startsAt: timestamp("starts_at", { mode: "date", withTimezone: true }),
