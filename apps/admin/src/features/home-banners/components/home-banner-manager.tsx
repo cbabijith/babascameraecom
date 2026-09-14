@@ -38,6 +38,7 @@ import {
 } from "@/components/sortable-list";
 import { AdminPage, AdminPageHeader, AdminSection } from "@/components/ui/admin-page";
 
+import { resolveMediaUrl } from "@/lib/media-proxy";
 import { homeBannerApi } from "../api/home-banner-api-client";
 import { getBannerStatus } from "../tables/banner-list-model";
 import type { HomeBanner } from "../types";
@@ -354,10 +355,10 @@ export function HomeBannerManager({ banners }: { banners: HomeBanner[] }) {
                         <SortableDragHandle label={`Reorder ${banner.internalName}`} disabled={disabled} />
                         <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-lg bg-slate-100">
                           {banner.mediaType === "image" ? (
-                            <img src={banner.desktopMediaUrl} alt="" className="h-full w-full object-cover" />
+                            <img src={resolveMediaUrl(banner.desktopMediaUrl)} alt="" className="h-full w-full object-cover" />
                           ) : (
                             <>
-                              {banner.posterUrl ? <img src={banner.posterUrl} alt="" className="h-full w-full object-cover" /> : null}
+                              {banner.posterUrl ? <img src={resolveMediaUrl(banner.posterUrl)} alt="" className="h-full w-full object-cover" /> : null}
                               <span className="absolute inset-0 grid place-items-center bg-slate-950/20 text-white">
                                 <Video className="size-5" />
                               </span>

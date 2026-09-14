@@ -12,6 +12,7 @@ import {
   getS3ObjectBytes,
 } from "@babascamera/db";
 
+import { resolveMediaUrl } from "@/lib/media-proxy";
 import {
   bannerFinalizeSchema,
   bannerReorderSchema,
@@ -46,6 +47,9 @@ export class HomeBannerError extends Error {
 function serialize(row: Awaited<ReturnType<typeof listHomeBanners>>[number]): HomeBanner {
   return {
     ...row,
+    desktopMediaUrl: resolveMediaUrl(row.desktopMediaUrl),
+    mobileMediaUrl: resolveMediaUrl(row.mobileMediaUrl),
+    posterUrl: resolveMediaUrl(row.posterUrl),
     startsAt: row.startsAt?.toISOString() ?? null,
     endsAt: row.endsAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
