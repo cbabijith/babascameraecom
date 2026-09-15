@@ -3,24 +3,22 @@
 import BrandProductList from "@/components/products/brand-product-list"
 import type { Metadata } from "next"
 
+// Catalog pages sit behind a high-latency database; ISR keeps the per-page
+// query fan-out amortized to one render per minute instead of per request.
+// searchParams is deliberately not read: accessing it would force this page
+// back to fully dynamic rendering, and pagination is handled client-side.
+export const revalidate = 60;
+
 interface BrandProductsPageProps {
   params: Promise<{ brandId: string }>
-  searchParams?: Promise<{
-    page?: string
-    category?: string
-  }>
 }
 
 export default async function BrandProductsPage({
   params,
-  searchParams
 }: BrandProductsPageProps) {
   const resolvedParams = await params
-  const resolvedSearchParams = await searchParams
 
-  const page = parseInt(resolvedSearchParams?.page || "1")
-
-  return <BrandProductList brandId={resolvedParams.brandId} page={page} />
+  return <BrandProductList brandId={resolvedParams.brandId} />
 }
 
 export async function generateMetadata({ params }: BrandProductsPageProps): Promise<Metadata> {

@@ -23,7 +23,6 @@ import {
   FolderTree,
   GripVertical,
   ImageIcon,
-  MoreHorizontal,
   Plus,
   RotateCcw,
   Search,
@@ -52,6 +51,7 @@ import {
 } from "@/components/admin-form-field";
 import { SortableDragHandle, SortableList, SortableListItem } from "@/components/sortable-list";
 import { AdminPageHeader } from "@/components/ui/admin-page";
+import { AdminActionMenu } from "@/components/ui/admin-resource";
 import {
   buildCategoryTreeRows,
   filterCategoryRows,
@@ -142,48 +142,42 @@ function CategoryActionsMenu({
       : "";
 
   return (
-    <details className="relative">
-      <summary
-        aria-label={`Open actions for ${category.name}`}
-        className="grid size-9 cursor-pointer list-none place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 [&::-webkit-details-marker]:hidden"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <MoreHorizontal className="size-4" />
-      </summary>
-      <div
-        className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <button type="button" className="w-full px-3 py-2 text-left hover:bg-slate-50" onClick={() => onEdit(category)}>
-          Edit category
-        </button>
-        <button type="button" className="w-full px-3 py-2 text-left hover:bg-slate-50" onClick={() => onAddChild(category)}>
-          Add child category
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          className="w-full px-3 py-2 text-left hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => onToggleActive(category)}
-        >
-          {category.isActive ? "Deactivate" : "Activate"}
-        </button>
-        <Link href={`/products?category=${category.id}`} className="block px-3 py-2 hover:bg-slate-50">
-          View products
-        </Link>
-        <div className="my-1 border-t border-slate-100" />
-        <button
-          type="button"
-          disabled={Boolean(deleteUnavailableReason) || disabled}
-          title={deleteUnavailableReason || "Delete category"}
-          className="w-full px-3 py-2 text-left text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:bg-white disabled:text-slate-400"
-          onClick={() => onDelete(category)}
-        >
-          Delete category
-        </button>
-        {deleteUnavailableReason ? <p className="px-3 pb-2 text-xs text-slate-500">{deleteUnavailableReason}</p> : null}
-      </div>
-    </details>
+    <AdminActionMenu label={`Open actions for ${category.name}`} disabled={disabled}>
+      {(close) => (
+        <>
+          <button type="button" role="menuitem" className="w-full px-3 py-2 text-left hover:bg-slate-50" onClick={() => { close(); onEdit(category); }}>
+            Edit category
+          </button>
+          <button type="button" role="menuitem" className="w-full px-3 py-2 text-left hover:bg-slate-50" onClick={() => { close(); onAddChild(category); }}>
+            Add child category
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={disabled}
+            className="w-full px-3 py-2 text-left hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => { close(); onToggleActive(category); }}
+          >
+            {category.isActive ? "Deactivate" : "Activate"}
+          </button>
+          <Link role="menuitem" href={`/products?category=${category.id}`} className="block px-3 py-2 hover:bg-slate-50" onClick={close}>
+            View products
+          </Link>
+          <div className="my-1 border-t border-slate-100" />
+          <button
+            type="button"
+            role="menuitem"
+            disabled={Boolean(deleteUnavailableReason) || disabled}
+            title={deleteUnavailableReason || "Delete category"}
+            className="w-full px-3 py-2 text-left text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:bg-white disabled:text-slate-400"
+            onClick={() => { close(); onDelete(category); }}
+          >
+            Delete category
+          </button>
+          {deleteUnavailableReason ? <p className="px-3 pb-2 text-xs text-slate-500">{deleteUnavailableReason}</p> : null}
+        </>
+      )}
+    </AdminActionMenu>
   );
 }
 

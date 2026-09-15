@@ -67,25 +67,31 @@ function HtmlRenderer({
 
 interface ProductDetailsProps {
   productId: string;
+  /** Server-fetched product; skips the client-side fetch when present. */
+  initialProduct?: Product | null;
 }
 
-export default function ProductDetails({ productId }: ProductDetailsProps) {
+export default function ProductDetails({ productId, initialProduct }: ProductDetailsProps) {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState<Product | null>(initialProduct ?? null);
+  const [loading, setLoading] = useState(!initialProduct);
   const [error, setError] = useState<string | null>(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
+    initialProduct?.variants?.find((variant) => variant.stock > 0)?.id ??
+      initialProduct?.variants?.[0]?.id ??
+      null
+  );
 
   // “You May Also Have”
-  const [youMayAlso, setYouMayAlso] = useState<Product[]>([]);
+  const [youMayAlso, setYouMayAlso] = useState<Product[]>(initialProduct?.relatedProducts ?? []);
   const [youMayLoading, setYouMayLoading] = useState(false);
-  const [youMayTotal, setYouMayTotal] = useState<number>(0);
+  const [youMayTotal, setYouMayTotal] = useState(initialProduct?.relatedProducts?.length ?? 0);
   const [specTab, setSpecTab] = useState<"specs" | "additional">("specs");
 
   const user = useSelector((state: RootState) => state.auth.user);
@@ -181,6 +187,9 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
 
   /* ---------- Data fetch ---------- */
   useEffect(() => {
+    // Server component already delivered this product — nothing to fetch.
+    if (initialProduct && initialProduct._id === productId) return;
+
     const run = async () => {
       try {
         setLoading(true);
@@ -206,7 +215,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
     };
 
     if (productId) run();
-  }, [productId]);
+  }, [productId, initialProduct]);
 
   /* ---------- Image nav helpers ---------- */
   const nextImage = () =>

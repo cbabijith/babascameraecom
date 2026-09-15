@@ -11,7 +11,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  MoreHorizontal,
   Package,
   Search,
   ShoppingBag,
@@ -29,6 +28,7 @@ import {
   toast,
 } from "@babascamera/ui";
 
+import { AdminActionMenu } from "@/components/ui/admin-resource";
 import { StatusBadge } from "@/components/status-badge";
 import {
   normalizeProductListQuery,
@@ -560,21 +560,20 @@ export function ProductTable({
                     {product.mrp !== product.salePrice ? <p className="text-xs text-slate-500">MRP {formatMoney(product.mrp)}</p> : null}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <details className="relative inline-block">
-                      <summary aria-label={`Open actions for ${product.name}`} className="grid size-8 cursor-pointer list-none place-items-center rounded-md text-slate-500 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 [&::-webkit-details-marker]:hidden">
-                        <MoreHorizontal className="size-4" />
-                      </summary>
-                      <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-left text-sm shadow-lg">
-                        <Link href={`/products/${product.id}/edit`} className="block px-3 py-2 hover:bg-slate-50">Edit product</Link>
-                        <button type="button" className="w-full px-3 py-2 text-left hover:bg-slate-50" onClick={() => toggleProduct(product)}>
-                          {product.isActive ? "Deactivate" : "Activate"}
-                        </button>
-                        <div className="my-1 border-t border-slate-100" />
-                        <button type="button" className="w-full px-3 py-2 text-left text-rose-700 hover:bg-rose-50" onClick={() => requestDelete([product.id])}>
-                          Delete product
-                        </button>
-                      </div>
-                    </details>
+                    <AdminActionMenu label={`Open actions for ${product.name}`}>
+                      {(close) => (
+                        <>
+                          <Link role="menuitem" href={`/products/${product.id}/edit`} className="block px-3 py-2 hover:bg-slate-50" onClick={close}>Edit product</Link>
+                          <button type="button" role="menuitem" className="w-full px-3 py-2 text-left hover:bg-slate-50" onClick={() => { close(); toggleProduct(product); }}>
+                            {product.isActive ? "Deactivate" : "Activate"}
+                          </button>
+                          <div className="my-1 border-t border-slate-100" />
+                          <button type="button" role="menuitem" className="w-full px-3 py-2 text-left text-rose-700 hover:bg-rose-50" onClick={() => { close(); requestDelete([product.id]); }}>
+                            Delete product
+                          </button>
+                        </>
+                      )}
+                    </AdminActionMenu>
                   </td>
                 </tr>
               ))}

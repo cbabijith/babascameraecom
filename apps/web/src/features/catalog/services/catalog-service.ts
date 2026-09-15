@@ -408,9 +408,15 @@ export async function getCatalogProduct(
   };
 }
 
+// Reference data changes rarely; the DB is high-latency, so a longer TTL
+// keeps list pages from re-querying categories/brands on every render.
+const REFERENCE_DATA_TTL_MS = 300_000;
+
 export async function listCategories() {
-  return withTtlCache("catalog:categories", () =>
-    getDatabase()
+  return withTtlCache(
+    "catalog:categories",
+    () =>
+      getDatabase()
       .select({
         id: categories.id,
         name: categories.name,
@@ -422,22 +428,26 @@ export async function listCategories() {
       .from(categories)
       .where(eq(categories.isActive, true))
       .orderBy(asc(categories.name)),
+    REFERENCE_DATA_TTL_MS,
   );
 }
 
 export async function listBrands() {
-  return withTtlCache("catalog:brands", () =>
-    getDatabase()
-      .select({
-        id: brands.id,
-        name: brands.name,
-        slug: brands.slug,
-        description: brands.description,
-        logoUrl: brands.logoUrl,
-      })
-      .from(brands)
-      .where(eq(brands.isActive, true))
-      .orderBy(asc(brands.name)),
+  return withTtlCache(
+    "catalog:brands",
+    () =>
+      getDatabase()
+        .select({
+          id: brands.id,
+          name: brands.name,
+          slug: brands.slug,
+          description: brands.description,
+          logoUrl: brands.logoUrl,
+        })
+        .from(brands)
+        .where(eq(brands.isActive, true))
+        .orderBy(asc(brands.name)),
+    REFERENCE_DATA_TTL_MS,
   );
 }
 

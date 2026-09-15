@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { AdminUser } from "@/features/auth/server/admin";
 import { logoutAction } from "@/features/auth/server/actions";
@@ -16,6 +16,17 @@ import { cn } from "@babascamera/ui";
 export function AdminShell({ admin, children }: { admin: AdminUser; children: React.ReactNode }) {
   const storefront = process.env.NEXT_PUBLIC_STOREFRONT_URL || "http://localhost:3000";
   const [collapsed, setCollapsed] = useState(false);
+  const mobileNavRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    const nav = mobileNavRef.current;
+    if (!nav) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (nav.open && !nav.contains(event.target as Node)) nav.open = false;
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
   return (
     <div className={cn("min-h-screen bg-[var(--admin-bg)] lg:grid", collapsed ? "lg:grid-cols-[4.5rem_1fr]" : "lg:grid-cols-[15rem_1fr]")}>
       <aside className={cn("fixed inset-y-0 hidden flex-col border-r border-[var(--admin-border)] bg-[#f1f1f1] transition-[width] lg:flex", collapsed ? "w-[4.5rem] p-2" : "w-[15rem] p-3")}>
@@ -47,7 +58,17 @@ export function AdminShell({ admin, children }: { admin: AdminUser; children: Re
       </aside>
       <div className="min-w-0 lg:col-start-2">
         <header className="sticky top-0 z-20 flex h-14 items-center border-b border-[var(--admin-border)] bg-white/95 px-4 backdrop-blur lg:px-6">
-          <details className="relative lg:hidden">
+          <details
+            ref={mobileNavRef}
+            className="relative lg:hidden"
+            onClick={(event) => {
+              // Client-side navigation does not reload the page, so the
+              // popup must be closed manually whenever a link inside it is used.
+              if (event.target instanceof Element && event.target.closest("a")) {
+                if (mobileNavRef.current) mobileNavRef.current.open = false;
+              }
+            }}
+          >
             <summary className="grid size-9 cursor-pointer place-items-center rounded-md border border-[var(--admin-border)]"><Menu className="size-5" /></summary>
             <div className="absolute left-0 top-11 w-64 rounded-lg border border-[var(--admin-border)] bg-white p-2 shadow-xl">
               <Link href="/dashboard" className="mb-2 flex items-center gap-2 rounded-md px-2 py-2 text-[var(--admin-text)]">

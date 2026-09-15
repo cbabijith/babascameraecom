@@ -1,5 +1,24 @@
 import type { NextConfig } from "next";
 
+// The object-storage host is environment-provided so switching storage
+// providers never requires a code change.
+function hostFromUrl(url?: string) {
+  if (!url) return undefined;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+const s3EndpointHost = hostFromUrl(process.env.S3_ENDPOINT);
+const s3MediaPatterns = s3EndpointHost
+  ? [
+      { protocol: "https" as const, hostname: s3EndpointHost, pathname: "/**" },
+      { protocol: "https" as const, hostname: `*.${s3EndpointHost}`, pathname: "/**" },
+    ]
+  : [];
+
 const additionalMediaPatterns = (process.env.STOREFRONT_MEDIA_HOSTS ?? "")
   .split(",")
   .map((hostname) => hostname.trim().toLowerCase())
@@ -16,21 +35,8 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@babascamera/config", "@babascamera/db", "@babascamera/ui"],
   serverExternalPackages: ["postgres", "sharp", "detect-libc"],
   images: {
-    remotePatterns: [      {
-        protocol: "https",
-        hostname: "t3.storageapi.dev",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "*.t3.storageapi.dev",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "*.tigris.dev",
-        pathname: "/**",
-      },
+    remotePatterns: [
+      ...s3MediaPatterns,
       {
         protocol: "https",
         hostname: "babas.blr1.cdn.digitaloceanspaces.com",

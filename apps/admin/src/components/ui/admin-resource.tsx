@@ -14,10 +14,12 @@ import { MoreHorizontal } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 
 export function AdminResourceSurface({ children, className }: { children: ReactNode; className?: string }) {
   return <section className={cn("w-full min-w-0 overflow-visible rounded-lg border border-slate-200 bg-white", className)}>{children}</section>;
@@ -96,6 +98,9 @@ export function AdminResourceEmptyState({
   );
 }
 
+// useLayoutEffect would warn when this client component is server-rendered.
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export function AdminActionMenu({
   disabled,
   label,
@@ -108,31 +113,73 @@ export function AdminActionMenu({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const close = useCallback(() => {
     setOpen(false);
     window.setTimeout(() => triggerRef.current?.focus(), 0);
   }, []);
+
+  // The menu is portaled to <body> with fixed coordinates so it is never
+  // clipped by scrollable row/table containers, and the coordinates are
+  // clamped so the menu always stays inside the viewport on mobile.
+  const place = useCallback(() => {
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (!trigger || !menu) return;
+    const rect = trigger.getBoundingClientRect();
+    const box = menu.getBoundingClientRect();
+    const margin = 8;
+    let left = rect.right - box.width;
+    if (left < margin) left = margin;
+    if (left + box.width > window.innerWidth - margin) {
+      left = Math.max(margin, window.innerWidth - box.width - margin);
+    }
+    let top = rect.bottom + 4;
+    if (top + box.height > window.innerHeight - margin && rect.top - box.height - 4 >= margin) {
+      top = rect.top - box.height - 4;
+    }
+    top = Math.min(top, Math.max(margin, window.innerHeight - box.height - margin));
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.round(top)}px`;
+    menu.style.visibility = "visible";
+  }, []);
+
+  useIsomorphicLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
+
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) close();
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      close();
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") close();
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    // Capture phase catches scrolls of inner containers (scroll events do
+    // not bubble) so the menu tracks its trigger instead of detaching.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
     };
-  }, [close, open]);
+  }, [close, open, place]);
+
   return (
     <div ref={rootRef} className="relative">
       <button
         ref={triggerRef}
         type="button"
         aria-label={label}
+        aria-haspopup="menu"
         aria-expanded={open}
         disabled={disabled}
         className="grid size-10 place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:opacity-50"
@@ -143,15 +190,20 @@ export function AdminActionMenu({
       >
         <MoreHorizontal className="size-4" />
       </button>
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg"
-          onClick={(event) => event.stopPropagation()}
-        >
-          {children(close)}
-        </div>
-      ) : null}
+      {open
+        ? createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              style={{ visibility: "hidden" }}
+              className="fixed left-0 top-0 z-40 max-h-[min(20rem,calc(100dvh-1rem))] w-56 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {children(close)}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

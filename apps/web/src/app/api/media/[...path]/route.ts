@@ -1,5 +1,38 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
+/**
+ * Media streaming proxy.
+ *
+ * In direct mode (publicly readable bucket) every request is redirected to
+ * the storage CDN so image bytes never flow through this server. In proxy
+ * mode the object is streamed with the app's own credentials.
+ */
+
+// A single long-lived client amortizes the TLS handshake and SigV4 signing
+// across requests. Rebuilt only when the environment changes (dev reloads).
+let cachedClient: S3Client | null = null;
+let cachedClientConfig = "";
+
+function getMediaClient(
+  endpoint: string,
+  region: string,
+  accessKeyId: string,
+  secretAccessKey: string,
+): S3Client {
+  const config = [endpoint, region, accessKeyId].join("|");
+  if (!cachedClient || cachedClientConfig !== config) {
+    cachedClient = new S3Client({
+      endpoint,
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+      maxAttempts: 1,
+    });
+    cachedClientConfig = config;
+  }
+  return cachedClient;
+}
+
 /** Fail fast: with a high-latency object store, SDK-internal retries turn a
  * single miss into a multi-second stall per image, and pages request dozens. */
 const MISSED_KEY_TTL_MS = 60_000;
@@ -15,6 +48,17 @@ function isRecentlyMissed(key: string): boolean {
   return true;
 }
 
+function directRedirectUrl(path: string[]): string | null {
+  const mode = (process.env.NEXT_PUBLIC_MEDIA_MODE ?? "proxy")
+    .trim()
+    .toLowerCase();
+  const base = (process.env.NEXT_PUBLIC_S3_DIRECT_URL ?? "")
+    .trim()
+    .replace(/\/+$/, "");
+  if (mode !== "direct" || !base) return null;
+  return `${base}/${path.map(encodeURIComponent).join("/")}`;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ path: string[] }> }
@@ -23,6 +67,17 @@ export async function GET(
   const key = path.join("/");
   const rangeHeader = request.headers.get("range");
 
+  const redirectUrl = directRedirectUrl(path);
+  if (redirectUrl) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: redirectUrl,
+        "Cache-Control": "public, max-age=3600",
+      },
+    });
+  }
+
   if (!rangeHeader && isRecentlyMissed(key)) {
     return new Response("Not found", {
       status: 404,
@@ -30,25 +85,28 @@ export async function GET(
     });
   }
 
-  const client = new S3Client({
-    endpoint: process.env.S3_ENDPOINT || "https://t3.storageapi.dev",
-    region: process.env.S3_REGION || "auto",
-    credentials: {
-      accessKeyId:
-        process.env.S3_ACCESS_KEY_ID ||
-        "tid_KteYSkQcfcdJiJgmJugjOZKSa__SfIrBixPbBxUBjONGLkCBlv",
-      secretAccessKey:
-        process.env.S3_SECRET_ACCESS_KEY ||
-        "tsec_WismHCOpqdA5U9vEiTP7SV5KOAnBAvy12jt4Kv4_uPLb2tKjfHgH5jNWewUMKRFkGP79JU",
-    },
-    forcePathStyle: true,
-    maxAttempts: 1,
-  });
+  // All S3 settings come from the environment — no provider names, buckets
+  // or credentials are hardcoded anywhere in the app.
+  const endpoint = process.env.S3_ENDPOINT?.trim();
+  const bucket = process.env.S3_BUCKET?.trim();
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY?.trim();
+  if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
+    console.error("[media] S3 storage is not configured (S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY).");
+    return new Response("Media storage is not configured.", { status: 503 });
+  }
+
+  const client = getMediaClient(
+    endpoint,
+    process.env.S3_REGION?.trim() || "auto",
+    accessKeyId,
+    secretAccessKey,
+  );
 
   try {
     const s3Res = await client.send(
       new GetObjectCommand({
-        Bucket: process.env.S3_BUCKET || "arranged-pantry-yko9l8ktd",
+        Bucket: bucket,
         Key: key,
         Range: rangeHeader || undefined,
       })

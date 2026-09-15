@@ -7,15 +7,32 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+/**
+ * All S3 settings come from the environment — no hardcoded endpoints,
+ * bucket names or credentials. Missing values fail fast with a clear
+ * message instead of silently pointing at the wrong storage.
+ */
+function requireS3Env() {
+  const endpoint = process.env.S3_ENDPOINT?.trim();
+  const bucket = process.env.S3_BUCKET?.trim();
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY?.trim();
+  if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
+    throw new Error(
+      "S3 storage is not configured. Set S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY.",
+    );
+  }
+  return {
+    endpoint,
+    bucket,
+    accessKeyId,
+    secretAccessKey,
+    region: process.env.S3_REGION?.trim() || "auto",
+  };
+}
+
 function getS3Client() {
-  const endpoint = process.env.S3_ENDPOINT || "https://t3.storageapi.dev";
-  const region = process.env.S3_REGION || "auto";
-  const accessKeyId =
-    process.env.S3_ACCESS_KEY_ID ||
-    "tid_KteYSkQcfcdJiJgmJugjOZKSa__SfIrBixPbBxUBjONGLkCBlv";
-  const secretAccessKey =
-    process.env.S3_SECRET_ACCESS_KEY ||
-    "tsec_WismHCOpqdA5U9vEiTP7SV5KOAnBAvy12jt4Kv4_uPLb2tKjfHgH5jNWewUMKRFkGP79JU";
+  const { endpoint, region, accessKeyId, secretAccessKey } = requireS3Env();
 
   return new S3Client({
     endpoint,
@@ -28,12 +45,19 @@ function getS3Client() {
   });
 }
 
-export const S3_BUCKET = process.env.S3_BUCKET || "arranged-pantry-yko9l8ktd";
+export function getS3Bucket(): string {
+  return requireS3Env().bucket;
+}
+
 export const S3_PUBLIC_BASE_URL =
-  process.env.NEXT_PUBLIC_S3_PUBLIC_URL ||
-  `https://${S3_BUCKET}.t3.storageapi.dev`;
+  process.env.NEXT_PUBLIC_S3_PUBLIC_URL?.trim() ?? "";
 
 export function getPublicUrlForS3Key(key: string): string {
+  if (!S3_PUBLIC_BASE_URL) {
+    throw new Error(
+      "NEXT_PUBLIC_S3_PUBLIC_URL is not set. Configure the public media base URL to store asset links.",
+    );
+  }
   const cleanKey = key.replace(/^\/+/, "");
   return `${S3_PUBLIC_BASE_URL}/${cleanKey}`;
 }
@@ -46,8 +70,9 @@ export function extractS3KeyFromUrl(url: string): string | null {
       parsed.hostname.includes("tigris.dev")
     ) {
       const pathname = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
-      if (pathname.startsWith(`${S3_BUCKET}/`)) {
-        return pathname.slice(S3_BUCKET.length + 1);
+      const bucket = getS3Bucket();
+      if (pathname.startsWith(`${bucket}/`)) {
+        return pathname.slice(bucket.length + 1);
       }
       return pathname;
     }
@@ -67,7 +92,7 @@ export async function uploadToS3(params: {
   const cleanKey = params.key.replace(/^\/+/, "");
   await client.send(
     new PutObjectCommand({
-      Bucket: S3_BUCKET,
+      Bucket: getS3Bucket(),
       Key: cleanKey,
       Body: params.body,
       ContentType: params.contentType,
@@ -87,7 +112,7 @@ export async function deleteFromS3(key: string): Promise<void> {
   const cleanKey = key.replace(/^\/+/, "");
   await client.send(
     new DeleteObjectCommand({
-      Bucket: S3_BUCKET,
+      Bucket: getS3Bucket(),
       Key: cleanKey,
     })
   );
@@ -98,7 +123,7 @@ export async function deleteManyFromS3(keys: string[]): Promise<void> {
   const client = getS3Client();
   await client.send(
     new DeleteObjectsCommand({
-      Bucket: S3_BUCKET,
+      Bucket: getS3Bucket(),
       Delete: {
         Objects: keys.map((k) => ({ Key: k.replace(/^\/+/, "") })),
       },
@@ -115,7 +140,7 @@ export async function getPresignedDownloadUrl(
   return getSignedUrl(
     client,
     new GetObjectCommand({
-      Bucket: S3_BUCKET,
+      Bucket: getS3Bucket(),
       Key: cleanKey,
     }),
     { expiresIn }
@@ -132,7 +157,7 @@ export async function getS3ObjectBytes(
   const cleanKey = key.replace(/^\/+/, "");
   const result = await client.send(
     new GetObjectCommand({
-      Bucket: S3_BUCKET,
+      Bucket: getS3Bucket(),
       Key: cleanKey,
       ...(range ? { Range: `bytes=${range.start}-${range.end}` } : {}),
     })
@@ -161,7 +186,7 @@ export async function getPresignedUploadUrl(
   return getSignedUrl(
     client,
     new PutObjectCommand({
-      Bucket: S3_BUCKET,
+      Bucket: getS3Bucket(),
       Key: cleanKey,
       ContentType: contentType,
       ACL: "public-read",

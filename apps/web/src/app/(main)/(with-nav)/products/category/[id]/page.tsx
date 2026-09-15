@@ -3,6 +3,10 @@
 import CategoryProductList from "@/components/products/category-product-list"
 import type { Metadata } from "next"
 
+// Catalog pages sit behind a high-latency database; ISR keeps the per-page
+// query fan-out amortized to one render per minute instead of per request.
+export const revalidate = 60;
+
 interface CategoryPageProps {
   params: Promise<{ id: string }>
   searchParams?: Promise<Record<string, string | string[] | undefined>>

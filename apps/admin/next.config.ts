@@ -1,25 +1,30 @@
 import type { NextConfig } from "next";
 
+// The object-storage host is environment-provided so switching storage
+// providers never requires a code change.
+function hostFromUrl(url?: string) {
+  if (!url) return undefined;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+const s3EndpointHost = hostFromUrl(process.env.S3_ENDPOINT);
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@babascamera/db", "@babascamera/ui"],
   serverExternalPackages: ["postgres", "sharp", "detect-libc", "postcss", "nanoid"],
   images: {
-    remotePatterns: [      {
-        protocol: "https",
-        hostname: "t3.storageapi.dev",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "*.t3.storageapi.dev",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "*.tigris.dev",
-        pathname: "/**",
-      },
+    remotePatterns: [
+      ...(s3EndpointHost
+        ? [
+            { protocol: "https" as const, hostname: s3EndpointHost, pathname: "/**" },
+            { protocol: "https" as const, hostname: `*.${s3EndpointHost}`, pathname: "/**" },
+          ]
+        : []),
       {
         protocol: "https",
         hostname: "babas.blr1.cdn.digitaloceanspaces.com",
@@ -68,7 +73,7 @@ const nextConfig: NextConfig = {
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.storageapi.dev https://*.tigris.dev https://*.digitaloceanspaces.com https://*.up.railway.app https://*.railway.app",
+      `img-src 'self' data: blob: ${s3EndpointHost ? `https://${s3EndpointHost} https://*.${s3EndpointHost} ` : ""}https://*.digitaloceanspaces.com https://*.up.railway.app https://*.railway.app`,
       "font-src 'self' data:",
       "connect-src 'self'",
       "frame-ancestors 'none'",

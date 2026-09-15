@@ -2,6 +2,10 @@
 
 import BannerProducts from "@/components/products/banner-products"
 
+// Catalog pages sit behind a high-latency database; ISR keeps the per-page
+// query fan-out amortized to one render per minute instead of per request.
+export const revalidate = 60;
+
 interface BannerProductsPageProps {
   params: Promise<{
     bannerId: string

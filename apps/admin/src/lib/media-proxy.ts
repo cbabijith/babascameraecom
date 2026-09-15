@@ -2,12 +2,33 @@
  * Media URL helpers.
  *
  * Product/banner images live in a private Tigris S3 bucket, so raw
- * storageapi.dev URLs return 403 in the browser. The admin exposes a
- * credential-backed streaming proxy at /api/media/<key>, so any Tigris URL
- * is rewritten to that path. Mirrors apps/web/src/lib/media-proxy.ts.
+ * storageapi.dev URLs return 403 in the browser. By default the admin
+ * rewrites those URLs to its credential-backed streaming proxy at
+ * /api/media/<key>.
+ *
+ * When the bucket is publicly readable (NEXT_PUBLIC_MEDIA_MODE=direct), the
+ * rewrite instead points browsers straight at the storage CDN via
+ * NEXT_PUBLIC_S3_DIRECT_URL, so image bytes never flow through the app.
+ * Mirrors apps/web/src/lib/media-proxy.ts.
  */
 
-const S3_BUCKET = process.env.NEXT_PUBLIC_S3_BUCKET || "arranged-pantry-yko9l8ktd";
+// Read lazily so tests and dev env reloads pick up changes without a rebuild.
+function directMediaBase(): string {
+  return (process.env.NEXT_PUBLIC_S3_DIRECT_URL ?? "")
+    .trim()
+    .replace(/\/+$/, "");
+}
+
+function directModeEnabled(): boolean {
+  const mode = (process.env.NEXT_PUBLIC_MEDIA_MODE ?? "proxy")
+    .trim()
+    .toLowerCase();
+  return mode === "direct" && directMediaBase() !== "";
+}
+
+// Used only to strip path-style bucket prefixes from stored URLs. Comes
+// from the environment; no bucket name is hardcoded in source.
+const S3_BUCKET = process.env.NEXT_PUBLIC_S3_BUCKET ?? "";
 
 function extractTigrisKey(url: string): string | null {
   try {
@@ -36,12 +57,22 @@ function extractTigrisKey(url: string): string | null {
   }
 }
 
+function encodeKey(key: string): string {
+  return key.split("/").map(encodeURIComponent).join("/");
+}
+
 export function mediaProxyUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   if (!/^https?:\/\//i.test(url)) return null;
+
+  // Already pointing at the CDN — nothing to rewrite.
+  const base = directMediaBase();
+  if (directModeEnabled() && url.startsWith(`${base}/`)) return url;
+
   const key = extractTigrisKey(url);
   if (!key) return null;
-  return `/api/media/${key.split("/").map(encodeURIComponent).join("/")}`;
+  if (directModeEnabled()) return `${base}/${encodeKey(key)}`;
+  return `/api/media/${encodeKey(key)}`;
 }
 
 /** Rewrite private Tigris URLs to the proxy; leave everything else untouched. */

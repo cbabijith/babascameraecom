@@ -11,7 +11,11 @@ import {
   listRelatedProducts,
 } from "@/features/catalog";
 import { getSpecificDeliverySettings } from "@/lib/data/settings";
-import { productImageUrl } from "@/lib/storage";
+import {
+  legacyImage as image,
+  legacyProductCard as product,
+  legacyProductDetail,
+} from "@/features/catalog/services/legacy-product-payload";
 import {
   AuthDataError,
   forgotPassword,
@@ -61,68 +65,21 @@ import {
 
 
 
-interface LegacyImage {
-  _id: string;
-  name: string;
-  key: string;
-  mimetype: string;
-  size: number;
-  thumbnail: boolean;
+function success(payload: Record<string, unknown>, cacheSeconds?: number) {
+  const response = NextResponse.json({ success: true, message: "OK", ...payload });
+  // Public catalog reads repeat on every visit; let browsers and CDNs reuse
+  // them briefly. User-scoped responses must never pass a cacheSeconds.
+  if (cacheSeconds) {
+    response.headers.set(
+      "Cache-Control",
+      `public, max-age=0, s-maxage=${cacheSeconds}, stale-while-revalidate=${cacheSeconds * 2}`,
+    );
+  }
+  return response;
 }
 
-function image(key: string | null | undefined, name = "image"): LegacyImage {
-  return {
-    _id: key ?? name,
-    name,
-    key: productImageUrl(key),
-    mimetype: "image/*",
-    size: 0,
-    thumbnail: false,
-  };
-}
-
-function product(row: Awaited<ReturnType<typeof listCatalogProductsPage>>["products"][number]) {
-  const actualPrice = Number(row.mrp);
-  const salePrice = Number(row.salePrice);
-  return {
-    _id: row.id,
-    name: row.name,
-    slug: row.slug,
-    description: row.description ?? row.shortDescription ?? "",
-    keyFeatures: row.shortDescription ?? "",
-    specification: "",
-    images: [image(row.image, row.name)],
-    category: {
-      _id: row.categorySlug ?? "uncategorized",
-      name: row.categoryName ?? "Uncategorized",
-      image: image(null, "category"),
-      code: row.categorySlug ?? "uncategorized",
-    },
-    brand: {
-      _id: row.brandSlug ?? "unbranded",
-      name: row.brandName ?? "Baba's Camera",
-      image: image(null, "brand"),
-      code: row.brandSlug ?? "unbranded",
-    },
-    price: {
-      actualPrice,
-      salePrice,
-      gst: 0,
-      discountPrice: Math.max(actualPrice - salePrice, 0),
-      taxStatus: "Inclusive",
-    },
-    quantity: row.stock,
-    lowStockMinQuantity: 0,
-    status: "Active",
-    visibility: "Show",
-    createdAt: new Date().toISOString(),
-    code: row.slug,
-  };
-}
-
-function success(payload: Record<string, unknown>) {
-  return NextResponse.json({ success: true, message: "OK", ...payload });
-}
+/** Cache window shared by the public catalog GETs below. */
+const CATALOG_CACHE_SECONDS = 60;
 
 function apiErrorResponse(error: unknown) {
   if (
@@ -179,14 +136,14 @@ export async function GET(
           _id: found.id, name: found.name, image: image(found.imageUrl, found.name),
           status: "Active", visibility: "Show", position: 0, createdAt: new Date().toISOString(), code: found.slug,
         }
-      });
+      }, CATALOG_CACHE_SECONDS);
     }
     return success({
       results: categories.map((item, position) => ({
         _id: item.id, name: item.name, image: image(item.imageUrl, item.name),
         status: "Active", visibility: "Show", position, createdAt: new Date().toISOString(), code: item.slug,
       })), totalCount: categories.length, currentPage: 1, totalPages: 1, latestCount: categories.length
-    });
+    }, CATALOG_CACHE_SECONDS);
   }
 
   if (resource === "brand") {
@@ -194,9 +151,9 @@ export async function GET(
     if (identifier && identifier !== "active") {
       const found = brands.find((item) => item.id === identifier || item.slug === identifier);
       if (!found) return NextResponse.json({ success: false, message: "Brand not found" }, { status: 404 });
-      return success({ result: { _id: found.id, name: found.name, image: image(found.logoUrl, found.name), code: found.slug, status: "Active", visibility: "Show" } });
+      return success({ result: { _id: found.id, name: found.name, image: image(found.logoUrl, found.name), code: found.slug, status: "Active", visibility: "Show" } }, CATALOG_CACHE_SECONDS);
     }
-    return success({ results: brands.map((item) => ({ _id: item.id, name: item.name, image: image(item.logoUrl, item.name), code: item.slug, status: "Active", visibility: "Show" })), totalCount: brands.length, currentPage: 1, totalPages: 1, latestCount: brands.length });
+    return success({ results: brands.map((item) => ({ _id: item.id, name: item.name, image: image(item.logoUrl, item.name), code: item.slug, status: "Active", visibility: "Show" })), totalCount: brands.length, currentPage: 1, totalPages: 1, latestCount: brands.length }, CATALOG_CACHE_SECONDS);
   }
 
   if (resource === "product") {
@@ -206,26 +163,7 @@ export async function GET(
       const [relatedProducts] = await Promise.all([
         listRelatedProducts({ id: found.id, categorySlug: found.categorySlug }),
       ]);
-      const listing = product(found);
-      return success({
-        result: {
-          ...listing,
-          sku: found.sku,
-          specification: found.description ?? "",
-          keyFeatures: found.shortDescription ?? "",
-          averageRating: found.averageRating,
-          reviewCount: found.reviewCount,
-          images: found.images.map((item) => image(item.url, item.altText ?? found.name)),
-          variants: found.variants.map((variant) => ({
-            id: variant.id,
-            name: variant.name,
-            value: variant.value,
-            additionalPrice: variant.additionalPrice,
-            stock: variant.stock,
-          })),
-          relatedProducts: relatedProducts.map(product),
-        },
-      });
+      return success({ result: legacyProductDetail(found, relatedProducts) }, CATALOG_CACHE_SECONDS);
     }
     const categoryValue = query.get("category");
     const brandValue = query.get("brand");
@@ -253,7 +191,7 @@ export async function GET(
       limit,
       offset: (page - 1) * limit,
     });
-    return success({ results: result.products.map(product), totalCount: result.total, currentPage: page, totalPages: Math.max(Math.ceil(result.total / limit), 1), latestCount: result.products.length });
+    return success({ results: result.products.map(product), totalCount: result.total, currentPage: page, totalPages: Math.max(Math.ceil(result.total / limit), 1), latestCount: result.products.length }, CATALOG_CACHE_SECONDS);
   }
 
   if (resource === "banner") {
@@ -298,16 +236,16 @@ export async function GET(
     if (identifier) {
       const found = banners.find((item) => item._id === identifier);
       if (!found) return NextResponse.json({ success: false, message: "Banner not found" }, { status: 404 });
-      return success({ result: found });
+      return success({ result: found }, CATALOG_CACHE_SECONDS);
     }
-    return success({ results: banners, totalCount: banners.length, currentPage: 1, totalPages: 1, latestCount: banners.length });
+    return success({ results: banners, totalCount: banners.length, currentPage: 1, totalPages: 1, latestCount: banners.length }, CATALOG_CACHE_SECONDS);
   }
 
 
   if (resource === "collection") {
     const products = await listBestSellingProducts(8);
     const items = products.map(product);
-    return success({ results: items.length ? [{ _id: "featured", name: "Featured gear", value: 0, products: items, status: "Active", position: 0, createdAt: new Date().toISOString() }] : [], currentPage: 1, totalCount: items.length ? 1 : 0, totalPages: 1, latestCount: items.length ? 1 : 0 });
+    return success({ results: items.length ? [{ _id: "featured", name: "Featured gear", value: 0, products: items, status: "Active", position: 0, createdAt: new Date().toISOString() }] : [], currentPage: 1, totalCount: items.length ? 1 : 0, totalPages: 1, latestCount: items.length ? 1 : 0 }, CATALOG_CACHE_SECONDS);
   }
 
   if (resource === "user" && identifier === "profile") {
