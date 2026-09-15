@@ -13,8 +13,18 @@ describe("productImageUrl", () => {
     );
   });
 
-  it("falls back to the placeholder for unresolved object keys", () => {
-    expect(productImageUrl("products/camera body.webp")).toBe("/placeholder.svg");
+  it("routes bare object keys through the media proxy", () => {
+    expect(productImageUrl("products/camera body.webp")).toBe(
+      "/api/media/products/camera%20body.webp",
+    );
+  });
+
+  it("routes legacy Tigris URLs through the media proxy", () => {
+    expect(
+      productImageUrl(
+        "https://arranged-pantry-yko9l8ktd.t3.storageapi.dev/products/x.webp",
+      ),
+    ).toBe("/api/media/products/x.webp");
   });
 
   it("maps null and undefined to the placeholder", () => {
