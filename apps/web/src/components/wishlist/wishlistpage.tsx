@@ -74,7 +74,11 @@ const WishlistPage: React.FC = () => {
   const loading = useSelector((s: RootState) => s.wishlist.loading);
   const error = useSelector((s: RootState) => s.wishlist.error);
   const initialized = useSelector((s: RootState) => s.wishlist.initialized);
-  const isGuest = !user;
+  // Auth boot (incl. the get-session probe after a Google redirect) has to
+  // finish before we can decide the visitor is really a guest, otherwise a
+  // returning user sees the login prompt until they refresh.
+  const authReady = useSelector((s: RootState) => s.auth.initialized);
+  const isGuest = authReady && !user;
 
 
   const wishlistItems: WishlistItem[] = useSelector((s: RootState) =>
@@ -148,8 +152,13 @@ const WishlistPage: React.FC = () => {
         </h1>
       </div>
 
-      {/* --- Guest View (same idea as cart page) --- */}
-      {isGuest ? (
+      {/* --- Booting auth (e.g. right after a Google redirect) --- */}
+      {!authReady && !user ? (
+        <div className="grid gap-6">
+          <WishlistCardSkeleton />
+          <WishlistCardSkeleton />
+        </div>
+      ) : isGuest ? (
         <div className="flex flex-col gap-[32px] bg-white rounded-lg shadow-sm p-[24px] text-center border border-[#E4E4E7]">
           <div>
             <h2

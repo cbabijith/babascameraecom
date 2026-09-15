@@ -1,4 +1,6 @@
-import { db } from "@babascamera/db";
+import { count, db, eq, users as usersTable } from "@babascamera/db";
+
+import { buildPaginationMeta, clampPagination, type Paginated } from "@/features/orders/repositories/orders-repository";
 
 import { requirePermission } from "@/features/auth/server/admin";
 import { parseMoney } from "@/lib/money";
@@ -11,14 +13,37 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-export async function getCustomers() {
+export async function getCustomers(
+  options: { page?: number; pageSize?: number } = {},
+): Promise<Paginated<{
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  isActive: boolean;
+  orderCount: number;
+  lifetimeValue: string;
+  createdAt: string;
+}>> {
   await requirePermission("customers");
-  const rows = await db.query.users.findMany({
-    where: (table, { eq: equals }) => equals(table.role, "customer"),
-    with: { orders: { columns: { id: true, total: true } } },
-    orderBy: (table, { desc: descending }) => [descending(table.createdAt)],
-  });
-  return rows.map((row) => {
+  const { page, pageSize } = clampPagination(options);
+  const [rows, totalRows] = await Promise.all([
+    db.query.users.findMany({
+      where: (table, { eq: equals }) => equals(table.role, "customer"),
+      with: { orders: { columns: { id: true, total: true } } },
+      orderBy: (table, { desc: descending }) => [descending(table.createdAt)],
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    }),
+    db
+      .select({ value: count() })
+      .from(usersTable)
+      .where(eq(usersTable.role, "customer")),
+  ]);
+  const total = totalRows[0]?.value ?? 0;
+  return {
+    ...buildPaginationMeta(total, page, pageSize),
+    rows: rows.map((row) => {
     const emailPrefix = ((row.email ?? "").split("@")[0] ?? "").replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     const derivedName =
       row.fullName?.trim() ||
@@ -37,7 +62,8 @@ export async function getCustomers() {
         .toString(),
       createdAt: iso(row.createdAt),
     };
-  });
+    }),
+  };
 }
 
 export async function getCustomer(id: string) {

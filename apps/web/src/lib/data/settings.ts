@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getDatabase, inArray, moneyToPaise, settings } from "@babascamera/db";
+import { withTtlCache } from "@/lib/data/ttl-cache";
 
 const settingKeys = [
   "store.profile",
@@ -60,19 +61,21 @@ function objectValue(value: unknown, fallback: UnknownObject): UnknownObject {
 }
 
 export async function getStoreSettings() {
-  const rows = await getDatabase()
-    .select({ key: settings.key, value: settings.value })
-    .from(settings)
-    .where(inArray(settings.key, [...settingKeys]));
-  const values = new Map<string, unknown>(
-    rows.map((row) => [row.key, row.value]),
-  );
-  return Object.fromEntries(
-    settingKeys.map((key) => [
-      key,
-      objectValue(values.get(key), defaults[key]),
-    ]),
-  ) as Record<SettingKey, UnknownObject>;
+  return withTtlCache("settings:store", async () => {
+    const rows = await getDatabase()
+      .select({ key: settings.key, value: settings.value })
+      .from(settings)
+      .where(inArray(settings.key, [...settingKeys]));
+    const values = new Map<string, unknown>(
+      rows.map((row) => [row.key, row.value]),
+    );
+    return Object.fromEntries(
+      settingKeys.map((key) => [
+        key,
+        objectValue(values.get(key), defaults[key]),
+      ]),
+    ) as Record<SettingKey, UnknownObject>;
+  });
 }
 
 function stringValue(

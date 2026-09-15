@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { and, asc, eq, getDatabase, homeBanners } from "@babascamera/db";
+import { withTtlCache } from "@/lib/data/ttl-cache";
 import {
   getCatalogProduct,
   listBestSellingProducts,
@@ -256,11 +257,13 @@ export async function GET(
   }
 
   if (resource === "banner") {
-    const rows = await getDatabase()
-      .select()
-      .from(homeBanners)
-      .where(eq(homeBanners.isActive, true))
-      .orderBy(asc(homeBanners.position));
+    const rows = await withTtlCache("storefront:active-banners", () =>
+      getDatabase()
+        .select()
+        .from(homeBanners)
+        .where(eq(homeBanners.isActive, true))
+        .orderBy(asc(homeBanners.position)),
+    );
 
     const requestedType = query.get("type");
 

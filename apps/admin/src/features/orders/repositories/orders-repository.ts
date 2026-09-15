@@ -1,4 +1,4 @@
-import { db } from "@babascamera/db";
+import { count, db, orders as ordersTable } from "@babascamera/db";
 
 function iso(value: Date) {
   return value.toISOString();
@@ -8,24 +8,81 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-/** Compact rows for the orders list surface. */
-export async function listOrders() {
-  const rows = await db.query.orders.findMany({
-    with: { items: { columns: { id: true, quantity: true } } },
-    orderBy: (table, { desc: descending }) => [descending(table.createdAt)],
-  });
-  return rows.map((row) => ({
-    id: row.id,
-    orderNumber: row.orderNumber,
-    customer: row.customerName ?? row.customerEmail,
-    customerEmail: row.customerEmail,
-    status: row.status,
-    paymentMethod: row.paymentMethod,
-    paymentStatus: row.paymentStatus,
-    total: row.total,
-    itemCount: row.items.reduce((sum, item) => sum + item.quantity, 0),
-    createdAt: iso(row.createdAt),
-  }));
+export interface Paginated<T> {
+  rows: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
+export function clampPagination(input: { page?: number; pageSize?: number } = {}) {
+  const page = Math.max(1, Math.floor(Number(input.page) || 1));
+  const pageSize = Math.min(Math.max(1, Math.floor(Number(input.pageSize) || 50)), 100);
+  return { page, pageSize };
+}
+
+export function buildPaginationMeta(
+  total: number,
+  page: number,
+  pageSize: number,
+): PaginationMeta {
+  return {
+    total,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
+/** Compact rows for the orders list surface, newest first, paginated. */
+export async function listOrders(
+  options: { page?: number; pageSize?: number } = {},
+): Promise<Paginated<{
+  id: string;
+  orderNumber: string;
+  customer: string;
+  customerEmail: string;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  total: string;
+  itemCount: number;
+  createdAt: string;
+}>> {
+  const { page, pageSize } = clampPagination(options);
+  const [rows, totalRows] = await Promise.all([
+    db.query.orders.findMany({
+      with: { items: { columns: { id: true, quantity: true } } },
+      orderBy: (table, { desc: descending }) => [descending(table.createdAt)],
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    }),
+    db.select({ value: count() }).from(ordersTable),
+  ]);
+  const total = totalRows[0]?.value ?? 0;
+  return {
+    ...buildPaginationMeta(total, page, pageSize),
+    rows: rows.map((row) => ({
+      id: row.id,
+      orderNumber: row.orderNumber,
+      customer: row.customerName ?? row.customerEmail,
+      customerEmail: row.customerEmail,
+      status: row.status,
+      paymentMethod: row.paymentMethod,
+      paymentStatus: row.paymentStatus,
+      total: row.total,
+      itemCount: row.items.reduce((sum, item) => sum + item.quantity, 0),
+      createdAt: iso(row.createdAt),
+    })),
+  };
 }
 
 /** Full order detail with items, status timeline, and refunds. */

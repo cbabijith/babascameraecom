@@ -11,7 +11,12 @@ import type {
   PostalAPIResponse,
   UserProfile,
 } from "@/types/profile";
-import { getUserProfile, createAddress, updateAddress } from "@/instances/profileInstance";
+import {
+  getUserProfile,
+  createAddress,
+  updateAddress,
+  updateUserProfile,
+} from "@/instances/profileInstance";
 import { State } from "country-state-city";
 import {
   Select,
@@ -110,6 +115,9 @@ export default function AddressModal({
   const [error, setError] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPriming, setIsPriming] = useState(false);
+  // Phone as it exists on the account, so we only PATCH the profile when the
+  // user actually added/changed it here (e.g. first checkout with no phone).
+  const [profilePhone, setProfilePhone] = useState("");
 
   const editingId = initialAddress?._id;
 
@@ -128,9 +136,10 @@ export default function AddressModal({
       setIsPriming(true);
       try {
         const profile: UserProfile = await getUserProfile();
+        const phone = (profile?.phone ?? "").replace(/\D/g, "").slice(0, 10);
         const base: FormState = {
           name: profile?.name?.trim() ?? "",
-          phone: (profile?.phone ?? "").replace(/\D/g, "").slice(0, 10),
+          phone,
 
           building: initialAddress?.building ?? "",
           line1: initialAddress?.line1 ?? "",
@@ -145,12 +154,13 @@ export default function AddressModal({
           category: initialAddress?.category ?? defaultCategory,
         };
         if (!cancelled) {
+          setProfilePhone(phone);
           setForm(base);
           setError("");
         }
       } catch {
         if (!cancelled) {
-          setError("Could not load your profile. Please ensure your name and phone are set.");
+          setError("Could not load your profile — please fill in your name and phone below.");
         }
       } finally {
         if (!cancelled) setIsPriming(false);
@@ -167,6 +177,12 @@ export default function AddressModal({
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm((p) => ({ ...p, [name]: value }));
+    if (error) setError("");
+  };
+
+  const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const phone = e.target.value.replace(/\D/g, "").slice(0, 10);
+    setForm((p) => ({ ...p, phone }));
     if (error) setError("");
   };
 
@@ -196,8 +212,9 @@ export default function AddressModal({
   };
 
   const validate = (): string | null => {
-    if (!form.name.trim()) return "Profile name is required.";
-    if (!/^\d{10}$/.test(form.phone)) return "Valid 10-digit phone is required.";
+    if (!form.name.trim()) return "Full name is required.";
+    if (!/^\d{10}$/.test(form.phone))
+      return "Enter a valid 10-digit phone number — it's required for delivery updates.";
     if (!form.building.trim()) return "House / Flat / Apartment is required.";
     if (!form.line1.trim()) return "Apartment / Road / Area is required.";
     if (!/^\d{6}$/.test(form.postalCode)) return "Enter a valid 6-digit pincode.";
@@ -233,6 +250,17 @@ export default function AddressModal({
     const payload = buildPayload();
     setIsSubmitting(true);
     try {
+      // If the user filled in or corrected their phone here (common for new
+      // accounts), persist it to the profile so it sticks beyond this order.
+      if (form.phone.trim() !== profilePhone) {
+        try {
+          await updateUserProfile({ phone: form.phone.trim() });
+          setProfilePhone(form.phone.trim());
+        } catch {
+          toast.warning("Couldn't update the phone on your account, but we'll use it for this address.");
+        }
+      }
+
       const run = async (): Promise<Address> => {
         if (editingId) {
           // PATCH (update)
@@ -283,6 +311,44 @@ export default function AddressModal({
             )}
 
             <div className="grid grid-cols-2 gap-6 mb-6">
+              {/* Contact details — prefilled from the profile but editable here,
+                  so a first-time checkout never dead-ends on a missing phone. */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  name="name"
+                  type="text"
+                  placeholder="Full name"
+                  value={form.name}
+                  onChange={handleInput}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Phone Number <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  name="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
+                  value={form.phone}
+                  onChange={handlePhoneInput}
+                  className={inputClass}
+                />
+                {!profilePhone && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Saved to your account so you get delivery updates.
+                  </p>
+                )}
+              </div>
+
               {/* Save As */}
               <div className="col-span-2">
                 <label className="block text-sm font-medium mb-1">

@@ -2,27 +2,15 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+// Intentionally minimal: this is a public endpoint, so it only reports
+// whether the storefront can serve traffic. Revealing which integrations
+// are configured would help attackers map the stack.
 export function GET() {
-  const configured = {
-    database: Boolean(process.env.DATABASE_URL),
-    auth: true,
-    razorpay: Boolean(
-      process.env.RAZORPAY_KEY_ID &&
-        process.env.RAZORPAY_KEY_SECRET &&
-        process.env.RAZORPAY_WEBHOOK_SECRET,
-    ),
-    email: Boolean(
-      process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL,
-    ),
-    jobs: Boolean(process.env.CRON_SECRET),
-  };
-  const ready = configured.database;
+  const ready = Boolean(process.env.DATABASE_URL?.trim());
   return NextResponse.json(
     {
       status: ready ? "ok" : "not_ready",
       app: "storefront",
-      version: process.env.npm_package_version ?? "1.0.0",
-      configured,
     },
     {
       status: ready ? 200 : 503,

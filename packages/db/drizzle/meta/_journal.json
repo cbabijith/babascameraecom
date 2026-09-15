@@ -15,6 +15,13 @@
       "when": 1785409200000,
       "tag": "20260730120000_homepage_banners",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789438363348,
+      "tag": "20260915080000_orders_platform_charges",
+      "breakpoints": true
     }
   ]
 }

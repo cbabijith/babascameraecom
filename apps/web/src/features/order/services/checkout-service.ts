@@ -358,13 +358,24 @@ export async function reconcileCapturedPayment(input: {
       note: `Razorpay payment captured (${input.providerPaymentId})`,
     });
 
+    // Clear the cart that fed the order. Guest carts can only be matched
+    // when the capture is confirmed by the guest session itself (the verify
+    // route passes the session); webhook-driven captures rely on the
+    // creation-time cart clearing, since a stored session hash cannot be
+    // reversed to the session id.
+    const guestSessionId =
+      input.owner && !isUserCartOwner(input.owner)
+        ? input.owner.sessionId
+        : null;
     const [cartRow] = await transaction
       .select({ id: carts.id })
       .from(carts)
       .where(
         order.userId
           ? eq(carts.userId, order.userId)
-          : eq(carts.sessionId, order.guestSessionHash ?? ""),
+          : guestSessionId
+            ? eq(carts.sessionId, guestSessionId)
+            : sql`false`,
       )
       .limit(1);
 

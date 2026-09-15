@@ -22,6 +22,9 @@ function getS3Client() {
     region,
     credentials: { accessKeyId, secretAccessKey },
     forcePathStyle: true,
+    // Three SDK retries compound badly over a high-latency link; one retry
+    // still absorbs transient blips without stalling requests for seconds.
+    maxAttempts: 2,
   });
 }
 

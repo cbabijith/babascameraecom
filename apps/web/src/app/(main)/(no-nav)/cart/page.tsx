@@ -52,6 +52,9 @@ const CartPage: React.FC = () => {
   const loading = useSelector(selectCartLoading);
   const error = useSelector(selectCartError);
   const user = useSelector((state: RootState) => state.auth.user);
+  // Auth boot must finish before showing the login view, or a returning
+  // user (e.g. right after a Google redirect) sees a false logged-out state.
+  const authReady = useSelector((state: RootState) => state.auth.initialized);
 
   // Fetch once per user (prevents infinite 304 loops)
   const lastFetchedUserIdRef = useRef<string | null>(null);
@@ -215,6 +218,26 @@ const CartPage: React.FC = () => {
               <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
               <p className="text-gray-600">Loading your cart...</p>
             </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!authReady && !user) {
+    return (
+      <div className="min-h-screen constrained-width">
+        <div className="py-3 sm:pt-6">
+          <AppBreadcrumb
+            items={[
+              { label: "HOME", href: "/" },
+              { label: "CART", href: "/cart" },
+            ]}
+          />
+        </div>
+        <main className="mx-auto pb-8">
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
           </div>
         </main>
       </div>

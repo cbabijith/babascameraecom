@@ -26,6 +26,7 @@ import {
   users,
 } from "@babascamera/db";
 import { decimalToPaise, paiseToDecimal } from "@/lib/commerce/money";
+import { withTtlCache } from "@/lib/data/ttl-cache";
 
 export interface CatalogProduct {
   id: string;
@@ -408,32 +409,36 @@ export async function getCatalogProduct(
 }
 
 export async function listCategories() {
-  return getDatabase()
-    .select({
-      id: categories.id,
-      name: categories.name,
-      slug: categories.slug,
-      parentId: categories.parentId,
-      description: categories.description,
-      imageUrl: categories.imageUrl,
-    })
-    .from(categories)
-    .where(eq(categories.isActive, true))
-    .orderBy(asc(categories.name));
+  return withTtlCache("catalog:categories", () =>
+    getDatabase()
+      .select({
+        id: categories.id,
+        name: categories.name,
+        slug: categories.slug,
+        parentId: categories.parentId,
+        description: categories.description,
+        imageUrl: categories.imageUrl,
+      })
+      .from(categories)
+      .where(eq(categories.isActive, true))
+      .orderBy(asc(categories.name)),
+  );
 }
 
 export async function listBrands() {
-  return getDatabase()
-    .select({
-      id: brands.id,
-      name: brands.name,
-      slug: brands.slug,
-      description: brands.description,
-      logoUrl: brands.logoUrl,
-    })
-    .from(brands)
-    .where(eq(brands.isActive, true))
-    .orderBy(asc(brands.name));
+  return withTtlCache("catalog:brands", () =>
+    getDatabase()
+      .select({
+        id: brands.id,
+        name: brands.name,
+        slug: brands.slug,
+        description: brands.description,
+        logoUrl: brands.logoUrl,
+      })
+      .from(brands)
+      .where(eq(brands.isActive, true))
+      .orderBy(asc(brands.name)),
+  );
 }
 
 export async function listApprovedProductReviews(productId: string) {

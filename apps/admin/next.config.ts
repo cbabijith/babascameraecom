@@ -60,6 +60,23 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
+    // CSP: the admin loads no third-party scripts (Google sign-in is a
+    // server-side redirect), so scripts stay self-hosted. 'unsafe-inline'
+    // and 'unsafe-eval' remain because Next's hydration and dev overlay
+    // require them; everything else is locked down.
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https://*.storageapi.dev https://*.tigris.dev https://*.digitaloceanspaces.com https://*.up.railway.app https://*.railway.app",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "upgrade-insecure-requests",
+    ].join("; ");
     return [
       {
         source: "/:path*",
@@ -71,6 +88,8 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=(), payment=(self)",
           },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+          { key: "Content-Security-Policy", value: csp },
         ],
       },
     ];

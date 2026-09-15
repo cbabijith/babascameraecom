@@ -16,7 +16,10 @@ function createSqlClient(): SqlClient {
 
   return postgres(databaseUrl, {
     connect_timeout: 10,
-    idle_timeout: 20,
+    // Establishing a connection over the remote proxy path costs hundreds of
+    // milliseconds to seconds; dropping idle connections after 20s made every
+    // pause longer than that pay that price again on the next request.
+    idle_timeout: 300,
     max: 10,
     prepare: false,
   });

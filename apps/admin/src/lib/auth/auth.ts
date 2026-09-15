@@ -27,11 +27,17 @@ export function getAdminAuth(origin?: string) {
   const baseURL = (origin || "http://localhost:3001").replace(/\/+$/, "");
   const cached = instanceCache.get(baseURL);
   if (cached) return cached;
+  // Fail loudly instead of silently signing sessions with a committed
+  // fallback secret — a missing env var must never weaken the admin app.
+  const secret = process.env.BETTER_AUTH_SECRET?.trim();
+  if (!secret) {
+    throw new Error(
+      "BETTER_AUTH_SECRET is not set. Refusing to run the admin auth handler with a fallback secret.",
+    );
+  }
   const instance = createBetterAuth({
     baseURL,
-    secret:
-      process.env.BETTER_AUTH_SECRET ||
-      "babas-camera-super-secret-auth-key-2026-very-secure-32chars",
+    secret,
   });
   instanceCache.set(baseURL, instance);
   return instance;

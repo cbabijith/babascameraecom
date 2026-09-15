@@ -30,6 +30,7 @@ import { getOptionalUser } from "@/lib/auth/session";
 import { getCartOwner, guestOwnerHash } from "@/lib/cart-session";
 import { isUserCartOwner } from "@/features/cart/services/cart-service";
 import { getCartForOwner } from "@/lib/data/storefront";
+import { getSpecificDeliverySettings } from "@/lib/data/settings";
 import { productImageUrl } from "@/lib/storage";
 import type { Order } from "@/types/cart";
 
@@ -100,47 +101,44 @@ export async function createOrderFromCheckout(
     const user = await getOptionalUser();
     const db = getDatabase();
 
-    // 1. Resolve Shipping Address Snapshot
-    let addressSnapshot: ShippingAddressSnapshot = {
-      fullName: user?.name ?? "Guest Customer",
-      phone: user?.phone ?? "9876543210",
-      label: "Shipping Address",
-      line1: "Main Address",
-      line2: "",
-      city: "City",
-      state: "State",
-      pincode: "000000",
-      country: "India",
-    };
-
-    try {
-      const [addrRow] = await db
-        .select()
-        .from(addresses)
-        .where(eq(addresses.id, payload.shippingAddress))
-        .limit(1);
-
-      if (addrRow) {
-        addressSnapshot = {
-          fullName: user?.name ?? addrRow.label ?? "Customer",
-          phone: user?.phone ?? "9876543210",
-          label: addrRow.label,
-          line1: addrRow.line1,
-          line2: addrRow.line2 ?? undefined,
-          city: addrRow.city,
-          state: addrRow.state,
-          pincode: addrRow.pincode,
-          country: addrRow.country,
-        };
-      }
-    } catch {
-      // Keep default snapshot if lookup fails
+    // 1. Resolve Shipping Address Snapshot — the address must belong to the
+    // signed-in customer, and a real address is mandatory: orders with a
+    // fabricated snapshot cannot actually be shipped.
+    if (!user) {
+      throw new OrderDataError("Please log in to complete your order.", 401);
     }
+    const [addrRow] = await db
+      .select()
+      .from(addresses)
+      .where(
+        and(eq(addresses.id, payload.shippingAddress), eq(addresses.userId, user.id)),
+      )
+      .limit(1);
+
+    if (!addrRow) {
+      throw new OrderDataError(
+        "Shipping address not found. Add a delivery address before placing the order.",
+        400,
+      );
+    }
+
+    const addressSnapshot: ShippingAddressSnapshot = {
+      fullName: user.name || addrRow.label || "Customer",
+      phone: user.phone ?? "",
+      label: addrRow.label,
+      line1: addrRow.line1,
+      line2: addrRow.line2 ?? undefined,
+      city: addrRow.city,
+      state: addrRow.state,
+      pincode: addrRow.pincode,
+      country: addrRow.country,
+    };
 
 
     // 2. Resolve Order Items
     interface ResolvedItem {
       productId: string;
+      variantId: string | null;
       productName: string;
       sku: string;
       quantity: number;
@@ -152,33 +150,54 @@ export async function createOrderFromCheckout(
 
     if (isBuyNow && payload.products?.length) {
       for (const item of payload.products) {
+        const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
         const [prod] = await db
           .select()
           .from(productsTable)
-          .where(eq(productsTable.id, item.product))
+          .where(
+            and(eq(productsTable.id, item.product), eq(productsTable.isActive, true)),
+          )
           .limit(1);
 
-        if (prod) {
-          const price = Number(prod.salePrice || prod.mrp || 0);
-          const qty = Math.max(1, item.quantity);
-          resolvedItems.push({
-            productId: prod.id,
-            productName: prod.name,
-            sku: prod.sku,
-            quantity: qty,
-            unitPrice: price,
-            total: price * qty,
-          });
+        if (!prod) {
+          throw new OrderDataError("A product in your order is no longer available.", 400);
         }
+        if (prod.stock < qty) {
+          throw new OrderDataError(
+            `Insufficient stock for "${prod.name}". Available: ${prod.stock}.`,
+            400,
+          );
+        }
+        const price = Number(prod.salePrice || prod.mrp || 0);
+        resolvedItems.push({
+          productId: prod.id,
+          variantId: null,
+          productName: prod.name,
+          sku: prod.sku,
+          quantity: qty,
+          unitPrice: price,
+          total: price * qty,
+        });
       }
     } else {
       const owner = await getCartOwner();
       const cartRows = await getCartForOwner(owner);
 
       for (const row of cartRows) {
+        const available = Math.min(
+          row.stock ?? Number.POSITIVE_INFINITY,
+          row.variantStock ?? Number.POSITIVE_INFINITY,
+        );
+        if (row.quantity > available) {
+          throw new OrderDataError(
+            `Insufficient stock for "${row.productName}". Available: ${available}.`,
+            400,
+          );
+        }
         const price = Number(row.basePrice || 0) + Number(row.additionalPrice || 0);
         resolvedItems.push({
           productId: row.productId,
+          variantId: row.variantId ?? null,
           productName: row.productName,
           sku: row.productSlug || `SKU-${row.productId.substring(0, 8)}`,
           quantity: row.quantity,
@@ -192,10 +211,26 @@ export async function createOrderFromCheckout(
       throw new OrderDataError("No items found to place order.", 400);
     }
 
-    // 3. Compute Totals
+    // 3. Compute Totals — mirror the checkout display exactly: delivery
+    // charge from the same settings the page renders, and the 2.42% gateway
+    // fee added only on Razorpay orders so the payable amount shown is the
+    // amount actually captured.
     const subtotal = resolvedItems.reduce((sum, item) => sum + item.total, 0);
-    const shippingCharge = subtotal >= 3000 ? 0 : 100;
-    const grandTotal = subtotal + shippingCharge;
+    const delivery = await getSpecificDeliverySettings("Delivery");
+    const {
+      enableFreeDelivery,
+      deliveryChargeFlat,
+      freeDeliveryThreshold,
+    } = delivery.data;
+    const shippingCharge =
+      !enableFreeDelivery || subtotal < freeDeliveryThreshold
+        ? Math.max(0, deliveryChargeFlat)
+        : 0;
+    const baseTotal = subtotal + shippingCharge;
+    const methodUpper = String(payload.method || "").toUpperCase();
+    const platformFee =
+      methodUpper === "RAZORPAY" ? Math.round(baseTotal * 242) / 10000 : 0;
+    const grandTotal = Number((baseTotal + platformFee).toFixed(2));
 
     const orderNum = generateOrderNumber();
     const bankDetails = payload.bankTransferDetails;
@@ -207,11 +242,8 @@ export async function createOrderFromCheckout(
       }
     }
 
-    const methodUpper = String(payload.method || "").toUpperCase();
-    let resolvedPaymentMethod: "razorpay" | "cod" = "cod";
-    if (methodUpper === "RAZORPAY") {
-      resolvedPaymentMethod = "razorpay";
-    }
+    const resolvedPaymentMethod: "razorpay" | "cod" =
+      methodUpper === "RAZORPAY" ? "razorpay" : "cod";
 
 
     // 4. Create Order, Order Items, Inventory Reservations & Clear Cart inside DB Transaction
@@ -237,6 +269,7 @@ export async function createOrderFromCheckout(
           subtotal: subtotal.toFixed(2),
           discount: "0.00",
           shippingCharge: shippingCharge.toFixed(2),
+          platformCharges: platformFee.toFixed(2),
           total: grandTotal.toFixed(2),
           notes: notesText,
           shippingAddressSnapshot: addressSnapshot,
@@ -249,13 +282,59 @@ export async function createOrderFromCheckout(
 
       const insertedItems: (typeof orderItemsTable.$inferSelect)[] = [];
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      const now = new Date();
 
       for (const item of resolvedItems) {
+        // Decrement stock inside the guarded updates: a concurrent order can
+        // only take stock that is actually available. Restores happen on
+        // cancellation, payment failure and reservation expiry.
+        const [decremented] = await tx
+          .update(productsTable)
+          .set({
+            stock: sql`${productsTable.stock} - ${item.quantity}`,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(productsTable.id, item.productId),
+              gte(productsTable.stock, item.quantity),
+            ),
+          )
+          .returning({ id: productsTable.id });
+        if (!decremented) {
+          throw new OrderDataError(
+            `Insufficient stock for "${item.productName}".`,
+            400,
+          );
+        }
+        if (item.variantId) {
+          const [variantDecremented] = await tx
+            .update(productVariants)
+            .set({
+              stock: sql`${productVariants.stock} - ${item.quantity}`,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(productVariants.id, item.variantId),
+                gte(productVariants.stock, item.quantity),
+              ),
+            )
+            .returning({ id: productVariants.id });
+          if (!variantDecremented) {
+            throw new OrderDataError(
+              `Insufficient stock for "${item.productName}".`,
+              400,
+            );
+          }
+        }
+
         const [insertedItem] = await tx
           .insert(orderItemsTable)
           .values({
             orderId: createdOrder.id,
             productId: item.productId,
+            variantId: item.variantId,
             productName: item.productName,
             sku: item.sku,
             quantity: item.quantity,
@@ -271,6 +350,7 @@ export async function createOrderFromCheckout(
         await tx.insert(inventoryReservations).values({
           orderId: createdOrder.id,
           productId: item.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
           status: "reserved",
           expiresAt,
@@ -743,8 +823,21 @@ export async function payPendingOrder(orderId: string) {
       throw new OrderDataError("Order not found", 404);
     }
 
-    if (user && orderRow.userId && orderRow.userId !== user.id) {
-      throw new OrderDataError("Unauthorized access to order", 403);
+    // Ownership: a signed-in customer may only pay their own order; guest
+    // orders require the matching guest session; anonymous callers are
+    // always rejected.
+    if (orderRow.userId) {
+      if (!user || user.id !== orderRow.userId) {
+        throw new OrderDataError("Unauthorized access to order", 403);
+      }
+    } else {
+      const owner = await getCartOwner();
+      if (
+        isUserCartOwner(owner) ||
+        guestOwnerHash(owner.sessionId) !== orderRow.guestSessionHash
+      ) {
+        throw new OrderDataError("Unauthorized access to order", 403);
+      }
     }
 
     if (orderRow.status === "cancelled") {

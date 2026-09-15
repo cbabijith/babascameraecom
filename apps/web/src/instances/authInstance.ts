@@ -58,7 +58,7 @@ interface GoogleSignupResponse {
 }
 
 // ✅ Normalizer removes the need for any-casts
-const normalizeApiUser = (p: ApiUserMaybe): User => ({
+export const normalizeApiUser = (p: ApiUserMaybe): User => ({
   id: p.id || p._id || "",
   email: p.email,
   name: p.name ?? "",

@@ -378,6 +378,7 @@ export const orders = pgTable(
     subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
     discount: numeric("discount", { precision: 10, scale: 2 }).default("0").notNull(),
     shippingCharge: numeric("shipping_charge", { precision: 10, scale: 2 }).default("0").notNull(),
+    platformCharges: numeric("platform_charges", { precision: 10, scale: 2 }).default("0").notNull(),
     total: numeric("total", { precision: 10, scale: 2 }).notNull(),
     notes: text("notes"),
     shippingAddressSnapshot: jsonb("shipping_address_snapshot")
@@ -420,7 +421,7 @@ export const orders = pgTable(
     check("orders_total_nonnegative", sql`${table.total} >= 0`),
     check(
       "orders_total_matches_components",
-      sql`${table.total} = ${table.subtotal} - ${table.discount} + ${table.shippingCharge}`,
+      sql`${table.total} = ${table.subtotal} - ${table.discount} + ${table.shippingCharge} + ${table.platformCharges}`,
     ),
     check(
       "orders_payment_provider_fields",

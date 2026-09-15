@@ -162,27 +162,38 @@ export async function updateCartItemForUser(input: {
   quantity: number;
 }) {
   const database = getDatabase();
-  const cartId = await ownerCartId(database, input.owner);
-  if (!cartId) throw new Error("Cart not found.");
   if (input.quantity === 0) {
-    await database
+    const cartId = await ownerCartId(database, input.owner);
+    if (!cartId) throw new Error("Cart not found.");
+    const deleted = await database
       .delete(cartItems)
       .where(
         and(eq(cartItems.id, input.cartItemId), eq(cartItems.cartId, cartId)),
-      );
+      )
+      .returning({ id: cartItems.id });
+    if (!deleted.length) throw new Error("Cart item not found.");
     return;
   }
+  // One query validates ownership (via the carts join) and reads stock, so a
+  // quantity change costs a couple of round trips instead of a full cart load.
   const [item] = await database
     .select({
       id: cartItems.id,
+      quantity: cartItems.quantity,
       productStock: products.stock,
       variantStock: productVariants.stock,
     })
     .from(cartItems)
+    .innerJoin(carts, eq(cartItems.cartId, carts.id))
     .innerJoin(products, eq(cartItems.productId, products.id))
     .leftJoin(productVariants, eq(cartItems.variantId, productVariants.id))
     .where(
-      and(eq(cartItems.id, input.cartItemId), eq(cartItems.cartId, cartId)),
+      and(
+        eq(cartItems.id, input.cartItemId),
+        isUserCartOwner(input.owner)
+          ? eq(carts.userId, input.owner.userId)
+          : eq(carts.sessionId, input.owner.sessionId),
+      ),
     )
     .limit(1);
   if (!item) throw new Error("Cart item not found.");
@@ -433,26 +444,32 @@ export async function addCartProduct(productId: string): Promise<CartItem> {
   }
 }
 
+/** Loads one cart item (with its product/variant data) for a specific owner. */
+async function getOwnedCartItem(owner: CartOwner, cartItemId: string) {
+  const rows = await getCartForOwner(owner);
+  return rows.find((item) => item.id === cartItemId) ?? null;
+}
+
 export async function incrementCartItem(cartItemId: string): Promise<CartItem> {
   if (!cartItemId) {
     throw new CartDataError("Cart item ID is required", 400);
   }
   try {
     const owner = await getCartOwner();
-    const items = await getCartForOwner(owner);
     const userId = owner.userId ?? "guest";
-    const existing = items.find((item) => item.id === cartItemId);
+    const existing = await getOwnedCartItem(owner, cartItemId);
     if (!existing) throw new CartDataError("Cart item not found", 404);
 
+    // The update throws if the new quantity exceeds stock, so when it
+    // succeeds the resulting row is exactly the pre-read row with the new
+    // quantity — no need to reload the cart for another round trip.
+    const nextQuantity = existing.quantity + 1;
     await updateCartItemForUser({
       owner,
       cartItemId,
-      quantity: existing.quantity + 1,
+      quantity: nextQuantity,
     });
-
-    const updatedItems = await getCartForOwner(owner);
-    const updated = updatedItems.find((item) => item.id === cartItemId) ?? existing;
-    return mapToCartItem(updated, userId);
+    return mapToCartItem({ ...existing, quantity: nextQuantity }, userId);
   } catch (error: unknown) {
     if (error instanceof CartDataError) throw error;
     throw new CartDataError(
@@ -469,9 +486,8 @@ export async function decrementCartItem(cartItemId: string): Promise<CartItem | 
   }
   try {
     const owner = await getCartOwner();
-    const items = await getCartForOwner(owner);
     const userId = owner.userId ?? "guest";
-    const existing = items.find((item) => item.id === cartItemId);
+    const existing = await getOwnedCartItem(owner, cartItemId);
     if (!existing) throw new CartDataError("Cart item not found", 404);
 
     const nextQty = existing.quantity - 1;
@@ -482,10 +498,7 @@ export async function decrementCartItem(cartItemId: string): Promise<CartItem | 
     });
 
     if (nextQty <= 0) return null;
-
-    const updatedItems = await getCartForOwner(owner);
-    const updated = updatedItems.find((item) => item.id === cartItemId);
-    return updated ? mapToCartItem(updated, userId) : null;
+    return mapToCartItem({ ...existing, quantity: nextQty }, userId);
   } catch (error: unknown) {
     if (error instanceof CartDataError) throw error;
     throw new CartDataError(

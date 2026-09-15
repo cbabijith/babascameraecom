@@ -66,6 +66,9 @@ type StatusOption = (typeof STATUS_OPTIONS)[number];
 
 export default function OrdersView() {
   const user = useSelector((state: RootState) => state.auth.user);
+  // Wait for the boot-time auth check before declaring the visitor a guest,
+  // otherwise a fresh Google redirect shows "please login" until refresh.
+  const authReady = useSelector((state: RootState) => state.auth.initialized);
 
   const [active, setActive] = useState<OrdersTab>("Orders");
   const [query, setQuery] = useState("");
@@ -192,7 +195,7 @@ export default function OrdersView() {
 
   /* ---------- ERRORS ---------- */
   if (error) {
-    if (error.toLowerCase().includes("unauthenticated") || !user) {
+    if (authReady && (error.toLowerCase().includes("unauthenticated") || !user)) {
       return (
         <div className="min-h-screen constrained-width">
           <main className="mx-auto py-8">
