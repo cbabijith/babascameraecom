@@ -26,7 +26,10 @@ export function isBannerCurrentlyActive(
 function publicBanner(banner: HomeBannerRecord, now: Date): HomeBanner | null {
   if (!isBannerCurrentlyActive(banner, now)) return null;
   const desktopMediaUrl = safePublicMediaReference(banner.desktopMediaUrl);
-  const mobileMediaUrl = safePublicMediaReference(banner.mobileMediaUrl);
+  // Shared-media banners serve the desktop asset on every device.
+  const mobileMediaUrl = banner.sameMedia
+    ? desktopMediaUrl
+    : safePublicMediaReference(banner.mobileMediaUrl);
   const posterUrl = safePublicMediaReference(banner.posterUrl);
   if (!desktopMediaUrl) return null;
   if (banner.mediaType === "image" && !mobileMediaUrl) return null;

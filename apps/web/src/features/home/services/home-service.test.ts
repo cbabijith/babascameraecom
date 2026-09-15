@@ -28,6 +28,7 @@ function banner(overrides: Partial<HomeBannerRecord> = {}): HomeBannerRecord {
     mediaType: "image",
     desktopMediaUrl: "/banner-desktop.webp",
     mobileMediaUrl: "/banner-mobile.webp",
+    sameMedia: false,
     posterUrl: null,
     altText: "Camera promotion",
     headline: "Create more",
@@ -114,6 +115,33 @@ describe("storefront homepage service", () => {
     ).toBe(false);
     expect(isBannerCurrentlyActive(banner({ endsAt: now }), now)).toBe(false);
     expect(isBannerCurrentlyActive(banner({ isActive: false }), now)).toBe(false);
+  });
+
+  it("serves the desktop asset on every device for shared-media banners", async () => {
+    const result = await getStorefrontHome(
+      repository({
+        listBannerCandidates: async () => [
+          banner({ sameMedia: true, mobileMediaUrl: null }),
+        ],
+      }),
+      { sectionLimit: 2, now },
+    );
+
+    expect(result.data.banners).toHaveLength(1);
+    expect(result.data.banners[0].mobileMediaUrl).toBe(result.data.banners[0].desktopMediaUrl);
+  });
+
+  it("still drops image banners that lack both a mobile asset and the shared flag", async () => {
+    const result = await getStorefrontHome(
+      repository({
+        listBannerCandidates: async () => [
+          banner({ sameMedia: false, mobileMediaUrl: null }),
+        ],
+      }),
+      { sectionLimit: 2, now },
+    );
+
+    expect(result.data.banners).toHaveLength(0);
   });
 
   it("sorts public navigation records, excludes inactive records, and sanitizes URLs", async () => {

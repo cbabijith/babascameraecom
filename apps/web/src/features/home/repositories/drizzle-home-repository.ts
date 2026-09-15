@@ -35,6 +35,7 @@ export const drizzleHomeRepository: HomeRepository = {
         mediaType: homeBanners.mediaType,
         desktopMediaUrl: homeBanners.desktopMediaUrl,
         mobileMediaUrl: homeBanners.mobileMediaUrl,
+        sameMedia: homeBanners.sameMedia,
         posterUrl: homeBanners.posterUrl,
         altText: homeBanners.altText,
         headline: homeBanners.headline,

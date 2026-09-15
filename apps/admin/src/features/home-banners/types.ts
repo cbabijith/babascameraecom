@@ -6,6 +6,7 @@ export interface HomeBanner {
   mediaType: HomeBannerMediaType;
   desktopMediaUrl: string;
   mobileMediaUrl: string | null;
+  sameMedia: boolean;
   posterUrl: string | null;
   altText: string;
   headline: string | null;
@@ -40,6 +41,7 @@ export interface HomeBannerInput {
   mediaType: HomeBannerMediaType;
   desktopMediaUrl: string;
   mobileMediaUrl: string | null;
+  sameMedia: boolean;
   posterUrl: string | null;
   altText: string;
   headline: string | null;

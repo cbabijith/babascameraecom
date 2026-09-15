@@ -14,6 +14,9 @@ export const homeBannerInputSchema = z.object({
   mediaType: z.enum(["image", "video"]),
   desktopMediaUrl: mediaUrl,
   mobileMediaUrl: optionalMediaUrl,
+  // When true, desktopMediaUrl is served on every device and a separate
+  // mobile asset is neither required nor rendered.
+  sameMedia: z.boolean().default(false),
   posterUrl: optionalMediaUrl,
   altText: z.string().trim().min(1, "Accessible alt text is required.").max(240),
   headline: optionalText(160),
@@ -22,7 +25,7 @@ export const homeBannerInputSchema = z.object({
   destinationUrl: z.union([
     z.string().trim().max(2_000).refine(
       (value) => value === "" || value.startsWith("/") || /^https?:\/\//i.test(value),
-      "Use a relative path or an HTTP/HTTPS URL.",
+      "Use a relative path or an HTTP(S) URL.",
     ),
     z.null(),
   ]).optional().transform((value) => value || null),
@@ -32,7 +35,7 @@ export const homeBannerInputSchema = z.object({
   startsAt: dateValue,
   endsAt: dateValue,
 }).superRefine((value, context) => {
-  if (value.mediaType === "image" && !value.mobileMediaUrl) {
+  if (value.mediaType === "image" && !value.sameMedia && !value.mobileMediaUrl) {
     context.addIssue({ code: "custom", path: ["mobileMediaUrl"], message: "A mobile image is required." });
   }
   if (value.mediaType === "video" && !value.posterUrl) {

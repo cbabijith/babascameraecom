@@ -9,6 +9,14 @@ function configuredMediaHosts(): Set<string> {
     const normalized = host.trim().toLowerCase();
     if (normalized) hosts.add(normalized);
   }
+  // Banner and category media is stored under the configured public media
+  // base (e.g. the object-store bucket), so that host is always approved.
+  try {
+    const mediaBase = new URL(process.env.NEXT_PUBLIC_S3_PUBLIC_URL ?? "");
+    if (mediaBase.hostname) hosts.add(mediaBase.hostname.toLowerCase());
+  } catch {
+    /* unset or relative base — nothing to approve */
+  }
   return hosts;
 }
 

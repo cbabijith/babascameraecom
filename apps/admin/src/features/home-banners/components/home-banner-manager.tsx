@@ -54,6 +54,7 @@ interface FormState {
   mediaType: "image" | "video";
   desktopMediaUrl: string;
   mobileMediaUrl: string;
+  sameMedia: boolean;
   posterUrl: string;
   altText: string;
   headline: string;
@@ -72,6 +73,7 @@ const EMPTY: FormState = {
   mediaType: "image",
   desktopMediaUrl: "",
   mobileMediaUrl: "",
+  sameMedia: false,
   posterUrl: "",
   altText: "",
   headline: "",
@@ -98,6 +100,7 @@ function fromBanner(banner: HomeBanner): FormState {
     mediaType: banner.mediaType,
     desktopMediaUrl: banner.desktopMediaUrl,
     mobileMediaUrl: banner.mobileMediaUrl ?? "",
+    sameMedia: banner.sameMedia,
     posterUrl: banner.posterUrl ?? "",
     altText: banner.altText,
     headline: banner.headline ?? "",
@@ -640,7 +643,9 @@ export function HomeBannerManager({ banners }: { banners: HomeBanner[] }) {
                               {banner.mediaType === "image" ? "Image" : "Video"}
                             </span>
                             <span className="inline-flex items-center gap-1"><Monitor className="size-3.5" /> Desktop</span>
-                            {banner.mobileMediaUrl ? <span className="inline-flex items-center gap-1"><Smartphone className="size-3.5" /> Mobile</span> : null}
+                            {banner.sameMedia ? (
+                              <span className="inline-flex items-center gap-1"><Smartphone className="size-3.5" /> Same image on all devices</span>
+                            ) : banner.mobileMediaUrl ? <span className="inline-flex items-center gap-1"><Smartphone className="size-3.5" /> Mobile</span> : null}
                             {(banner.startsAt || banner.endsAt) ? <span className="inline-flex items-center gap-1"><CalendarClock className="size-3.5" /> Scheduled</span> : null}
                           </div>
                         </div>
@@ -689,7 +694,12 @@ export function HomeBannerManager({ banners }: { banners: HomeBanner[] }) {
                 <select
                   id="banner-type"
                   value={form.mediaType}
-                  onChange={(e) => patch("mediaType", e.target.value as FormState["mediaType"])}
+                  onChange={(e) => {
+                    const mediaType = e.target.value as FormState["mediaType"];
+                    // The shared-media toggle only applies to images; videos
+                    // already reuse the desktop file when mobile is omitted.
+                    setForm((current) => ({ ...current, mediaType, ...(mediaType === "video" ? { sameMedia: false } : {}) }));
+                  }}
                   className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
                 >
                   <option value="image">Responsive image</option>
@@ -701,8 +711,25 @@ export function HomeBannerManager({ banners }: { banners: HomeBanner[] }) {
             <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
               {form.mediaType === "image" ? (
                 <>
-                  <MediaField id="banner-desktop-image" label="Desktop image" helper="JPEG, PNG, or WebP. Converted to WebP, 5 MiB max." required accept="image/jpeg,image/png,image/webp" value={form.desktopMediaUrl} busy={uploading === "desktop"} progress={uploadProgress} onSelect={(file) => uploadImage(file, "desktop")} />
-                  <MediaField id="banner-mobile-image" label="Mobile image" helper="Portrait composition recommended. Converted to WebP." required accept="image/jpeg,image/png,image/webp" value={form.mobileMediaUrl} busy={uploading === "mobile"} progress={uploadProgress} onSelect={(file) => uploadImage(file, "mobile")} />
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700 sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={form.sameMedia}
+                      onChange={(e) => patch("sameMedia", e.target.checked)}
+                      className="size-4 accent-[#e94560]"
+                    />
+                    Use one image for desktop and mobile
+                  </label>
+                  {form.sameMedia ? (
+                    <div className="sm:col-span-2">
+                      <MediaField id="banner-shared-image" label="Banner image (all devices)" helper="JPEG, PNG, or WebP. Served on desktop and mobile. Converted to WebP, 5 MiB max." required accept="image/jpeg,image/png,image/webp" value={form.desktopMediaUrl} busy={uploading === "desktop"} progress={uploadProgress} onSelect={(file) => uploadImage(file, "desktop")} />
+                    </div>
+                  ) : (
+                    <>
+                      <MediaField id="banner-desktop-image" label="Desktop image" helper="JPEG, PNG, or WebP. Converted to WebP, 5 MiB max." required accept="image/jpeg,image/png,image/webp" value={form.desktopMediaUrl} busy={uploading === "desktop"} progress={uploadProgress} onSelect={(file) => uploadImage(file, "desktop")} />
+                      <MediaField id="banner-mobile-image" label="Mobile image" helper="Portrait composition recommended. Converted to WebP." required accept="image/jpeg,image/png,image/webp" value={form.mobileMediaUrl} busy={uploading === "mobile"} progress={uploadProgress} onSelect={(file) => uploadImage(file, "mobile")} />
+                    </>
+                  )}
                 </>
               ) : (
                 <>

@@ -22,6 +22,8 @@ export interface HomeBannerRecord extends HomeBanner {
   isActive: boolean;
   startsAt: Date | null;
   endsAt: Date | null;
+  /** When true, desktopMediaUrl is served on every device. */
+  sameMedia: boolean;
 }
 
 export interface HomeCategoryRecord extends HomeCategory {

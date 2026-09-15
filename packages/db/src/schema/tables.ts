@@ -575,6 +575,9 @@ export const homeBanners = pgTable(
     mediaType: homeBannerMediaTypeEnum("media_type").notNull(),
     desktopMediaUrl: text("desktop_media_url").notNull(),
     mobileMediaUrl: text("mobile_media_url"),
+    // When true, desktopMediaUrl is served on every device and
+    // mobileMediaUrl is neither required nor rendered.
+    sameMedia: boolean("same_media").default(false).notNull(),
     posterUrl: text("poster_url"),
     altText: text("alt_text").notNull(),
     headline: text("headline"),
@@ -597,7 +600,7 @@ export const homeBanners = pgTable(
     check("home_banners_position_range", sql`${table.position} between 0 and 4`),
     check(
       "home_banners_image_has_mobile",
-      sql`${table.mediaType} <> 'image' or ${table.mobileMediaUrl} is not null`,
+      sql`${table.mediaType} <> 'image' or ${table.sameMedia} or ${table.mobileMediaUrl} is not null`,
     ),
     check(
       "home_banners_video_has_poster",

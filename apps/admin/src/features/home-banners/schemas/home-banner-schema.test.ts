@@ -37,6 +37,23 @@ describe("homepage banner validation", () => {
     }
   });
 
+  test("allows shared-media image banners without a mobile asset", () => {
+    const result = homeBannerInputSchema.safeParse({
+      ...validImage,
+      mobileMediaUrl: null,
+      sameMedia: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  test("defaults sameMedia to false for legacy payloads", () => {
+    const result = homeBannerInputSchema.safeParse(validImage);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.sameMedia).toBe(false);
+    }
+  });
+
   test("requires a poster for videos", () => {
     const result = homeBannerInputSchema.safeParse({
       ...validImage,
