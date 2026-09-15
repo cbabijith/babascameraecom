@@ -6,13 +6,13 @@ const DIRECT_BASE = "https://media-bucket.t3.storageapi.dev";
 
 function enableDirectMode() {
   process.env.NEXT_PUBLIC_MEDIA_MODE = "direct";
-  process.env.NEXT_PUBLIC_S3_DIRECT_URL = DIRECT_BASE;
+  process.env.NEXT_PUBLIC_S3_PUBLIC_URL = DIRECT_BASE;
 }
 
 describe("productImageUrl", () => {
   afterEach(() => {
     delete process.env.NEXT_PUBLIC_MEDIA_MODE;
-    delete process.env.NEXT_PUBLIC_S3_DIRECT_URL;
+    delete process.env.NEXT_PUBLIC_S3_PUBLIC_URL;
   });
 
   it("keeps local public assets local", () => {

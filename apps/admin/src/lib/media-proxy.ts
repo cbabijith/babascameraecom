@@ -8,13 +8,14 @@
  *
  * When the bucket is publicly readable (NEXT_PUBLIC_MEDIA_MODE=direct), the
  * rewrite instead points browsers straight at the storage CDN via
- * NEXT_PUBLIC_S3_DIRECT_URL, so image bytes never flow through the app.
+ * NEXT_PUBLIC_S3_PUBLIC_URL, so image bytes never flow through the app.
+ * That same variable is the base URL stored for newly uploaded objects.
  * Mirrors apps/web/src/lib/media-proxy.ts.
  */
 
 // Read lazily so tests and dev env reloads pick up changes without a rebuild.
 function directMediaBase(): string {
-  return (process.env.NEXT_PUBLIC_S3_DIRECT_URL ?? "")
+  return (process.env.NEXT_PUBLIC_S3_PUBLIC_URL ?? "")
     .trim()
     .replace(/\/+$/, "");
 }

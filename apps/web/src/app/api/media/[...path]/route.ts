@@ -52,7 +52,7 @@ function directRedirectUrl(path: string[]): string | null {
   const mode = (process.env.NEXT_PUBLIC_MEDIA_MODE ?? "proxy")
     .trim()
     .toLowerCase();
-  const base = (process.env.NEXT_PUBLIC_S3_DIRECT_URL ?? "")
+  const base = (process.env.NEXT_PUBLIC_S3_PUBLIC_URL ?? "")
     .trim()
     .replace(/\/+$/, "");
   if (mode !== "direct" || !base) return null;
