@@ -15,6 +15,8 @@ interface Banner {
   subHeading?: string;
   tagline?: string;
   ctaName?: string;
+  /** Explicit CTA target; falls back to the banner's own product page. */
+  ctaHref?: string;
   position: number;
   status: string;
   visibility: string;
@@ -325,7 +327,7 @@ export default function HeroClient({ banners }: HeroClientProps) {
             {currentBanner?.ctaName && (
               <div className="mt-5 sm:mt-6">
                 <Link
-                  href={`/products/banner/${currentBanner._id}`}
+                  href={currentBanner.ctaHref ?? `/products/banner/${currentBanner._id}`}
                   className="inline-flex items-center rounded-full bg-white text-gray-900 px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-medium hover:bg-gray-100 transition-colors duration-200 shadow-lg"
                 >
                   {currentBanner.ctaName.charAt(0).toUpperCase() + currentBanner.ctaName.slice(1)}

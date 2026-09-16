@@ -30,7 +30,7 @@ import { getOptionalUser } from "@/lib/auth/session";
 import { getCartOwner, guestOwnerHash } from "@/lib/cart-session";
 import { isUserCartOwner } from "@/features/cart/services/cart-service";
 import { getCartForOwner } from "@/lib/data/storefront";
-import { getSpecificDeliverySettings } from "@/lib/data/settings";
+import { getDeliverySettingsForScope } from "@/lib/data/settings";
 import { productImageUrl } from "@/lib/storage";
 import type { Order } from "@/types/cart";
 
@@ -216,7 +216,7 @@ export async function createOrderFromCheckout(
     // fee added only on Razorpay orders so the payable amount shown is the
     // amount actually captured.
     const subtotal = resolvedItems.reduce((sum, item) => sum + item.total, 0);
-    const delivery = await getSpecificDeliverySettings("Delivery");
+    const delivery = await getDeliverySettingsForScope("Delivery");
     const {
       enableFreeDelivery,
       deliveryChargeFlat,

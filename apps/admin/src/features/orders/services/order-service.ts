@@ -11,6 +11,7 @@ import {
   products,
   productVariants,
   refunds,
+  settings as settingsTable,
   sql,
   users,
   type OrderStatus,
@@ -30,6 +31,21 @@ import { adminEvents, domainEvent } from "@/lib/events";
 import { optionalText } from "@/lib/utils";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Reads a notifications.toggles flag from the settings table (default true). */
+async function isNotificationEnabled(key: string): Promise<boolean> {
+  try {
+    const [row] = await db
+      .select({ value: settingsTable.value })
+      .from(settingsTable)
+      .where(eq(settingsTable.key, "notifications.toggles"))
+      .limit(1);
+    const value = row?.value as Record<string, unknown> | undefined;
+    return typeof value?.[key] === "boolean" ? (value[key] as boolean) : true;
+  } catch {
+    return true;
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* Status transition                                                   */
@@ -69,6 +85,8 @@ export async function transitionOrderStatus(
     if (!canTransitionOrder(order.status, toStatus)) {
       throw new AdminActionError(`Order cannot move from ${order.status} to ${toStatus}.`);
     }
+    const shippingEmailEnabled =
+      toStatus === "shipped" ? await isNotificationEnabled("shippingUpdate") : false;
     const now = new Date();
     await tx.update(orders).set({
       status: toStatus,
@@ -88,6 +106,25 @@ export async function transitionOrderStatus(
       note,
       actorId: adminId,
     });
+    if (toStatus === "shipped" && shippingEmailEnabled) {
+      await tx
+        .insert(emailOutbox)
+        .values({
+          orderId,
+          userId: order.userId,
+          toEmail: order.customerEmail,
+          template: "shipping-update",
+          subject: `Order ${order.orderNumber} shipped`,
+          dedupeKey: `shipping-update:${orderId}`,
+          payload: {
+            orderNumber: order.orderNumber,
+            total: order.total,
+            carrier: carrier ?? "",
+            trackingNumber: trackingNumber ?? "",
+          },
+        })
+        .onConflictDoNothing({ target: emailOutbox.dedupeKey });
+    }
     if (toStatus === "cancelled") {
       await releaseOrderInventory(tx, orderId, now);
       await releaseOrderCouponRedemptions(tx, orderId, now);

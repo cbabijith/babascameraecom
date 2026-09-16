@@ -403,6 +403,44 @@ export async function reconcileCapturedPayment(input: {
         .onConflictDoNothing({ target: emailOutbox.dedupeKey });
     }
 
+    if (checkoutSettings.paymentEmailEnabled) {
+      await transaction
+        .insert(emailOutbox)
+        .values({
+          orderId: order.id,
+          userId: order.userId,
+          toEmail: order.customerEmail,
+          template: "payment-confirmation",
+          subject: `Payment received for order ${order.orderNumber}`,
+          dedupeKey: `payment-confirmation:${order.id}`,
+          payload: {
+            orderNumber: order.orderNumber,
+            total: order.total,
+            paymentMethod: order.paymentMethod,
+          },
+        })
+        .onConflictDoNothing({ target: emailOutbox.dedupeKey });
+    }
+
+    if (checkoutSettings.adminNewOrderEmailEnabled && checkoutSettings.adminNotifyEmail) {
+      await transaction
+        .insert(emailOutbox)
+        .values({
+          orderId: order.id,
+          userId: order.userId,
+          toEmail: checkoutSettings.adminNotifyEmail,
+          template: "admin-new-order",
+          subject: `New paid order ${order.orderNumber}`,
+          dedupeKey: `admin-new-order:${order.id}`,
+          payload: {
+            orderNumber: order.orderNumber,
+            total: order.total,
+            paymentMethod: order.paymentMethod,
+          },
+        })
+        .onConflictDoNothing({ target: emailOutbox.dedupeKey });
+    }
+
     if (!updatedOrder) throw new Error("Order update failed during compensation check.");
     return { order: updatedOrder, compensated };
   });
@@ -822,6 +860,25 @@ async function createLocalCheckoutOrder(input: {
             template: "order-confirmation",
             subject: `Order ${createdOrder.orderNumber} confirmed`,
             dedupeKey: `order-confirmation:${orderId}`,
+            payload: {
+              orderNumber: createdOrder.orderNumber,
+              total: createdOrder.total,
+              paymentMethod: "cod",
+            },
+          })
+          .onConflictDoNothing({ target: emailOutbox.dedupeKey });
+      }
+
+      if (checkoutSettings.adminNewOrderEmailEnabled && checkoutSettings.adminNotifyEmail) {
+        await transaction
+          .insert(emailOutbox)
+          .values({
+            orderId,
+            userId: isUserCartOwner(input.owner) ? input.owner.userId : null,
+            toEmail: checkoutSettings.adminNotifyEmail,
+            template: "admin-new-order",
+            subject: `New COD order ${createdOrder.orderNumber}`,
+            dedupeKey: `admin-new-order:${orderId}`,
             payload: {
               orderNumber: createdOrder.orderNumber,
               total: createdOrder.total,

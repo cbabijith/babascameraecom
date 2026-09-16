@@ -38,7 +38,28 @@ function InfoRow({ icon, children }: { icon: React.ReactNode; children: React.Re
 
 
 
-export default function ContactShell() {
+export interface ContactInfo {
+  emails: string[];
+  phones: string[];
+  addressLines: string[];
+}
+
+// Current public contact details; used until the admin fills in the
+// "Store profile" settings (which override these via props).
+const DEFAULT_CONTACT: ContactInfo = {
+  emails: ["enquiry@babas.co", "photostore@babas.in"],
+  phones: ["+91 471 257 4111", "+91 98461 56000"],
+  addressLines: [
+    "BABA ENTERPRISES PRIVATE LIMITED",
+    "Door No:38/1623(1-2)",
+    "Saraswathy Bhavan",
+    "Near Overbridge Pazhavangadi",
+    "Trivandrum, Kerala, India – 695036.",
+  ],
+};
+
+export default function ContactShell({ contact }: { contact?: ContactInfo }) {
+  const info: ContactInfo = contact ?? DEFAULT_CONTACT;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -125,27 +146,33 @@ export default function ContactShell() {
                 <div className="mt-6 space-y-6">
                   <InfoRow icon={<Phone size={20} />}>
                     <div>
-                      <div>+91 471 257 4111,</div>
-                      <div>+91 98461 56000</div>
+                      {info.phones.map((line, index) => (
+                        <div key={line}>
+                          {line}
+                          {index < info.phones.length - 1 ? "," : ""}
+                        </div>
+                      ))}
                     </div>
                   </InfoRow>
 
                   <InfoRow icon={<Mail size={20} />}>
                     <div>
-                      <div>enquiry@babas.co,</div>
-                      <div>photostore@babas.in</div>
+                      {info.emails.map((line, index) => (
+                        <div key={line}>
+                          {line}
+                          {index < info.emails.length - 1 ? "," : ""}
+                        </div>
+                      ))}
                     </div>
                   </InfoRow>
 
                   <InfoRow icon={<MapPin size={20} />}>
                     <div>
-                      <div className="font-medium">
-                        BABA ENTERPRISES PRIVATE LIMITED
-                      </div>
-                      <div>Door No:38/1623(1-2)</div>
-                      <div>Saraswathy Bhavan</div>
-                      <div>Near Overbridge Pazhavangadi</div>
-                      <div>Trivandrum, Kerala, India – 695036.</div>
+                      {info.addressLines.map((line, index) => (
+                        <div key={`${line}-${index}`} className={index === 0 ? "font-medium" : undefined}>
+                          {line}
+                        </div>
+                      ))}
                     </div>
                   </InfoRow>
                 </div>
@@ -188,27 +215,33 @@ export default function ContactShell() {
               <section className="md:hidden px-5 sm:px-6 pb-8 space-y-6">
                 <InfoRow icon={<Phone size={20} />}>
                   <div>
-                    <div>+91 471 257 4111,</div>
-                    <div>+91 98461 56000</div>
+                    {info.phones.map((line, index) => (
+                      <div key={line}>
+                        {line}
+                        {index < info.phones.length - 1 ? "," : ""}
+                      </div>
+                    ))}
                   </div>
                 </InfoRow>
 
                 <InfoRow icon={<Mail size={20} />}>
                   <div>
-                    <div>enquiry@babas.co,</div>
-                    <div>photostore@babas.in</div>
+                    {info.emails.map((line, index) => (
+                      <div key={line}>
+                        {line}
+                        {index < info.emails.length - 1 ? "," : ""}
+                      </div>
+                    ))}
                   </div>
                 </InfoRow>
 
                 <InfoRow icon={<MapPin size={20} />}>
                   <div>
-                    <div className="font-medium">
-                      BABA ENTERPRISES PRIVATE LIMITED
-                    </div>
-                    <div>Door No:38/1623(1-2)</div>
-                    <div>Saraswathy Bhavan</div>
-                    <div>Near Overbridge Pazhavangadi</div>
-                    <div>Trivandrum, Kerala, India – 695036.</div>
+                    {info.addressLines.map((line, index) => (
+                      <div key={`${line}-${index}`} className={index === 0 ? "font-medium" : undefined}>
+                        {line}
+                      </div>
+                    ))}
                   </div>
                 </InfoRow>
               </section>

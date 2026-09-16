@@ -19,15 +19,38 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#039;");
 }
 
+const EXTRA_PAYLOAD_LABELS: Record<string, string> = {
+  paymentMethod: "Payment method",
+  carrier: "Carrier",
+  trackingNumber: "Tracking number",
+};
+
 function renderMessage(row: {
   subject: string;
   payload: Record<string, unknown>;
 }) {
   const orderNumber = escapeHtml(row.payload.orderNumber);
   const total = escapeHtml(row.payload.total);
+  const extras = Object.entries(EXTRA_PAYLOAD_LABELS)
+    .filter(([key]) => {
+      const raw = row.payload[key];
+      return raw !== undefined && raw !== null && String(raw).length > 0;
+    })
+    .map(([key, label]) => {
+      const value = escapeHtml(row.payload[key]);
+      return `<br><strong>${escapeHtml(label)}:</strong> ${value}`;
+    })
+    .join("");
+  const textExtras = Object.entries(EXTRA_PAYLOAD_LABELS)
+    .filter(([key]) => {
+      const raw = row.payload[key];
+      return raw !== undefined && raw !== null && String(raw).length > 0;
+    })
+    .map(([key, label]) => `${label}: ${String(row.payload[key])}`)
+    .join("\n");
   return {
-    text: `${row.subject}\n\nOrder: ${String(row.payload.orderNumber ?? "")}\nTotal: INR ${String(row.payload.total ?? "")}`,
-    html: `<h1>${escapeHtml(row.subject)}</h1><p>Thank you for shopping with Baba's Camera.</p><p><strong>Order:</strong> ${orderNumber}<br><strong>Total:</strong> INR ${total}</p>`,
+    text: `${row.subject}\n\nOrder: ${String(row.payload.orderNumber ?? "")}\nTotal: INR ${String(row.payload.total ?? "")}${textExtras ? `\n${textExtras}` : ""}`,
+    html: `<h1>${escapeHtml(row.subject)}</h1><p>Thank you for shopping with Baba's Camera.</p><p><strong>Order:</strong> ${orderNumber}<br><strong>Total:</strong> INR ${total}${extras}</p>`,
   };
 }
 

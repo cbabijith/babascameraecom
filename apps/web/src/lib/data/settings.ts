@@ -88,6 +88,16 @@ function stringValue(
     : fallback;
 }
 
+function booleanValue(
+  source: UnknownObject,
+  key: string,
+  fallback: boolean,
+): boolean {
+  return typeof source[key] === "boolean"
+    ? source[key]
+    : fallback;
+}
+
 function moneySetting(value: unknown, fallback: string): number {
   try {
     return moneyToPaise(typeof value === "string" ? value : fallback);
@@ -101,7 +111,9 @@ export async function getCheckoutSettings() {
   const shipping = values["shipping.rules"];
   const cod = values["cod.rules"];
   const notifications = values["notifications.toggles"];
+  const store = values["store.profile"];
   const pincodeMode = cod.pincodeMode === "allowlist" ? "allowlist" : "all";
+  const adminNotifyEmail = stringValue(store, "email", "");
   return {
     freeShippingThresholdPaise: moneySetting(
       shipping.freeAbove,
@@ -111,7 +123,7 @@ export async function getCheckoutSettings() {
       shipping.flatCharge,
       "0.00",
     ),
-    codEnabled: typeof cod.enabled === "boolean" ? cod.enabled : true,
+    codEnabled: booleanValue(cod, "enabled", true),
     codMaxOrderPaise: moneySetting(cod.maxOrderAmount, "25000.00"),
     codPincodeMode: pincodeMode,
     codAllowedPincodes: Array.isArray(cod.allowedPincodes)
@@ -120,9 +132,62 @@ export async function getCheckoutSettings() {
         )
       : [],
     orderEmailEnabled:
-      typeof notifications.orderConfirmation === "boolean"
-        ? notifications.orderConfirmation
-        : true,
+      booleanValue(notifications, "orderConfirmation", true),
+    paymentEmailEnabled: booleanValue(
+      notifications,
+      "paymentConfirmation",
+      true,
+    ),
+    shippingUpdateEmailEnabled: booleanValue(
+      notifications,
+      "shippingUpdate",
+      true,
+    ),
+    adminNewOrderEmailEnabled: booleanValue(
+      notifications,
+      "adminNewOrder",
+      true,
+    ),
+    // Recipient for staff notifications; sourced from the Store profile
+    // settings (with an optional env fallback) so merchants control it.
+    adminNotifyEmail:
+      adminNotifyEmail ||
+      (process.env.ADMIN_NOTIFY_EMAIL?.trim() ?? ""),
+  };
+}
+
+export async function getStoreProfile() {
+  const values = await getStoreSettings();
+  const store = values["store.profile"];
+  return {
+    name: stringValue(store, "name", String(defaults["store.profile"].name)),
+    tagline: stringValue(store, "tagline", ""),
+    email: stringValue(store, "email", ""),
+    phone: stringValue(store, "phone", ""),
+    address: stringValue(store, "address", ""),
+  };
+}
+
+export async function getSeoDefaults() {
+  const values = await getStoreSettings();
+  const seo = values["seo.defaults"];
+  const fallback = defaults["seo.defaults"];
+  return {
+    title: stringValue(seo, "title", String(fallback.title)),
+    description: stringValue(seo, "description", String(fallback.description)),
+    siteName: stringValue(seo, "siteName", String(fallback.siteName)),
+  };
+}
+
+/** COD policy for client-side UI (amounts in rupees). The server stays the
+    authority — this only drives display, e.g. hiding unavailable options. */
+export async function getCodPolicySettings() {
+  const checkout = await getCheckoutSettings();
+  return {
+    codEnabled: checkout.codEnabled,
+    codMaxOrderAmount:
+      Number(checkout.codMaxOrderPaise) / 100,
+    codPincodeMode: checkout.codPincodeMode,
   };
 }
 
@@ -155,18 +220,58 @@ export async function getHomepageHero() {
 }
 
 export async function getSpecificDeliverySettings(scope = "Delivery") {
+  // The client also asks this endpoint for the COD policy (scope=COD) so the
+  // checkout UI can reflect the admin's cod.rules; the server keeps enforcing
+  // them at order creation regardless.
+  if (scope === "COD") {
+    try {
+      const cod = await getCodPolicySettings();
+      return {
+        _id: "cod_settings",
+        scope,
+        data: cod,
+        createdAt: new Date().toISOString(),
+      };
+    } catch {
+      return {
+        _id: "cod_settings",
+        scope,
+        data: { codEnabled: true, codMaxOrderAmount: 25000, codPincodeMode: "all" },
+        createdAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  return getDeliverySettingsForScope(scope);
+}
+
+export interface DeliverySettingsData {
+  enableFreeDelivery: boolean;
+  deliveryChargeFlat: number;
+  freeDeliveryThreshold: number;
+}
+
+/** Delivery-charge settings shaped for the legacy settings endpoint and the
+    legacy order path. Zero is a real value here (e.g. free delivery): only
+    fall back when the whole settings read fails, never when a value is 0. */
+export async function getDeliverySettingsForScope(scope = "Delivery"): Promise<{
+  _id: string;
+  scope: string;
+  data: DeliverySettingsData;
+  createdAt: string;
+}> {
   try {
     const checkoutSettings = await getCheckoutSettings();
-    const freeThreshold = Number(checkoutSettings.freeShippingThresholdPaise) / 100;
-    const flatCharge = Number(checkoutSettings.defaultShippingChargePaise) / 100;
+    const flatCharge = safeRupees(checkoutSettings.defaultShippingChargePaise);
+    const freeThreshold = safeRupees(checkoutSettings.freeShippingThresholdPaise);
 
     return {
       _id: "delivery_settings",
       scope,
       data: {
         enableFreeDelivery: true,
-        deliveryChargeFlat: flatCharge > 0 ? flatCharge : 100,
-        freeDeliveryThreshold: freeThreshold > 0 ? freeThreshold : 3000,
+        deliveryChargeFlat: flatCharge,
+        freeDeliveryThreshold: freeThreshold,
       },
       createdAt: new Date().toISOString(),
     };
@@ -184,3 +289,7 @@ export async function getSpecificDeliverySettings(scope = "Delivery") {
   }
 }
 
+function safeRupees(paise: number): number {
+  const value = Number(paise) / 100;
+  return Number.isFinite(value) && value >= 0 ? value : 0;
+}

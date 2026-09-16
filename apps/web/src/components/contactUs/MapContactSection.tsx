@@ -1,14 +1,14 @@
 "use client";
 
 import React from "react";
-import ContactShell from "./ContactShell";
+import ContactShell, { type ContactInfo } from "./ContactShell";
 
 const LAT = 8.486830270641086;
 const LNG = 76.94803114533138;
 const MAPS_EMBED = `https://www.google.com/maps?q=${LAT},${LNG}&z=16&output=embed`;
 const MAPS_LINK = `https://www.google.com/maps/dir/?api=1&destination=${LAT},${LNG}`;
 
-export default function MapWithContact() {
+export default function MapWithContact({ contact }: { contact?: ContactInfo }) {
   return (
     <section className="relative isolate">
       {/* Visible map iframe */}
@@ -40,7 +40,7 @@ export default function MapWithContact() {
         "
       >
         <div className="mx-auto max-w-[1560px]">
-          <ContactShell />
+          <ContactShell contact={contact} />
         </div>
       </div>
     </section>
