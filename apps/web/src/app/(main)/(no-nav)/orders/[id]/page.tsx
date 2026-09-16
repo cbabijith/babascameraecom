@@ -575,7 +575,9 @@ export default function OrderDetailsPage() {
 
   const orderPaymentStatus = order.orderPaymentStatus;
   const shipping = order.shippingAddress;
-  const canDownloadInvoice = (orderPaymentStatus || "").toUpperCase() === "SUCCESS";
+  // Invoice is only issued once the order has been delivered (enforced
+  // server-side by the invoice route as well).
+  const canDownloadInvoice = (order.orderStatus || "").toUpperCase() === "DELIVERED";
   const shouldShowDelivery =
     !!order.deliveryDetails?.trackingId &&
     ["SHIPPED", "DELIVERED", "COMPLETED"].includes(order.orderStatus);
@@ -770,7 +772,7 @@ export default function OrderDetailsPage() {
                 )}
 
 
-              {/* Download Invoice (only when SUCCESS) */}
+              {/* Download Invoice (only after delivery) */}
               {canDownloadInvoice && (
                 <div className="mt-4 flex justify-end">
                   <button

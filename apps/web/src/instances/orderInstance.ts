@@ -337,60 +337,51 @@ export const getOrderById = async (id: string): Promise<Order> => {
   }
 };
 
-/* ---------------- API: invoice download (works for your backend) ---------------- */
+/* ---------------- API: invoice download ---------------- */
 
-/** Safely read error blobs for helpful messages */
-async function blobToTextSafe(blob: Blob): Promise<string> {
-  try {
-    return await blob.text();
-  } catch {
-    return "";
-  }
-}
-
-
+/**
+ * Downloads the order invoice PDF. Uses a raw fetch because the endpoint
+ * lives outside the legacy shim — apiClient's baseURL would rewrite the path.
+ * The server enforces authentication (session cookie), ownership and that the
+ * order has been delivered.
+ */
 export const fetchInvoiceFile = async (
   orderId: string
 ): Promise<{ blob: Blob; filename?: string }> => {
+  let response: Response;
   try {
-    const response = await apiClient.patch<ArrayBuffer>(
-      `/order/generate-invoice/${orderId}`,
-      {},
-      { responseType: "arraybuffer" }
-    );
-
-    const status = response.status ?? 200
-    if (status !== 200) {
-      const ct = response.headers?.["content-type"] || ""
-      if (ct.includes("application/json") || ct.includes("text/")) {
-        const txt = await blobToTextSafe(new Blob([response.data]))
-        throw new Error(txt || `HTTP ${status} while generating invoice`)
-      }
-      throw new Error(`HTTP ${status} while generating invoice`)
-    }
-
-    const contentDisposition = response.headers?.["content-disposition"] as string | undefined;
-    let filename: string | undefined;
-
-    if (contentDisposition) {
-      const match = /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i.exec(contentDisposition);
-      if (match?.[1]) {
-        try {
-          filename = decodeURIComponent(match[1]);
-        } catch {
-          filename = match[1];
-        }
-      }
-    }
-
-    const blob = new Blob([response.data], {
-      type: response.headers?.["content-type"] || "application/pdf",
-    });
-
-    return { blob, filename };
-  } catch (error: unknown) {
-    rethrowAxios(error, "Failed to download invoice");
+    response = await fetch(`/api/orders/${orderId}/invoice`, { cache: "no-store" });
+  } catch {
+    throw new Error("Unable to connect to server. Please check your network.");
   }
+
+  if (!response.ok) {
+    let message = `HTTP ${response.status} while generating invoice`;
+    try {
+      const data = (await response.json()) as { error?: string; message?: string };
+      message = data?.error || data?.message || message;
+    } catch {
+      /* non-JSON error body — keep the generic message */
+    }
+    throw new Error(message);
+  }
+
+  const contentDisposition = response.headers.get("content-disposition");
+  let filename: string | undefined;
+
+  if (contentDisposition) {
+    const match = /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i.exec(contentDisposition);
+    if (match?.[1]) {
+      try {
+        filename = decodeURIComponent(match[1]);
+      } catch {
+        filename = match[1];
+      }
+    }
+  }
+
+  const blob = await response.blob();
+  return { blob, filename };
 };
 
 /* ---------------- API: cancel order ---------------- */
