@@ -216,6 +216,7 @@ export async function GET(
         subHeading: item.subheading ?? "",
         tagline: "",
         ctaName: item.buttonLabel ?? "Shop now",
+        ctaHref: item.destinationUrl?.trim() ? item.destinationUrl : undefined,
         type: requestedType || bannerType,
         collections: [],
         status: "Active",

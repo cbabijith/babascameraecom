@@ -93,6 +93,25 @@ describe("homepage banner validation", () => {
     expect(result.success).toBe(false);
   });
 
+  test("tells the user which asset is missing instead of a format error", () => {
+    const imageResult = homeBannerInputSchema.safeParse({ ...validImage, desktopMediaUrl: "" });
+    expect(imageResult.success).toBe(false);
+    if (!imageResult.success) {
+      expect(imageResult.error.flatten().fieldErrors.desktopMediaUrl?.[0]).toContain("image");
+    }
+
+    const videoResult = homeBannerInputSchema.safeParse({
+      ...validImage,
+      mediaType: "video",
+      desktopMediaUrl: "",
+      posterUrl: "https://example.com/poster.webp",
+    });
+    expect(videoResult.success).toBe(false);
+    if (!videoResult.success) {
+      expect(videoResult.error.flatten().fieldErrors.desktopMediaUrl?.[0]).toContain("video");
+    }
+  });
+
   test("requires a complete unique reorder list shape", () => {
     const id = "6f0f33fb-6125-4f90-86aa-8c33df73ff88";
     expect(bannerReorderSchema.safeParse({ bannerIds: [id] }).success).toBe(true);

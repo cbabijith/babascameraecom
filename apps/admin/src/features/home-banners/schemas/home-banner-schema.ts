@@ -8,12 +8,15 @@ const optionalText = (maximum: number) =>
 // proxies when NEXT_PUBLIC_MEDIA_MODE is not "direct", so the schema must
 // accept back exactly what the list endpoint returns. Protocol-relative
 // "//host" values are rejected to keep media on the app's own origin.
+// Empty is allowed at field level so the superRefine below can say which
+// asset is missing ("Upload the banner video first.") instead of a generic
+// format error.
 const mediaUrl = z
   .string()
   .trim()
   .max(2_000)
   .refine(
-    (value) => /^https?:\/\//i.test(value) || /^\/(?!\/)/.test(value),
+    (value) => value === "" || /^https?:\/\//i.test(value) || /^\/(?!\/)/.test(value),
     "Use an HTTP(S) URL or a root-relative media path.",
   );
 const optionalMediaUrl = z.union([mediaUrl, z.literal(""), z.null()]).optional().transform((value) => value || null);
@@ -47,6 +50,15 @@ export const homeBannerInputSchema = z.object({
   startsAt: dateValue,
   endsAt: dateValue,
 }).superRefine((value, context) => {
+  if (!value.desktopMediaUrl) {
+    context.addIssue({
+      code: "custom",
+      path: ["desktopMediaUrl"],
+      message: value.mediaType === "video"
+        ? "Upload the banner video first."
+        : "Upload the banner image first.",
+    });
+  }
   if (value.mediaType === "image" && !value.sameMedia && !value.mobileMediaUrl) {
     context.addIssue({ code: "custom", path: ["mobileMediaUrl"], message: "A mobile image is required." });
   }

@@ -74,6 +74,7 @@ export interface Banner {
   subHeading?: string;
   tagline?: string;
   ctaName?: string;
+  ctaHref?: string;
   position: number;
   status: string;
   visibility: string;
@@ -100,6 +101,9 @@ export async function getHeroBannersServer(): Promise<Banner[]> {
       subHeading: item.subheading ?? "",
       tagline: "",
       ctaName: item.buttonLabel ?? "Shop now",
+      // Admin-set destination for the CTA; the hero falls back to the
+      // banner's own product page when this is empty.
+      ctaHref: item.destinationUrl?.trim() ? item.destinationUrl : undefined,
       position: item.position,
       status: "Active",
       visibility: "Show",
