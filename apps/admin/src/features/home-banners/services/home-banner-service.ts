@@ -27,6 +27,11 @@ import {
   reorderHomeBanners,
   updateHomeBanner,
 } from "../repositories/home-banner-repository";
+import {
+  findUnresolvableMedia,
+  restoreStoredMediaReferences,
+  type BannerMediaReferences,
+} from "../utils/media-references";
 import type { HomeBanner, HomeBannerInput, UploadedBannerMedia } from "../types";
 
 export const HOME_BANNER_BUCKET = "home-banners";
@@ -78,7 +83,9 @@ export async function getHomeBannersForAdmin() {
 
 export async function createBanner(input: unknown) {
   try {
-    return serialize(await createHomeBanner(parseInput(input)));
+    const parsed = parseInput(input);
+    assertNoUnresolvableMedia(parsed);
+    return serialize(await createHomeBanner(parsed));
   } catch (error) {
     if (error instanceof HomeBannerError) throw error;
     if (error instanceof Error && error.message === "BANNER_LIMIT_REACHED") {
@@ -91,11 +98,28 @@ export async function createBanner(input: unknown) {
 export async function updateBanner(id: string, input: unknown) {
   const existing = await findHomeBanner(id);
   if (!existing) throw new HomeBannerError("Banner not found.", "NOT_FOUND", 404);
-  const parsed = parseInput(input);
+  // The list API serves media through resolveMediaUrl for display; when a
+  // client echoes those display values back, swap them for the raw stored
+  // references so proxy paths are never persisted (and never trip
+  // removeReplacedMedia into deleting live objects).
+  const parsed = restoreStoredMediaReferences(parseInput(input), existing);
+  assertNoUnresolvableMedia(parsed);
   const updated = await updateHomeBanner(id, parsed);
   if (!updated) throw new HomeBannerError("Banner not found.", "NOT_FOUND", 404);
   await removeReplacedMedia(existing, updated);
   return serialize(updated);
+}
+
+function assertNoUnresolvableMedia(parsed: BannerMediaReferences) {
+  const field = findUnresolvableMedia(parsed);
+  if (field) {
+    throw new HomeBannerError(
+      "This media reference is not a stored asset. Re-upload the image or video.",
+      "VALIDATION_FAILED",
+      422,
+      { [field]: ["Re-upload this image or video."] },
+    );
+  }
 }
 
 export async function removeBanner(id: string) {
