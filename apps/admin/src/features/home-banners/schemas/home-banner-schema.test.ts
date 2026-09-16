@@ -29,6 +29,22 @@ describe("homepage banner validation", () => {
     expect(homeBannerInputSchema.safeParse(validImage).success).toBe(true);
   });
 
+  test("accepts root-relative proxy media paths served by the API itself", () => {
+    const result = homeBannerInputSchema.safeParse({
+      ...validImage,
+      desktopMediaUrl: "/api/media/images/desktop-c8521015.webp",
+      mobileMediaUrl: "/api/media/images/mobile-c8521015.webp",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects protocol-relative and non-http media references", () => {
+    for (const desktopMediaUrl of ["//evil.example.com/desktop.webp", "javascript:alert(1)", "images/desktop.webp"]) {
+      const result = homeBannerInputSchema.safeParse({ ...validImage, desktopMediaUrl });
+      expect(result.success).toBe(false);
+    }
+  });
+
   test("requires mobile media for image banners", () => {
     const result = homeBannerInputSchema.safeParse({ ...validImage, mobileMediaUrl: null });
     expect(result.success).toBe(false);

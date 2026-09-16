@@ -3,7 +3,19 @@ import { z } from "zod";
 const optionalText = (maximum: number) =>
   z.union([z.string().trim().max(maximum), z.null()]).optional().transform((value) => value || null);
 
-const mediaUrl = z.string().trim().url().max(2_000);
+// Media references are either absolute HTTP(S) URLs or root-relative paths —
+// the admin API itself serves stored media as relative /api/media/<key>
+// proxies when NEXT_PUBLIC_MEDIA_MODE is not "direct", so the schema must
+// accept back exactly what the list endpoint returns. Protocol-relative
+// "//host" values are rejected to keep media on the app's own origin.
+const mediaUrl = z
+  .string()
+  .trim()
+  .max(2_000)
+  .refine(
+    (value) => /^https?:\/\//i.test(value) || /^\/(?!\/)/.test(value),
+    "Use an HTTP(S) URL or a root-relative media path.",
+  );
 const optionalMediaUrl = z.union([mediaUrl, z.literal(""), z.null()]).optional().transform((value) => value || null);
 const dateValue = z.union([z.string().datetime({ offset: true }), z.literal(""), z.null()])
   .optional()
