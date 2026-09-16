@@ -7,16 +7,13 @@ import {
   deleteFromS3,
   deleteManyFromS3,
   extractS3KeyFromUrl,
-  getPresignedUploadUrl,
   getPublicUrlForS3Key,
   getS3ObjectBytes,
 } from "@babascamera/db";
 
 import { resolveMediaUrl } from "@/lib/media-proxy";
 import {
-  bannerFinalizeSchema,
   bannerReorderSchema,
-  bannerVideoUploadSchema,
   homeBannerInputSchema,
 } from "../schemas/home-banner-schema";
 import {
@@ -173,37 +170,43 @@ export async function processAndUploadImage(file: File, role: string): Promise<U
   return { path, url, contentType: "image/webp" };
 }
 
-export async function authorizeVideoUpload(input: unknown) {
-  const parsed = bannerVideoUploadSchema.safeParse(input);
-  if (!parsed.success) throw new HomeBannerError("Choose an MP4 video no larger than 40 MiB.", "INVALID_VIDEO", 422);
+export async function processAndUploadVideo(file: File, role: "desktop" | "mobile"): Promise<UploadedBannerMedia> {
+  if (file.type !== "video/mp4" || file.size <= 0 || file.size > VIDEO_MAX_BYTES) {
+    throw new HomeBannerError("Choose an MP4 video no larger than 40 MiB.", "INVALID_VIDEO", 422);
+  }
   const path = `videos/${randomUUID()}.mp4`;
   try {
-    const uploadUrl = await getPresignedUploadUrl(path, "video/mp4", 3600);
-    return { path, token: uploadUrl, contentType: "video/mp4" as const, maximumBytes: VIDEO_MAX_BYTES };
-  } catch {
-    throw new HomeBannerError("Video upload could not be authorized.", "UPLOAD_FAILED", 502);
+    // Videos upload through the app server (like images) rather than a
+    // presigned browser PUT: the admin CSP keeps connect-src 'self', and
+    // routing through here avoids depending on bucket CORS configuration.
+    await uploadToS3({
+      key: path,
+      body: Buffer.from(await file.arrayBuffer()),
+      contentType: "video/mp4",
+    });
+    await verifyUploadedVideoCodec(path);
+  } catch (error) {
+    await deleteFromS3(path).catch(() => null);
+    if (error instanceof HomeBannerError) throw error;
+    throw new HomeBannerError("Video upload failed. Try again.", "UPLOAD_FAILED", 502);
   }
+  return { path, url: getPublicUrlForS3Key(path), contentType: "video/mp4" as const };
 }
 
-export async function finalizeVideoUpload(input: unknown): Promise<UploadedBannerMedia> {
-  const parsed = bannerFinalizeSchema.safeParse(input);
-  if (!parsed.success) throw new HomeBannerError("Uploaded video details are invalid.", "INVALID_VIDEO", 422);
-  const publicUrl = getPublicUrlForS3Key(parsed.data.path);
+/** Checks the stored object is a real H.264 MP4 using the app's own S3
+    credentials (works on private buckets, no public roundtrip). */
+async function verifyUploadedVideoCodec(path: string) {
   try {
-    // Verify with the app's own S3 credentials: works on the private bucket
-    // and avoids a public-internet roundtrip to the object URL.
-    const { bytes } = await getS3ObjectBytes(parsed.data.path, { start: 0, end: 1_048_575 });
+    const { bytes } = await getS3ObjectBytes(path, { start: 0, end: 1_048_575 });
     const header = Buffer.from(bytes.subarray(4, 12)).toString("ascii");
     const sample = Buffer.from(bytes).toString("latin1");
     if (!header.includes("ftyp") || !sample.includes("avc1")) {
-      await deleteFromS3(parsed.data.path);
       throw new HomeBannerError("Video must be an MP4 encoded with H.264.", "INVALID_VIDEO_CODEC", 422);
     }
   } catch (error) {
     if (error instanceof HomeBannerError) throw error;
     throw new HomeBannerError("Uploaded video could not be verified.", "VIDEO_VERIFICATION_FAILED", 422);
   }
-  return { path: parsed.data.path, url: publicUrl, contentType: "video/mp4" };
 }
 
 async function removeMediaUrls(urls: (string | null)[]) {

@@ -77,14 +77,5 @@ export const bannerIdSchema = z.string().uuid();
 export const bannerReorderSchema = z.object({
   bannerIds: z.array(z.string().uuid()).min(1).max(5),
 });
-export const bannerVideoUploadSchema = z.object({
-  fileName: z.string().trim().min(1).max(240),
-  size: z.number().int().positive().max(40 * 1024 * 1024),
-  contentType: z.literal("video/mp4"),
-});
-export const bannerFinalizeSchema = z.object({
-  path: z.string().trim().regex(/^videos\/[a-f0-9-]+\.mp4$/),
-  size: z.number().int().positive().max(40 * 1024 * 1024),
-});
 
 export type ParsedHomeBannerInput = z.infer<typeof homeBannerInputSchema>;

@@ -1,6 +1,6 @@
 import type { AdminActionResult } from "@/lib/actions/result";
 
-import type { HomeBanner, SignedBannerUpload, UploadedBannerMedia } from "../types";
+import type { HomeBanner, UploadedBannerMedia } from "../types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<AdminActionResult<T>> {
   try {
@@ -40,6 +40,7 @@ export const homeBannerApi = {
   remove: (id: string) => request<null>(`/${id}`, { method: "DELETE" }),
   reorder: (bannerIds: string[]) => request<null>("/reorder", { method: "POST", ...json({ bannerIds }) }),
   uploadImage: (body: FormData) => request<UploadedBannerMedia>("/upload", { method: "POST", body }),
-  authorizeVideo: (body: unknown) => request<SignedBannerUpload>("/upload", { method: "POST", ...json(body) }),
-  finalizeVideo: (body: unknown) => request<UploadedBannerMedia>("/upload/finalize", { method: "POST", ...json(body) }),
+  // Videos upload through the app server as multipart form data (same
+  // endpoint as images) — the server verifies the codec before storing.
+  uploadVideo: (body: FormData) => request<UploadedBannerMedia>("/upload", { method: "POST", body }),
 };

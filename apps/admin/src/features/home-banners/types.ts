@@ -29,13 +29,6 @@ export interface UploadedBannerMedia {
   contentType: string;
 }
 
-export interface SignedBannerUpload {
-  path: string;
-  token: string;
-  contentType: "video/mp4";
-  maximumBytes: number;
-}
-
 export interface HomeBannerInput {
   internalName: string;
   mediaType: HomeBannerMediaType;

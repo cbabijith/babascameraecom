@@ -471,39 +471,22 @@ export function HomeBannerManager({ banners }: { banners: HomeBanner[] }) {
       toast.error("Choose an MP4 video no larger than 40 MiB.");
       return;
     }
+    // Videos upload through the app server as multipart form data — the
+    // presigned browser-to-storage PUT was blocked by the admin CSP
+    // (connect-src 'self') and depended on bucket CORS.
     setUploading(role);
-    setUploadProgress(5);
-    const authorization = await homeBannerApi.authorizeVideo({
-      fileName: file.name,
-      size: file.size,
-      contentType: "video/mp4",
-    });
-    if (!authorization.success) {
-      setUploading(null);
-      toast.error(authorization.error);
-      return;
-    }
-    const { path, token } = authorization.data;
-    setUploadProgress(35);
-    const uploadRes = await fetch(token, {
-      method: "PUT",
-      body: file,
-      headers: { "Content-Type": "video/mp4" },
-    });
-    if (!uploadRes.ok) {
-      setUploading(null);
-      toast.error("Video upload failed.");
-      return;
-    }
-    setUploadProgress(85);
-    const finalized = await homeBannerApi.finalizeVideo({ path, size: file.size });
+    setUploadProgress(15);
+    const body = new FormData();
+    body.set("file", file);
+    body.set("role", role);
+    const result = await homeBannerApi.uploadVideo(body);
     setUploading(null);
     setUploadProgress(0);
-    if (!finalized.success) {
-      toast.error(finalized.error);
+    if (!result.success) {
+      toast.error(result.error);
       return;
     }
-    patch(role === "desktop" ? "desktopMediaUrl" : "mobileMediaUrl", finalized.data.url);
+    patch(role === "desktop" ? "desktopMediaUrl" : "mobileMediaUrl", result.data.url);
     toast.success("Video uploaded and verified.");
   };
 

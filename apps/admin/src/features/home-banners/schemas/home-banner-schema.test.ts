@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  bannerFinalizeSchema,
   bannerReorderSchema,
-  bannerVideoUploadSchema,
   homeBannerInputSchema,
 } from "./home-banner-schema";
 
@@ -117,22 +115,5 @@ describe("homepage banner validation", () => {
     expect(bannerReorderSchema.safeParse({ bannerIds: [id] }).success).toBe(true);
     expect(bannerReorderSchema.safeParse({ bannerIds: [] }).success).toBe(false);
     expect(bannerReorderSchema.safeParse({ bannerIds: Array(6).fill(id) }).success).toBe(false);
-  });
-
-  test("enforces the video upload contract", () => {
-    expect(bannerVideoUploadSchema.safeParse({
-      fileName: "hero.mp4",
-      size: 40 * 1024 * 1024,
-      contentType: "video/mp4",
-    }).success).toBe(true);
-    expect(bannerVideoUploadSchema.safeParse({
-      fileName: "hero.mov",
-      size: 40 * 1024 * 1024 + 1,
-      contentType: "video/quicktime",
-    }).success).toBe(false);
-    expect(bannerFinalizeSchema.safeParse({
-      path: "videos/6f0f33fb-6125-4f90-86aa-8c33df73ff88.mp4",
-      size: 1024,
-    }).success).toBe(true);
   });
 });
