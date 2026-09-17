@@ -119,6 +119,7 @@ function BankTransferInner() {
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [proofFileId, setProofFileId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -302,6 +303,7 @@ function BankTransferInner() {
     }
 
     try {
+      setSubmitting(true);
       let proofId = proofFileId;
       if (!proofId && selectedFile) {
         proofId = await uploadProof(selectedFile);
@@ -367,6 +369,8 @@ function BankTransferInner() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Try again.";
       toast.error("Could not create order", { description: msg });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -487,9 +491,16 @@ function BankTransferInner() {
                     variant="babas"
                     size="babas"
                     className="w-full sm:w-[200px] rounded-4xl"
-                    disabled={!canSubmit}
+                    disabled={!canSubmit || submitting}
                   >
-                    Submit
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Placing Order…
+                      </>
+                    ) : (
+                      "Submit"
+                    )}
                   </Button>
                 </div>
               </form>

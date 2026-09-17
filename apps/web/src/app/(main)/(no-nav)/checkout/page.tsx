@@ -245,6 +245,7 @@ const CheckoutPageContent: React.FC = () => {
   // Addresses state
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [showAddressHint, setShowAddressHint] = useState(false);
   const [addrLoading, setAddrLoading] = useState<boolean>(true);
   const [addrError, setAddrError] = useState<string | null>(null);
   const [profileReady, setProfileReady] = useState(false);
@@ -581,6 +582,10 @@ const CheckoutPageContent: React.FC = () => {
 
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) {
+      // Mobile users scroll down to the confirm button and can't see the
+      // address section — pull them back up and flag the missing address.
+      setShowAddressHint(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       toast.error("Add an address", { description: "Please select or add a delivery address to continue." });
       return;
     }
@@ -865,11 +870,27 @@ const CheckoutPageContent: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left: address + items */}
             <div className="lg:col-span-2 space-y-8">
+              {showAddressHint && !selectedAddressId && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
+                  <p className="text-sm font-medium text-amber-800">
+                    Please add a delivery address to place your order.
+                  </p>
+                  <Button
+                    variant="babas"
+                    size="babas"
+                    className="shrink-0"
+                    onClick={handleAddAddress}
+                  >
+                    Add Address
+                  </Button>
+                </div>
+              )}
               <DeliveryAddressCard
                 addresses={addresses}
                 selectedAddressId={selectedAddressId}
                 onSelectAddress={(id) => {
                   setSelectedAddressId(id);
+                  setShowAddressHint(false);
                   dispatch(setCheckoutAddress(id));
                 }}
                 onAddAddress={handleAddAddress}
@@ -932,12 +953,7 @@ const CheckoutPageContent: React.FC = () => {
                 paymentMethod={paymentMethod}
                 onChangePaymentMethod={onChangePaymentMethod}
                 onPlaceOrder={handlePlaceOrder}
-                isOrderDisabled={
-                  isPlacingOrder ||
-                  !selectedAddressId ||
-                  itemsForCheckout.length === 0 ||
-                  hasInvalidItems
-                }
+                isOrderDisabled={isPlacingOrder}
                 hasInvalidItems={hasInvalidItems}
                 className="rounded-2xl"
               />
