@@ -72,7 +72,7 @@ export const manualOrderSchema = z.object({
     pincode: z.string().min(1).max(20),
     country: z.string().min(1).max(100),
   }),
-  paymentMethod: z.enum(["cod", "razorpay"]),
+  paymentMethod: z.enum(["razorpay", "bank_transfer"]),
   paymentStatus: z.enum(["pending", "paid"]).default("pending"),
   shippingCharge: moneyString.default(0),
   discount: moneyString.default(0),

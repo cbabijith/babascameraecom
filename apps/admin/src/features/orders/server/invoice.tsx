@@ -47,7 +47,7 @@ export function InvoiceDocument({ order }: { order: Order }) {
           <Text style={styles.total}>Total: {invoiceMoney(order.total)}</Text>
         </View>
         <View style={styles.section}>
-          <Text>Payment: {order.paymentMethod.toUpperCase()} · {order.paymentStatus}</Text>
+          <Text>Payment: {order.paymentMethod === "bank_transfer" ? "Bank Transfer" : order.paymentMethod === "razorpay" ? "Razorpay (Online)" : "Cash on Delivery"} · {order.paymentStatus}</Text>
           <Text style={styles.muted}>This invoice was generated from the immutable order item and address snapshots.</Text>
         </View>
       </Page>

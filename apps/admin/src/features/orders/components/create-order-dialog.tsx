@@ -79,7 +79,7 @@ export function CreateOrderDialog() {
   const [pincode, setPincode] = useState("");
   const [country, setCountry] = useState("India");
 
-  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [paymentMethod, setPaymentMethod] = useState("razorpay");
   const [paymentStatus, setPaymentStatus] = useState("pending");
   const [shippingCharge, setShippingCharge] = useState("0");
   const [discount, setDiscount] = useState("0");
@@ -378,8 +378,8 @@ export function CreateOrderDialog() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Field label="Method">
                 <select className={selectClass} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-                  <option value="cod">Cash on delivery</option>
                   <option value="razorpay">Razorpay (manual)</option>
+                  <option value="bank_transfer">Bank transfer</option>
                 </select>
               </Field>
               <Field label="Payment status">

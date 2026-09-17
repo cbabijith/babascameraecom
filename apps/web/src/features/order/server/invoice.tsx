@@ -129,7 +129,7 @@ export function InvoiceDocument({
 
         <View style={styles.section}>
           <Text>
-            Payment: {order.paymentMethod.toUpperCase()} · {order.paymentStatus.toUpperCase()}
+            Payment: {order.paymentMethod === "bank_transfer" ? "Bank Transfer" : order.paymentMethod === "razorpay" ? "Razorpay (Online)" : "Cash on Delivery"} · {order.paymentStatus.toUpperCase()}
           </Text>
           <Text style={styles.muted}>
             Generated from the immutable order item and address snapshots on {formatDate(new Date())}.

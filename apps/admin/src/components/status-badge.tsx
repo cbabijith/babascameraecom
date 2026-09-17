@@ -13,17 +13,24 @@ const tones: Record<string, string> = {
   customer: "border-sky-200 bg-sky-50 text-sky-700",
   pending: "border-amber-200 bg-amber-50 text-amber-800",
   cod: "border-amber-200 bg-amber-50 text-amber-800",
+  bank_transfer: "border-amber-200 bg-amber-50 text-amber-800",
   cancelled: "border-rose-200 bg-rose-50 text-rose-700",
   failed: "border-rose-200 bg-rose-50 text-rose-700",
   refunded: "border-rose-200 bg-rose-50 text-rose-700",
   inactive: "border-slate-200 bg-slate-100 text-slate-600",
 };
 
-export function StatusBadge({ status }: { status: string }) {
+const labels: Record<string, string> = {
+  razorpay: "Razorpay (Online)",
+  bank_transfer: "Bank Transfer",
+  cod: "Cash on Delivery",
+};
+
+export function StatusBadge({ status, label }: { status: string; label?: string | undefined }) {
   const normalized = status.toLowerCase();
   return (
     <Badge variant="outline" className={tones[normalized] ?? tones.inactive}>
-      {normalized.replaceAll("_", " ")}
+      {label ?? normalized.replaceAll("_", " ")}
     </Badge>
   );
 }

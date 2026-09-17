@@ -10,7 +10,9 @@ export const orderStatusValues = [
   "cancelled",
   "refunded",
 ] as const;
-export const paymentMethodValues = ["razorpay", "cod"] as const;
+// "cod" exists only for legacy rows and the admin manual-order dialog;
+// the storefront offers razorpay and bank transfer.
+export const paymentMethodValues = ["razorpay", "cod", "bank_transfer"] as const;
 export const paymentStatusValues = ["pending", "paid", "failed", "refunded"] as const;
 export const couponTypeValues = ["percentage", "flat"] as const;
 export const couponRedemptionStatusValues = ["reserved", "applied", "released"] as const;

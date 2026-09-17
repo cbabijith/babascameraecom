@@ -242,8 +242,17 @@ export async function createOrderFromCheckout(
       }
     }
 
-    const resolvedPaymentMethod: "razorpay" | "cod" =
-      methodUpper === "RAZORPAY" ? "razorpay" : "cod";
+    // Bank transfer orders were historically stored as "cod" because this
+    // mapping treated anything non-Razorpay as COD — display then showed
+    // "Cash on Delivery" for bank transfers. The DB enum already carries
+    // "bank_transfer"; store it for those orders. "cod" remains only for
+    // legacy payloads that explicitly ask for it.
+    const resolvedPaymentMethod: "razorpay" | "cod" | "bank_transfer" =
+      methodUpper === "RAZORPAY"
+        ? "razorpay"
+        : methodUpper === "BANK_TRANSFER" || methodUpper === "BANK"
+          ? "bank_transfer"
+          : "cod";
 
 
     // 4. Create Order, Order Items, Inventory Reservations & Clear Cart inside DB Transaction

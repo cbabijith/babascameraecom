@@ -63,8 +63,22 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   return (
     <>
       <PageHeader title={order.orderNumber} description={`Placed ${formatDate(order.createdAt, true)} by ${order.customerName ?? order.customerEmail}.`} />
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge status={order.status} /><StatusBadge status={order.paymentStatus} /><StatusBadge status={order.paymentMethod} />
+      <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+        <div className="grid gap-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Order status</span>
+          <StatusBadge status={order.status} />
+        </div>
+        <div className="grid gap-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Payment status</span>
+          <StatusBadge status={order.paymentStatus} />
+        </div>
+        <div className="grid gap-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Payment method</span>
+          <StatusBadge
+            status={order.paymentMethod}
+            label={order.paymentMethod === "razorpay" ? "Razorpay (Online)" : order.paymentMethod === "bank_transfer" ? "Bank Transfer" : order.paymentMethod === "cod" ? "Cash on Delivery" : undefined}
+          />
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <Button asChild variant="outline"><a href={`/api/orders/${order.id}/invoice`}><Download className="size-4" /> Download PDF invoice</a></Button>
           <DeleteOrderButton orderId={order.id} orderNumber={order.orderNumber} redirectToOrders />
