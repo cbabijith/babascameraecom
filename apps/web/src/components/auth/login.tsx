@@ -136,7 +136,9 @@ export default function LoginForm() {
   // the user to `next`.
   async function handleGoogleLogin() {
     const params = new URLSearchParams(window.location.search);
-    const next = params.get("next") || "/profile";
+    // Same default as the email flow: return to where the user came from
+    // (the middleware's next param), otherwise home.
+    const next = params.get("next") || "/";
     setGoogleLoading(true);
     try {
       const res = await fetch("/api/auth/sign-in/social", {
@@ -214,6 +216,10 @@ export default function LoginForm() {
 
       if (user) {
         dispatch(setUser({ ...user, name: user.name ?? "" }));
+      } else {
+        // Login succeeded but the profile follow-up failed — still seed the
+        // store so auth gates see the session instead of bouncing the user.
+        dispatch(setUser({ id: "", name: email.split("@")[0], email }));
       }
 
       const params = new URLSearchParams(window.location.search);
