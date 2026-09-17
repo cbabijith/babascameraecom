@@ -1,5 +1,6 @@
-import { auth } from "@/lib/auth/auth";
 import { toNextJsHandler } from "better-auth/next-js";
+
+import { getAdminAuth, getRequestOrigin } from "@/lib/auth/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,18 @@ function isBlocked(request: Request) {
   return BLOCKED_AUTH_PATHS.test(new URL(request.url).pathname);
 }
 
+/**
+ * The auth instance is built per request origin: better-auth rejects
+ * sign-ins whose Origin does not match its trusted origin, and the admin
+ * is reachable on two domains (the Railway domain and the custom domain).
+ * A single fixed baseURL would lock out whichever domain the env var did
+ * not name.
+ */
+async function handler() {
+  const authInstance = getAdminAuth(await getRequestOrigin());
+  return toNextJsHandler(authInstance.handler);
+}
+
 export async function GET(request: Request) {
   if (isBlocked(request)) {
     return Response.json(
@@ -21,8 +34,7 @@ export async function GET(request: Request) {
       { status: 404 },
     );
   }
-  const handler = toNextJsHandler(auth.handler);
-  return handler.GET(request);
+  return (await handler()).GET(request);
 }
 
 export async function POST(request: Request) {
@@ -32,6 +44,5 @@ export async function POST(request: Request) {
       { status: 404 },
     );
   }
-  const handler = toNextJsHandler(auth.handler);
-  return handler.POST(request);
+  return (await handler()).POST(request);
 }
