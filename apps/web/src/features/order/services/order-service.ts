@@ -533,6 +533,7 @@ function mapDbOrderToApiOrder(
     shippingAddress: {
       name: snapshot.fullName || "Customer",
       phone: snapshot.phone || "",
+      building: snapshot.building || "",
       line1: snapshot.line1 || "",
       line2: snapshot.line2 || "",
       city: snapshot.city || "",
