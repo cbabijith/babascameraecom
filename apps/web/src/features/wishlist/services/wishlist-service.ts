@@ -43,6 +43,22 @@ export async function toggleWishlistProduct(
   return true;
 }
 
+export async function addWishlistProduct(
+  userId: string,
+  productId: string,
+) {
+  // Add-only (never toggles): the wishlist heart is an explicit add/remove
+  // toggle on the client, and a server-side toggle disagrees with client
+  // state whenever the two are out of sync.
+  const database = getDatabase();
+  await database
+    .insert(wishlists)
+    .values({ userId, productId })
+    .onConflictDoNothing({
+      target: [wishlists.userId, wishlists.productId],
+    });
+}
+
 export async function listWishlistProducts(
   userId: string,
 ): Promise<CatalogProduct[]> {
@@ -52,9 +68,22 @@ export async function listWishlistProducts(
     .where(eq(wishlists.userId, userId))
     .orderBy(desc(wishlists.createdAt));
   if (!ids.length) return [];
-  const productsById = await listCatalogProducts({ limit: 60 });
-  const wanted = new Set(ids.map((row) => row.productId));
-  return productsById.filter((product) => wanted.has(product.id));
+  // Fetch exactly the wishlisted products by id. The previous approach
+  // (filter the 60 newest products) silently dropped wishlisted items that
+  // were not among them.
+  const wantedIds = ids.map((row) => row.productId);
+  const products: CatalogProduct[] = [];
+  const chunkSize = 60;
+  for (let index = 0; index < wantedIds.length; index += chunkSize) {
+    const chunk = wantedIds.slice(index, index + chunkSize);
+    products.push(
+      ...(await listCatalogProducts({ productIds: chunk, limit: chunk.length })),
+    );
+  }
+  const byId = new Map(products.map((product) => [product.id, product]));
+  return wantedIds
+    .map((id) => byId.get(id))
+    .filter((product): product is CatalogProduct => Boolean(product));
 }
 
 /* ---------------- High-level API mapping helpers ---------------- */
@@ -89,8 +118,23 @@ export async function addToWishlist(productId: string) {
   try {
     const user = await getOptionalUser();
     if (!user) throw new WishlistDataError("Authentication required", 401);
-    await toggleWishlistProduct(user.id, productId);
-    return { success: true };
+    await addWishlistProduct(user.id, productId);
+    // Return the item in the same shape fetchWishlist serves, so the client
+    // can key its store by product id immediately after adding.
+    const products = await listWishlistProducts(user.id);
+    const prod = products.find((product) => product.id === productId);
+    if (!prod) throw new WishlistDataError("Product not found", 404);
+    return {
+      _id: prod.id,
+      product: {
+        _id: prod.id,
+        name: prod.name,
+        slug: prod.slug,
+        images: prod.image ? [{ key: prod.image }] : [],
+        price: { salePrice: Number(prod.salePrice), actualPrice: Number(prod.mrp) },
+      },
+      createdAt: new Date().toISOString(),
+    };
   } catch (error: unknown) {
     if (error instanceof WishlistDataError) throw error;
     throw new WishlistDataError(

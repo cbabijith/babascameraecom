@@ -4,7 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
+import type { AppDispatch } from "@/store";
 import { setUser } from "@/store/slice/authSlice";
+import { fetchWishlistAsync } from "@/store/slice/wishlistSlice";
+import { fetchCart } from "@/store/slice/cartSlice";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -92,7 +95,7 @@ function GoogleButton({ onClick, loading }: { onClick: () => void; loading?: boo
 
 export default function LoginForm() {
   const router = useRouter();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -221,6 +224,10 @@ export default function LoginForm() {
         // store so auth gates see the session instead of bouncing the user.
         dispatch(setUser({ id: "", name: email.split("@")[0], email }));
       }
+      // Hydrate the counters the navbar shows (AuthInitializer only does
+      // this on full page loads, not after a client-side login).
+      dispatch(fetchWishlistAsync());
+      dispatch(fetchCart());
 
       const params = new URLSearchParams(window.location.search);
       const next = params.get("next");

@@ -20,6 +20,7 @@ import {
 } from "@/instances/profileInstance";
 
 import { logout as logoutAction } from "@/store/slice/authSlice";
+import { resetWishlist } from "@/store/slice/wishlistSlice";
 import { logoutUser } from "@/instances/authInstance";
 
 import type {
@@ -122,6 +123,7 @@ export default function ProfilePageClient() {
         (async () => {
           await logoutUser();
           dispatch(logoutAction());
+          dispatch(resetWishlist());
         })(),
         {
           loading: "Signing you out...",
