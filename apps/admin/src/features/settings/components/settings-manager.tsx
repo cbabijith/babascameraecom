@@ -12,6 +12,8 @@ import {
   toast,
 } from "@babascamera/ui";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import { useCallback } from "react";
 import { z } from "zod";
 
 import {
@@ -20,8 +22,7 @@ import {
   AdminSelectField,
   AdminTextareaField,
 } from "@/components/admin-form-field";
-
-import { saveSettingAction } from "../server/actions";
+import { adminJson } from "@/lib/api/client";
 
 interface Setting {
   key: string;
@@ -46,21 +47,25 @@ function booleanValue(source: Record<string, unknown>, key: string, fallback = f
   return typeof source[key] === "boolean" ? Boolean(source[key]) : fallback;
 }
 
-async function persist(key: string, label: string, value: unknown) {
-  const payload = new FormData();
-  payload.set("key", key);
-  payload.set("label", label);
-  payload.set("value", JSON.stringify(value));
-  try {
-    const result = await saveSettingAction(payload);
-    if (!result.success) {
-      toast.error(result.error);
-      return;
-    }
-    toast.success(`${label} saved.`);
-  } catch {
-    toast.error(`${label} could not be saved.`);
-  }
+function usePersistSetting() {
+  const router = useRouter();
+  return useCallback(
+    async (key: string, label: string, value: unknown) => {
+      const result = await adminJson("/api/admin/settings", {
+        method: "PUT",
+        body: { key, label, value: JSON.stringify(value) },
+      });
+      if (!result.success) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success(`${label} saved.`);
+      // Server actions refreshed the settings tree automatically; JSON APIs
+      // must ask for it explicitly.
+      router.refresh();
+    },
+    [router],
+  );
 }
 
 function StoreForm({ setting }: { setting: Setting }) {
@@ -73,6 +78,7 @@ function StoreForm({ setting }: { setting: Setting }) {
     address: z.string().max(500),
   });
   type Values = z.infer<typeof schema>;
+  const persist = usePersistSetting();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -106,6 +112,7 @@ function ShippingForm({ setting }: { setting: Setting }) {
     freeAbove: z.string().regex(money),
   });
   type Values = z.infer<typeof schema>;
+  const persist = usePersistSetting();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -139,6 +146,7 @@ function CodForm({ setting }: { setting: Setting }) {
     allowedPincodes: z.string(),
   });
   type Values = z.infer<typeof schema>;
+  const persist = usePersistSetting();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -182,6 +190,7 @@ function SeoForm({ setting }: { setting: Setting }) {
     siteName: z.string().trim().min(1).max(120),
   });
   type Values = z.infer<typeof schema>;
+  const persist = usePersistSetting();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -213,6 +222,7 @@ function NotificationForm({ setting }: { setting: Setting }) {
     adminNewOrder: z.boolean(),
   });
   type Values = z.infer<typeof schema>;
+  const persist = usePersistSetting();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -255,6 +265,7 @@ function HeroForm({ setting }: { setting: Setting }) {
     secondaryHref: z.string().refine((item) => item === "" || /^\/(?!\/)/.test(item)),
   });
   type Values = z.infer<typeof schema>;
+  const persist = usePersistSetting();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {

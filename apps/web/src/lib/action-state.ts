@@ -17,6 +17,8 @@ export type StorefrontActionState<T = unknown> =
       message: string;
       error: string | FlattenedValidationError;
       data?: never;
+      /** Internal path to navigate to (e.g. a 401 routing to sign-in). */
+      redirectTo?: string;
     };
 
 export function validationFailure(

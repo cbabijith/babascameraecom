@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ExternalLink, Mail, Phone } from "lucide-react";
 import { Button } from "@babascamera/ui";
-import { subscribeNewsletterAction } from "@/app/actions/newsletter";
+import { subscribeNewsletterApi } from "@/lib/api/storefront-client";
 import { ActionForm } from "@/components/action-form";
 
 const groups = [
@@ -110,7 +110,7 @@ export function SiteFooter() {
             occasionally.
           </p>
           <ActionForm
-            action={subscribeNewsletterAction}
+            action={subscribeNewsletterApi}
             className="mt-4 space-y-2"
             resetOnSuccess
           >

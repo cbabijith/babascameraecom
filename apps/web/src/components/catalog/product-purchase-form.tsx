@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ShoppingBag } from "lucide-react";
 import { Button } from "@babascamera/ui";
-import { addToCartAction } from "@/app/actions/cart";
+import { addToCartApi } from "@/lib/api/storefront-client";
 import { ActionForm } from "@/components/action-form";
 import {
   decimalToPaise,
@@ -86,7 +86,7 @@ export function ProductPurchaseForm({
       </p>
 
       <ActionForm
-        action={addToCartAction}
+        action={addToCartApi}
         className="mt-7 space-y-4"
         showMessage
       >

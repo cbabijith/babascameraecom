@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const publicPath = /^\/(?:login|api\/auth(?:\/|$)|auth(?:\/|$)|unauthorized(?:\/|$))/;
+const publicPath = /^\/(?:login|api\/auth(?:\/|$)|api\/admin\/auth(?:\/|$)|auth(?:\/|$)|unauthorized(?:\/|$))/;
 
 export function updateSession(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

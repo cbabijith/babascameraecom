@@ -20,13 +20,11 @@ import {
 } from "@babascamera/ui";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import {
-  placeOrderAction,
-  type CheckoutActionState,
-} from "@/app/actions/checkout";
-import {
-  previewCartCouponAction,
+  placeOrderApi,
+  previewCartCouponApi,
   type CartCouponState,
-} from "@/app/actions/cart-coupon";
+  type CheckoutActionState,
+} from "@/lib/api/storefront-client";
 import {
   checkoutInputSchema,
   type CheckoutFormInput,
@@ -203,7 +201,7 @@ export function CheckoutForm({
   const submit = form.handleSubmit((values) => {
     setState(null);
     startTransition(async () => {
-      const result = await placeOrderAction(values);
+      const result = await placeOrderApi(values);
       setState(result);
       if (!result.ok) return;
       if (result.order.paymentMethod === "cod" || result.order.completed) {
@@ -258,7 +256,7 @@ export function CheckoutForm({
     const formData = new FormData();
     formData.set("couponCode", form.getValues("couponCode") ?? "");
     startCouponTransition(async () => {
-      setQuote(await previewCartCouponAction(quote, formData));
+      setQuote(await previewCartCouponApi(quote, formData));
     });
   };
 

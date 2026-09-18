@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { Button, Input, Label } from "@babascamera/ui";
 import {
-  previewCartCouponAction,
+  previewCartCouponApi,
   type CartCouponState,
-} from "@/app/actions/cart-coupon";
+} from "@/lib/api/storefront-client";
 import { formatMoney } from "@/lib/format";
 
 export function CartCouponCard({
@@ -15,7 +15,7 @@ export function CartCouponCard({
   initialState: CartCouponState;
 }) {
   const [state, action, pending] = useActionState(
-    previewCartCouponAction,
+    previewCartCouponApi,
     initialState,
   );
   return (

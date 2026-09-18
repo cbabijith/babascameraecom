@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -17,13 +16,13 @@ import {
 } from "@babascamera/ui";
 import { useForm } from "react-hook-form";
 import {
-  forgotPasswordAction,
-  resetPasswordAction,
-  signInAction,
-  signInWithGoogleAction,
-  signUpAction,
+  forgotPasswordApi,
+  googleSignInApi,
+  resetPasswordApi,
+  signInApi,
+  signUpApi,
   type AuthActionState,
-} from "@/app/actions/auth";
+} from "@/lib/api/storefront-client";
 import {
   forgotPasswordSchema,
   loginSchema,
@@ -53,10 +52,30 @@ function ResultMessage({ state }: { state: AuthActionState }) {
   );
 }
 
-function GoogleButtonSubmit() {
-  const { pending } = useFormStatus();
+function GoogleButton({ next }: { next?: string | undefined }) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const start = async () => {
+    setPending(true);
+    try {
+      const result = await googleSignInApi(next ?? "/profile");
+      if (result.ok && result.url) {
+        window.location.assign(result.url);
+        return;
+      }
+      router.push(result.redirectTo ?? "/login?error=oauth");
+    } finally {
+      setPending(false);
+    }
+  };
   return (
-    <Button type="submit" variant="outline" className="w-full" disabled={pending}>
+    <Button
+      type="button"
+      variant="outline"
+      className="w-full"
+      disabled={pending}
+      onClick={start}
+    >
       {pending ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin text-blue-600" />
       ) : (
@@ -67,16 +86,8 @@ function GoogleButtonSubmit() {
   );
 }
 
-function GoogleButton({ next }: { next?: string | undefined }) {
-  return (
-    <form action={signInWithGoogleAction}>
-      <input type="hidden" name="next" value={next ?? "/profile"} />
-      <GoogleButtonSubmit />
-    </form>
-  );
-}
-
 export function LoginForm({ next }: { next?: string }) {
+  const router = useRouter();
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
@@ -89,7 +100,14 @@ export function LoginForm({ next }: { next?: string }) {
     formData.set("email", values.email);
     formData.set("password", values.password);
     formData.set("next", next ?? "/profile");
-    startTransition(async () => setState(await signInAction(formData)));
+    startTransition(async () => {
+      const result = await signInApi(formData);
+      setState(result);
+      if (result.ok) {
+        router.push(result.redirectTo ?? "/profile");
+        router.refresh();
+      }
+    });
   });
 
   return (
@@ -168,9 +186,12 @@ export function RegisterForm() {
     const formData = new FormData();
     for (const [key, value] of Object.entries(values)) formData.set(key, value);
     startTransition(async () => {
-      const result = await signUpAction(formData);
+      const result = await signUpApi(formData);
       setState(result);
-      if (result.ok && result.redirectTo) router.push(result.redirectTo);
+      if (result.ok && result.redirectTo) {
+        router.push(result.redirectTo);
+        router.refresh();
+      }
     });
   });
 
@@ -241,7 +262,7 @@ export function ForgotPasswordForm() {
     const formData = new FormData();
     formData.set("email", values.email);
     startTransition(async () =>
-      setState(await forgotPasswordAction(formData)),
+      setState(await forgotPasswordApi(formData)),
     );
   });
   return (
@@ -274,6 +295,7 @@ export function ForgotPasswordForm() {
 }
 
 export function ResetPasswordForm() {
+  const router = useRouter();
   const form = useForm<ResetPasswordInput>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: "", confirmPassword: "" },
@@ -284,7 +306,14 @@ export function ResetPasswordForm() {
     const formData = new FormData();
     formData.set("password", values.password);
     formData.set("confirmPassword", values.confirmPassword);
-    startTransition(async () => setState(await resetPasswordAction(formData)));
+    startTransition(async () => {
+      const result = await resetPasswordApi(formData);
+      setState(result);
+      if (result.ok) {
+        router.push(result.redirectTo ?? "/login?reset=success");
+        router.refresh();
+      }
+    });
   });
   return (
     <Form {...form}>

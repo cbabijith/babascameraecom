@@ -3,14 +3,14 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button, toast } from "@babascamera/ui";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { DataTable, SortableHeading } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
+import { adminJson } from "@/lib/api/client";
 import { formatPaise } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
-
-import { setCustomerActiveAction } from "../server/actions";
 
 export interface CustomerRow {
   id: string;
@@ -28,6 +28,7 @@ export function CustomerStatusButton({
 }: {
   customer: Pick<CustomerRow, "id" | "email" | "isActive">;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   return (
     <Button
@@ -39,19 +40,19 @@ export function CustomerStatusButton({
         const nextLabel = customer.isActive ? "disable" : "reactivate";
         if (!window.confirm(`${nextLabel === "disable" ? "Disable" : "Reactivate"} ${customer.email}?`)) return;
         startTransition(async () => {
-          const payload = new FormData();
-          payload.set("id", customer.id);
-          payload.set("isActive", customer.isActive ? "false" : "true");
-          try {
-            const result = await setCustomerActiveAction(payload);
-            if (!result.success) {
-              toast.error(result.error);
-              return;
-            }
-            toast.success(`Customer ${nextLabel === "disable" ? "disabled" : "reactivated"}.`);
-          } catch {
-            toast.error("Customer status could not be changed.");
+          const result = await adminJson(
+            `/api/admin/customers/${customer.id}/status`,
+            {
+              method: "PATCH",
+              body: { isActive: customer.isActive ? "false" : "true" },
+            },
+          );
+          if (!result.success) {
+            toast.error(result.error.message);
+            return;
           }
+          toast.success(`Customer ${nextLabel === "disable" ? "disabled" : "reactivated"}.`);
+          router.refresh();
         });
       }}
     >

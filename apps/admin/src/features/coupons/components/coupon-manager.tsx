@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Form, toast } from "@babascamera/ui";
 import { Pencil, Plus, Power } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -13,10 +14,9 @@ import {
   AdminSelectField,
 } from "@/components/admin-form-field";
 import { StatusBadge } from "@/components/status-badge";
+import { adminJson, stringifyValues } from "@/lib/api/client";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
-
-import { deleteCouponAction, saveCouponAction } from "../server/actions";
 
 interface Coupon {
   id: string;
@@ -44,6 +44,7 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 export function CouponManager({ coupons }: { coupons: Coupon[] }) {
+  const router = useRouter();
   const [editing, setEditing] = useState<Coupon | null | undefined>();
   const form = useForm<Values>({ resolver: zodResolver(schema) });
   const open = (item: Coupon | null) => {
@@ -60,20 +61,20 @@ export function CouponManager({ coupons }: { coupons: Coupon[] }) {
     });
   };
   const submit = form.handleSubmit(async (values) => {
-    const payload = new FormData();
-    if (editing) payload.set("id", editing.id);
-    Object.entries(values).forEach(([key, value]) => payload.set(key, String(value)));
-    try {
-      const result = await saveCouponAction(payload);
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Coupon saved.");
-      setEditing(undefined);
-    } catch {
-      toast.error("Coupon could not be saved.");
+    const result = await adminJson("/api/admin/coupons", {
+      method: "POST",
+      body: {
+        ...(editing ? { id: editing.id } : {}),
+        ...stringifyValues(values),
+      },
+    });
+    if (!result.success) {
+      toast.error(result.error.message);
+      return;
     }
+    toast.success("Coupon saved.");
+    setEditing(undefined);
+    router.refresh();
   });
   return (
     <>
@@ -92,18 +93,16 @@ export function CouponManager({ coupons }: { coupons: Coupon[] }) {
                 type="button"
                 onClick={async () => {
                   if (!window.confirm(`Disable coupon ${item.code}?`)) return;
-                  const payload = new FormData();
-                  payload.set("id", item.id);
-                  try {
-                    const result = await deleteCouponAction(payload);
-                    if (!result.success) {
-                      toast.error(result.error);
-                      return;
-                    }
-                    toast.success("Coupon disabled.");
-                  } catch {
-                    toast.error("Coupon could not be disabled.");
+                  const result = await adminJson(
+                    `/api/admin/coupons/${item.id}`,
+                    { method: "DELETE" },
+                  );
+                  if (!result.success) {
+                    toast.error(result.error.message);
+                    return;
                   }
+                  toast.success("Coupon disabled.");
+                  router.refresh();
                 }}
               >
                 <Power className="size-4" /> Disable

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Heart, ShoppingBag, Star } from "lucide-react";
 import { Button, Card, CardContent } from "@babascamera/ui";
-import { addToCartAction, toggleWishlistAction } from "@/app/actions/cart";
+import { addToCartApi, toggleWishlistApi } from "@/lib/api/storefront-client";
 import { ActionForm } from "@/components/action-form";
 import type { CatalogProduct } from "@/lib/data/storefront";
 import { formatMoney } from "@/lib/format";
@@ -18,7 +18,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
         </span>
       ) : null}
       <ActionForm
-        action={toggleWishlistAction}
+        action={toggleWishlistApi}
         className="absolute right-3 top-3 z-10"
       >
         <input type="hidden" name="productId" value={product.id} />
@@ -68,7 +68,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
             </span>
           ) : null}
         </div>
-        <ActionForm action={addToCartAction} className="mt-4">
+        <ActionForm action={addToCartApi} className="mt-4">
           <input type="hidden" name="productId" value={product.id} />
           <input
             type="hidden"

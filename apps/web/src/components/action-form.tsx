@@ -6,15 +6,16 @@ import {
   useRef,
   type ComponentProps,
 } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "@babascamera/ui";
 import type { StorefrontActionState } from "@/lib/action-state";
 
-type ServerFormAction = (
+type FormSubmitter = (
   formData: FormData,
 ) => Promise<StorefrontActionState<unknown>>;
 
 type ActionFormProps = Omit<ComponentProps<"form">, "action"> & {
-  action: ServerFormAction;
+  action: FormSubmitter;
   showMessage?: boolean;
   resetOnSuccess?: boolean;
 };
@@ -36,6 +37,7 @@ export function ActionForm({
   resetOnSuccess = false,
   ...props
 }: ActionFormProps) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const handledState = useRef<StorefrontActionState<unknown> | null>(null);
   const [state, formAction, pending] = useActionState(
@@ -52,10 +54,16 @@ export function ActionForm({
     if (state.success) {
       toast.success(state.message);
       if (resetOnSuccess) formRef.current?.reset();
+      // Server actions refreshed the tree automatically; API mutations
+      // must ask for it explicitly.
+      router.refresh();
       return;
     }
     toast.error(firstError(state));
-  }, [resetOnSuccess, state]);
+    if (!state.success && state.redirectTo) {
+      router.push(state.redirectTo);
+    }
+  }, [resetOnSuccess, router, state]);
 
   return (
     <form

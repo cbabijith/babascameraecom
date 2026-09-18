@@ -2,13 +2,13 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button, toast } from "@babascamera/ui";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
+import { adminJson } from "@/lib/api/client";
 import { formatDate } from "@/lib/utils";
-
-import { deleteReviewAction, setReviewApprovalAction } from "../server/actions";
 
 interface ReviewRow {
   id: string;
@@ -22,6 +22,7 @@ interface ReviewRow {
 }
 
 function ReviewActions({ review }: { review: ReviewRow }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const run = (action: "approval" | "delete") => {
     const prompt = action === "delete"
@@ -29,25 +30,31 @@ function ReviewActions({ review }: { review: ReviewRow }) {
       : `${review.isApproved ? "Hide" : "Approve"} this review?`;
     if (!window.confirm(prompt)) return;
     startTransition(async () => {
-      const payload = new FormData();
-      payload.set("id", review.id);
       try {
         if (action === "delete") {
-          const result = await deleteReviewAction(payload);
+          const result = await adminJson(`/api/admin/reviews/${review.id}`, {
+            method: "DELETE",
+          });
           if (!result.success) {
-            toast.error(result.error);
+            toast.error(result.error.message);
             return;
           }
           toast.success("Review deleted.");
         } else {
-          payload.set("isApproved", review.isApproved ? "false" : "true");
-          const result = await setReviewApprovalAction(payload);
+          const result = await adminJson(
+            `/api/admin/reviews/${review.id}/approval`,
+            {
+              method: "PATCH",
+              body: { isApproved: review.isApproved ? "false" : "true" },
+            },
+          );
           if (!result.success) {
-            toast.error(result.error);
+            toast.error(result.error.message);
             return;
           }
           toast.success(review.isApproved ? "Review hidden." : "Review approved.");
         }
+        router.refresh();
       } catch {
         toast.error("Review could not be updated.");
       }

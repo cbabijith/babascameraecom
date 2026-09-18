@@ -12,12 +12,13 @@ import {
   Input,
 } from "@babascamera/ui";
 import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { AdminInputField } from "@/components/admin-form-field";
-import { loginAction } from "@/features/auth/server/actions";
+import { adminJson } from "@/lib/api/client";
 
 const schema = z.object({
   email: z.string().trim().email(),
@@ -27,17 +28,29 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 export function LoginForm({ next }: { next: string }) {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { email: "", password: "" },
   });
   const submit = form.handleSubmit(async (values) => {
-    const payload = new FormData();
-    payload.set("email", values.email);
-    payload.set("password", values.password);
-    payload.set("next", next);
-    await loginAction(payload);
+    const result = await adminJson<{ redirectTo: string }>(
+      "/api/admin/auth/login",
+      {
+        method: "POST",
+        body: { email: values.email, password: values.password, next },
+      },
+    );
+    if (!result.success) {
+      // Keep the historical error flow: the sign-in page renders ?error=.
+      router.push(
+        `/login?error=${encodeURIComponent(result.error.message)}&next=${encodeURIComponent(next)}`,
+      );
+      return;
+    }
+    router.push(result.data.redirectTo);
+    router.refresh();
   });
 
   return (

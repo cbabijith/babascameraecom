@@ -13,12 +13,7 @@ import {
   AdminSelectField,
   AdminTextareaField,
 } from "@/components/admin-form-field";
-import {
-  deleteOrderAction,
-  refundOrderAction,
-  updateOrderStatusAction,
-  updatePaymentStatusAction,
-} from "@/features/orders/server/actions";
+import { adminJson, refundOrderApi } from "@/lib/api/client";
 
 const transitionSchema = z.object({
   toStatus: z.string().min(1),
@@ -38,6 +33,7 @@ export function OrderTransitionForm({
   currentStatus: string;
   allowed: readonly string[];
 }) {
+  const router = useRouter();
   const form = useForm<TransitionValues>({
     resolver: zodResolver(transitionSchema),
     defaultValues: { toStatus: allowed[0] ?? "", note: "", carrier: "", trackingNumber: "", trackingUrl: "" },
@@ -56,16 +52,17 @@ export function OrderTransitionForm({
   const next = form.watch("toStatus");
   const submit = form.handleSubmit(async (values) => {
     if (!window.confirm(`Move this order from ${currentStatus} to ${values.toStatus}?`)) return;
-    const payload = new FormData();
-    payload.set("orderId", orderId);
-    Object.entries(values).forEach(([key, value]) => payload.set(key, value));
     try {
-      const result = await updateOrderStatusAction(payload);
+      const result = await adminJson(`/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        body: values,
+      });
       if (!result.success) {
-        toast.error(result.error);
+        toast.error(result.error.message);
         return;
       }
       toast.success(`Order moved to ${values.toStatus}.`);
+      router.refresh();
     } catch (error) {
       console.error("Order status request failed.", error);
       toast.error("Order status could not be updated.");
@@ -99,19 +96,18 @@ export function OrderTransitionForm({
 }
 
 export function RefundForm({ orderId }: { orderId: string }) {
+  const router = useRouter();
   const form = useForm<{ reason: string }>({ defaultValues: { reason: "" } });
   const submit = form.handleSubmit(async (values) => {
     if (!window.confirm("Issue a full Razorpay refund? This provider action cannot be undone.")) return;
-    const payload = new FormData();
-    payload.set("orderId", orderId);
-    payload.set("reason", values.reason);
     try {
-      const result = await refundOrderAction(payload);
+      const result = await refundOrderApi(orderId, values.reason);
       if (!result.success) {
-        toast.error(result.error);
+        toast.error(result.error.message);
         return;
       }
       toast.success("Refund request reconciled with Razorpay.");
+      router.refresh();
     } catch (error) {
       console.error("Refund request failed.", error);
       toast.error("Refund request failed.");
@@ -144,6 +140,7 @@ export function PaymentStatusForm({
   currentPaymentStatus: string;
   isCancelled?: boolean;
 }) {
+  const router = useRouter();
   const form = useForm<PaymentStatusValues>({
     resolver: zodResolver(paymentStatusFormSchema),
     defaultValues: {
@@ -166,18 +163,24 @@ export function PaymentStatusForm({
       )
     )
       return;
-    const payload = new FormData();
-    payload.set("orderId", orderId);
-    payload.set("paymentStatus", values.paymentStatus);
-    if (values.note) payload.set("note", values.note);
 
     try {
-      const result = await updatePaymentStatusAction(payload);
+      const result = await adminJson(
+        `/api/admin/orders/${orderId}/payment-status`,
+        {
+          method: "PATCH",
+          body: {
+            paymentStatus: values.paymentStatus,
+            ...(values.note ? { note: values.note } : {}),
+          },
+        },
+      );
       if (!result.success) {
-        toast.error(result.error);
+        toast.error(result.error.message);
         return;
       }
       toast.success(`Payment status updated to ${values.paymentStatus}.`);
+      router.refresh();
     } catch (error) {
       console.error("Payment status update failed.", error);
       toast.error("Payment status could not be updated.");
@@ -252,13 +255,13 @@ export function DeleteOrderButton({
     }
 
     setIsDeleting(true);
-    const payload = new FormData();
-    payload.set("orderId", orderId);
 
     try {
-      const result = await deleteOrderAction(payload);
+      const result = await adminJson(`/api/admin/orders/${orderId}`, {
+        method: "DELETE",
+      });
       if (!result.success) {
-        toast.error(result.error);
+        toast.error(result.error.message);
         return;
       }
       toast.success(`Order ${orderNumber} deleted successfully.`);

@@ -1,14 +1,14 @@
 "use client";
 
 import {
-  ExternalLink, LogOut, Menu, PanelLeftClose, PanelLeftOpen,
+  ExternalLink, Menu, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import type { AdminUser } from "@/features/auth/server/admin";
-import { logoutAction } from "@/features/auth/server/actions";
+import { LogoutButton } from "@/features/auth/components/logout-button";
 import { AdminSidebarNav } from "@/features/navigation/components/admin-sidebar-nav";
 import { Topbar } from "@/components/topbar";
 import { cn } from "@babascamera/ui";
@@ -49,11 +49,7 @@ export function AdminShell({ admin, children }: { admin: AdminUser; children: Re
         <div className={cn("flex items-center gap-2 rounded-md border border-[var(--admin-border)] bg-white p-2 text-[var(--admin-text)]", collapsed && "grid justify-items-center")}>
           <span className="grid size-7 place-items-center rounded-md bg-[#303030] text-xs font-semibold text-white">{admin.fullName.slice(0, 1).toUpperCase()}</span>
           {!collapsed ? <span className="min-w-0 flex-1"><b className="block truncate text-sm font-medium">{admin.fullName}</b><small className="text-xs text-[var(--admin-muted)]">Administrator</small></span> : null}
-          <form action={logoutAction}>
-            <button type="submit" aria-label="Sign out" title="Sign out" className="grid size-8 place-items-center rounded-md text-[var(--admin-muted)] hover:bg-[var(--admin-surface-hover)] hover:text-[var(--admin-text)]">
-              <LogOut className="size-4" />
-            </button>
-          </form>
+          <LogoutButton className="grid size-8 place-items-center rounded-md text-[var(--admin-muted)] hover:bg-[var(--admin-surface-hover)] hover:text-[var(--admin-text)]" />
         </div>
       </aside>
       <div className="min-w-0 lg:col-start-2">
@@ -82,11 +78,7 @@ export function AdminShell({ admin, children }: { admin: AdminUser; children: Re
                 <a href={storefront} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-md px-2 py-2 text-sm text-[var(--admin-muted)] hover:bg-[var(--admin-surface-hover)] hover:text-[var(--admin-text)]">
                   View storefront <ExternalLink className="size-4" />
                 </a>
-                <form action={logoutAction}>
-                  <button type="submit" className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-[var(--admin-muted)] hover:bg-[var(--admin-surface-hover)] hover:text-[var(--admin-text)]">
-                    <LogOut className="size-4" /> Sign out
-                  </button>
-                </form>
+                <LogoutButton showLabel className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-[var(--admin-muted)] hover:bg-[var(--admin-surface-hover)] hover:text-[var(--admin-text)]" />
               </div>
             </div>
           </details>

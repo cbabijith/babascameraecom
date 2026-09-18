@@ -3,13 +3,13 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button, toast } from "@babascamera/ui";
 import { ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { DataTable, SortableHeading } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
+import { adminJson } from "@/lib/api/client";
 import { formatDate } from "@/lib/utils";
-
-import { promoteUserToAdminAction } from "../server/actions";
 
 export interface UserRow {
   id: string;
@@ -23,6 +23,7 @@ export interface UserRow {
 }
 
 function PromoteButton({ user }: { user: UserRow }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   if (user.role === "admin") {
     return <span className="text-xs font-semibold text-slate-500">Administrator</span>;
@@ -39,11 +40,16 @@ function PromoteButton({ user }: { user: UserRow }) {
           return;
         }
         startTransition(async () => {
-          const payload = new FormData();
-          payload.set("id", user.id);
-          const result = await promoteUserToAdminAction(payload);
-          if (result.success) toast.success(`${user.email} is now an administrator.`);
-          else toast.error(result.error);
+          const result = await adminJson(`/api/admin/users/${user.id}/promote`, {
+            method: "POST",
+            body: {},
+          });
+          if (result.success) {
+            toast.success(`${user.email} is now an administrator.`);
+            router.refresh();
+          } else {
+            toast.error(result.error.message);
+          }
         });
       }}
     >

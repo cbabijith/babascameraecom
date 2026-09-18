@@ -9,7 +9,7 @@ import {
   Label,
   Textarea,
 } from "@babascamera/ui";
-import { submitReviewAction } from "@/app/actions/reviews";
+import { submitReviewApi } from "@/lib/api/storefront-client";
 import { ActionForm } from "@/components/action-form";
 import { formatDate } from "@/lib/format";
 
@@ -200,7 +200,7 @@ export function ProductTabs({
             </h2>
             {signedIn ? (
               <ActionForm
-                action={submitReviewAction}
+                action={submitReviewApi}
                 className="mt-4 space-y-4"
                 showMessage
               >
