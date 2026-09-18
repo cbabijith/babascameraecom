@@ -61,7 +61,10 @@ export function DataTable<TData>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getRowId: getRowId ?? ((row: any, index: number) => row?.id ?? String(index)),
+    getRowId:
+      getRowId ??
+      ((row: TData, index: number) =>
+        (row as { id?: string })?.id ?? String(index)),
     ...(paginated ? { getPaginationRowModel: getPaginationRowModel() } : {}),
     initialState: { pagination: { pageIndex: 0, pageSize: 25 } },
   });

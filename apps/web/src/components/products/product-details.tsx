@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import AppBreadcrumb from "../common/app-breadcrumb";
 import ProductDetailsSkeleton from "../ui/ProductDetailsSkeleton";
 import RazorpayAffordabilityWidget from "./razorpay-affordability-widget";
+import ProductReviews from "./product-reviews";
 import type { CartItem } from "@/types/cart";
 import {
   addNotificationAsync,
@@ -484,6 +485,7 @@ export default function ProductDetails({ productId, initialProduct }: ProductDet
                   src={productImages[currentImageIndex]}
                   alt={product.name}
                   fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                   className="object-contain p-2 sm:p-4 lg:p-8 select-none"
                   priority
                   draggable={false}
@@ -979,6 +981,15 @@ export default function ProductDetails({ productId, initialProduct }: ProductDet
               </Accordion>
             </div>
           </section>
+        )}
+
+        {product && (
+          <ProductReviews
+            productId={product._id}
+            productSlug={product.slug || product._id}
+            averageRating={Number(product.averageRating ?? 0)}
+            reviewCount={Number(product.reviewCount ?? 0)}
+          />
         )}
 
         {youMayAlso.length > 0 && (

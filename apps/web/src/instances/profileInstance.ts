@@ -30,6 +30,10 @@ export const getUserProfile = async (): Promise<UserProfile> => {
 
     throw new Error(response.data.message || "Failed to fetch user profile");
   } catch (error) {
+    // 401 is expected for guests — surface it without the noisy log.
+    if (error instanceof Error && error.message.includes("401")) {
+      throw new Error("Not signed in");
+    }
     console.error("getUserProfile error:", error);
     throw error;
   }

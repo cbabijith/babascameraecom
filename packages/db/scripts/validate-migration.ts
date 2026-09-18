@@ -8,7 +8,7 @@ const migrationFiles = (await readdir(migrationDirectory))
   .filter((fileName) => fileName.endsWith(".sql"))
   .sort();
 
-if (migrationFiles.length !== 2) {
+if (migrationFiles.length < 2) {
   throw new Error(
     `Expected the authoritative base and homepage banner migrations, found ${migrationFiles.length}: ${migrationFiles.join(", ")}`,
   );

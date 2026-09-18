@@ -265,6 +265,7 @@ return (
             src="/PHOTO_STORE_black.svg"
             alt="babas"
             fill
+            sizes="140px"
             className="object-contain"
             priority
           />
@@ -280,6 +281,7 @@ return (
           src="/PHOTO_STORE_black.svg"
           alt="babas"
           fill
+          sizes="140px"
           className="object-contain"
           priority
         />

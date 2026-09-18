@@ -9,6 +9,8 @@ import { getCategories } from "@/instances/categoryInstance";
 import { getProductsByCategory } from "@/instances/productInstance";
 import type { Category } from "@/types/product";
 import { toast } from "sonner";
+import { ActionForm } from "@/components/action-form";
+import { subscribeNewsletterApi } from "@/lib/api/storefront-client";
 import { usePathname } from "next/navigation";
 
 interface CachedCats { ts: number; cats: Category[] }
@@ -180,6 +182,32 @@ export default function Footer() {
                     );
                   })}
                 </ul>
+              </div>
+
+              {/* Newsletter */}
+              <div className="flex flex-col gap-[8px] flex-1 lg:flex-none lg:min-w-[220px]">
+                <h3 className="font-[650] text-[14px] text-[#000000]">Stay in the loop</h3>
+                <p className="text-[13px] text-[#475569] leading-5">
+                  Product launches and photography advice, sent occasionally.
+                </p>
+                <ActionForm action={subscribeNewsletterApi} className="mt-1 space-y-2" resetOnSuccess showMessage>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      aria-label="Email for newsletter"
+                      placeholder="you@example.com"
+                      className="h-10 flex-1 min-w-0 rounded-lg border border-[#E4E4E7] bg-white px-3 text-[13px] text-[#1A1A2E] focus:outline-none focus:ring-1 focus:ring-[#E72429]"
+                    />
+                    <button
+                      type="submit"
+                      className="h-10 shrink-0 rounded-lg bg-[#E72429] px-4 text-[13px] font-semibold text-white hover:bg-[#c71e23] transition-colors"
+                    >
+                      Subscribe
+                    </button>
+                  </div>
+                </ActionForm>
               </div>
 
 

@@ -20,11 +20,6 @@ const tones: Record<string, string> = {
   inactive: "border-slate-200 bg-slate-100 text-slate-600",
 };
 
-const labels: Record<string, string> = {
-  razorpay: "Razorpay (Online)",
-  bank_transfer: "Bank Transfer",
-  cod: "Cash on Delivery",
-};
 
 export function StatusBadge({ status, label }: { status: string; label?: string | undefined }) {
   const normalized = status.toLowerCase();

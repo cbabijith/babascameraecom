@@ -16,9 +16,10 @@ export const BANNER_MEDIA_FIELDS = [
   "posterUrl",
 ] as const;
 
-export type BannerMediaReferences = {
-  [K in (typeof BANNER_MEDIA_FIELDS)[number]]: string | null;
-};
+export type BannerMediaReferences = Record<
+  (typeof BANNER_MEDIA_FIELDS)[number],
+  string | null
+>;
 
 export function restoreStoredMediaReferences<
   T extends BannerMediaReferences,

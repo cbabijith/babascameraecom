@@ -5,6 +5,7 @@ import WishlistCard from "@/components/wishlist/wishlistCard";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
+import { createSelector } from "@reduxjs/toolkit";
 import type { RootState, AppDispatch } from "@/store";
 import {
   fetchWishlistAsync,
@@ -66,6 +67,16 @@ const WishlistCardSkeleton: React.FC = () => (
   </div>
 );
 
+const selectWishlistMap = (s: RootState) => s.wishlist.byProductId;
+const selectWishlistItems = createSelector([selectWishlistMap], (byProductId) =>
+  Object.values(byProductId),
+);
+const selectWishlistHasUnpopulated = createSelector([selectWishlistMap], (byProductId) =>
+  Object.values(byProductId).some(
+    (it) => typeof (it as { product?: unknown })?.product === "string",
+  ),
+);
+
 const WishlistPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
@@ -81,15 +92,10 @@ const WishlistPage: React.FC = () => {
   const isGuest = authReady && !user;
 
 
-  const wishlistItems: WishlistItem[] = useSelector((s: RootState) =>
-    Object.values(s.wishlist.byProductId)
-  );
+  const wishlistItems = useSelector(selectWishlistItems);
+  const hasUnpopulated = useSelector(selectWishlistHasUnpopulated);
 
   const [addingMap, setAddingMap] = useState<Record<string, boolean>>({});
-  const wishlistMap = useSelector((s: RootState) => s.wishlist.byProductId);
-  const hasUnpopulated = Object.values(wishlistMap).some(
-    (it) => typeof (it as { product?: unknown })?.product === 'string'
-  );
   useEffect(() => {
     if (user && !initialized && !loading) {
       void dispatch(fetchWishlistAsync());

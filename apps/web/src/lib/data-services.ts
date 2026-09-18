@@ -34,15 +34,12 @@ export const categoryService = {
 export const productService = {
   // Get all products
   getAll: (): Product[] => {
-    console.log('productService.getAll called, returning', products.length, 'products')
     return products
   },
 
   // Get product by ID
   getById: (id: string): Product | undefined => {
-    console.log('productService.getById called with id:', id)
     const product = products.find(product => product.id === id)
-    console.log('Found product:', product ? product.name : 'Not found')
     return product
   },
 

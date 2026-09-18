@@ -227,6 +227,7 @@ const CheckoutPageContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [deliverySettings, setDeliverySettings] =
     useState<Required<DeliverySettings>>(DELIVERY_DEFAULTS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // Use paymentMethod from Redux
   const paymentMethod = useSelector(selectCheckoutMethod);
@@ -261,6 +262,7 @@ const CheckoutPageContent: React.FC = () => {
   // Fetch cart once per user
   const lastFetchedUserIdRef = useRef<string | null>(null);
   const noPaymentRef = useRef(false);
+  const orderFlowRef = useRef(false);
   const lastOrderCodeRef = useRef<string | null>(null);
   const userId: string | null = getUserId(user);
 
@@ -371,12 +373,14 @@ const CheckoutPageContent: React.FC = () => {
 
       if (settingsRes.status === "fulfilled" && settingsRes.value) {
         const data = settingsRes.value;
+        setSettingsLoaded(true);
         setDeliverySettings({
           enableFreeDelivery: data.enableFreeDelivery ?? DELIVERY_DEFAULTS.enableFreeDelivery,
           deliveryChargeFlat: Math.max(0, toNumber(data.deliveryChargeFlat ?? DELIVERY_DEFAULTS.deliveryChargeFlat)),
           freeDeliveryThreshold: Math.max(0, toNumber(data.freeDeliveryThreshold ?? DELIVERY_DEFAULTS.freeDeliveryThreshold)),
         });
       } else {
+        setSettingsLoaded(true);
         setDeliverySettings(DELIVERY_DEFAULTS);
       }
     }
@@ -392,6 +396,7 @@ const CheckoutPageContent: React.FC = () => {
             deliveryChargeFlat: Math.max(0, toNumber(data.deliveryChargeFlat ?? DELIVERY_DEFAULTS.deliveryChargeFlat)),
             freeDeliveryThreshold: Math.max(0, toNumber(data.freeDeliveryThreshold ?? DELIVERY_DEFAULTS.freeDeliveryThreshold)),
           });
+        setSettingsLoaded(true);
         })
         .catch(() => {
           if (mounted) setDeliverySettings(DELIVERY_DEFAULTS);
@@ -635,6 +640,20 @@ const CheckoutPageContent: React.FC = () => {
   };
 
   const handlePlaceOrder = async () => {
+    // Re-entry guard: once an order flow is in flight (order creation,
+    // Razorpay window, bank-transfer redirect) ignore further clicks so a
+    // double-tap can never create a second order or fire the "No items"
+    // guard while the first submission is still working.
+    if (orderFlowRef.current) return;
+    orderFlowRef.current = true;
+    try {
+      await placeOrderInner();
+    } finally {
+      orderFlowRef.current = false;
+    }
+  };
+
+  const placeOrderInner = async () => {
     if (!selectedAddressId) {
       // Mobile users scroll down to the confirm button and can't see the
       // address section — pull them back up and flag the missing address.
@@ -652,9 +671,32 @@ const CheckoutPageContent: React.FC = () => {
       return;
     }
 
-    // BANK TRANSFER → go to bank-transfer page (store has the context)
+    // BANK TRANSFER → create the order NOW so it exists even if the customer
+    // drops off before submitting transfer details; the bank-transfer page
+    // then only attaches the payment proof to this order.
     if (paymentMethod === "BANK_TRANSFER") {
-      router.push(`/checkout/bank-transfer`);
+      setIsPlacingOrder(true);
+      try {
+        await checkoutCart();
+        const resp = await createOrder({
+          totalOrderPrice: payableTotal,
+          shippingAddress: selectedAddressId,
+          deliveryCharge,
+          method: "BANK_TRANSFER",
+          ...(coupon && !isBuyNow ? { couponCode: coupon.code } : {}),
+        });
+        const { order } = extractOrderTxn(resp);
+        if (!order?._id) throw new Error("Order creation failed");
+        toast.success("Order created", {
+          description: "Complete the bank transfer details to finish payment.",
+        });
+        router.replace(`/checkout/bank-transfer?order=${order._id}`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not create order");
+        dispatch(fetchCart());
+      } finally {
+        setIsPlacingOrder(false);
+      }
       return;
     }
 
@@ -1010,6 +1052,7 @@ const CheckoutPageContent: React.FC = () => {
             <div className="lg:col-span-1">
               <CheckoutSummary
                 itemsTotal={itemsTotal}
+                totalsPending={!settingsLoaded}
                 deliveryCharge={deliveryCharge}
                 platformFee={platformFeeRaw}
                 avoidedFee={platformFeeCalc}

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -28,6 +28,8 @@ import type { Address } from "@/types/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { checkoutCart, createOrder, createBuyNowOrder } from "@/instances/cartInstance";
+import { getOrderById } from "@/instances/orderInstance";
+import type { Order } from "@/types/order";
 
 import { getSpecificSettings } from "@/instances/settingsInstance";
 import {
@@ -104,6 +106,29 @@ function BankTransferInner() {
   const cartItems = useSelector(selectCartItems);
   void useSelector(selectCartLoading);
   const cartError = useSelector(selectCartError);
+
+  // Order mode (BC-02): the order was already created at checkout
+  // confirmation; this page only attaches the transfer proof to it.
+  const searchParams = useSearchParams();
+  const existingOrderId = searchParams.get("order");
+  const [existingOrder, setExistingOrder] = useState<Order | null>(null);
+  const isOrderMode = !!existingOrderId && !isBuyNowFlow;
+  useEffect(() => {
+    if (!existingOrderId || isBuyNowFlow) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const order = await getOrderById(existingOrderId);
+        if (mounted) setExistingOrder(order);
+      } catch {
+        if (mounted) {
+          toast.error("Could not load your order", { description: "Please contact support with your order number." });
+        }
+      }
+    })();
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingOrderId, isBuyNowFlow]);
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(storeAddressId);
   useEffect(() => {
@@ -206,7 +231,16 @@ function BankTransferInner() {
     };
   }, [isBuyNowFlow, buyNowProductId]);
 
+  const orderItemsTotal = existingOrder?.summary?.items ?? 0;
+  const orderDelivery = Number(existingOrder?.summary?.deliveryCharge ?? 0);
+  const orderTotal = existingOrder?.summary?.total ?? 0;
+  const orderCouponDiscount = Math.max(
+    0,
+    orderItemsTotal + orderDelivery - orderTotal,
+  );
+
   const itemsTotal = useMemo(() => {
+    if (isOrderMode) return orderItemsTotal;
     if (isBuyNowFlow) {
       const price = toNumber(buyNowProduct?.price?.salePrice);
       return price * buyNowQty;
@@ -217,7 +251,7 @@ function BankTransferInner() {
       const qty = toNumber(item?.quantity);
       return sum + price * qty;
     }, 0);
-  }, [isBuyNowFlow, buyNowProduct, buyNowQty, cartItems]);
+  }, [isOrderMode, orderItemsTotal, isBuyNowFlow, buyNowProduct, buyNowQty, cartItems]);
 
   const deliveryCharge = useMemo(() => {
     if (itemsTotal <= 0) return 0;
@@ -233,9 +267,10 @@ function BankTransferInner() {
 
   // Coupon applied on the cart — revalidated against the preview API; the
   // amount the customer transfers must match what the order will store.
-  const [couponDiscount, setCouponDiscount] = useState(0);
+  // In order mode the discount is already baked into the stored order.
+  const [cartCouponDiscount, setCartCouponDiscount] = useState(0);
   useEffect(() => {
-    if (isBuyNowFlow) return;
+    if (isBuyNowFlow || isOrderMode) return;
     let mounted = true;
     const stored = getAppliedCouponCode();
     if (!stored) return;
@@ -244,7 +279,7 @@ function BankTransferInner() {
         const preview = await previewCoupon(stored);
         if (!mounted) return;
         if (preview.ok && Number(preview.discount) > 0) {
-          setCouponDiscount(Number(preview.discount));
+          setCartCouponDiscount(Number(preview.discount));
         } else {
           clearAppliedCouponCode();
         }
@@ -255,17 +290,28 @@ function BankTransferInner() {
     return () => {
       mounted = false;
     };
-  }, [isBuyNowFlow]);
+  }, [isBuyNowFlow, isOrderMode]);
 
-  const baseTotal = Math.max(0, itemsTotal - couponDiscount) + deliveryCharge;
+  const couponDiscount = isOrderMode ? orderCouponDiscount : cartCouponDiscount;
+  const baseTotal = isOrderMode
+    ? orderTotal
+    : Math.max(0, itemsTotal - couponDiscount) + deliveryCharge;
 
   useEffect(() => {
     setAmountString(baseTotal.toFixed(2));
   }, [baseTotal]);
 
   const itemCount = useMemo(
-    () => (isBuyNowFlow ? buyNowQty : cartItems.reduce((c, it) => c + (toNumber(it?.quantity) || 0), 0)),
-    [isBuyNowFlow, buyNowQty, cartItems]
+    () =>
+      isOrderMode
+        ? (existingOrder?.items ?? []).reduce(
+            (c, it) => c + (toNumber(it?.quantity) || 0),
+            0,
+          )
+        : isBuyNowFlow
+          ? buyNowQty
+          : cartItems.reduce((c, it) => c + (toNumber(it?.quantity) || 0), 0),
+    [isOrderMode, existingOrder, isBuyNowFlow, buyNowQty, cartItems],
   );
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,7 +357,7 @@ function BankTransferInner() {
   };
 
   const canSubmit =
-    !!selectedAddressId &&
+    (isOrderMode || !!selectedAddressId) &&
     !!referenceNumber.trim() &&
     (!!selectedFile || !!proofFileId) &&
     !uploading &&
@@ -320,7 +366,7 @@ function BankTransferInner() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedAddressId) {
+    if (!isOrderMode && !selectedAddressId) {
       toast.error("Address required", { description: "Please select or add a delivery address." });
       return;
     }
@@ -345,10 +391,40 @@ function BankTransferInner() {
         setProofFileId(proofId);
       }
 
+      if (isOrderMode && existingOrderId) {
+        // Order already created at checkout confirmation — attach the proof.
+        const res = await fetch("/api/storefront/legacy/order/bank-proof", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: existingOrderId,
+            referenceNumber: referenceNumber.trim(),
+            accountName: bankName,
+            proofFile: proofId,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.message || "Could not submit transfer details");
+        }
+        clearAppliedCouponCode();
+        toast.success("Transfer details submitted", {
+          description: "We'll verify your payment and update the order status.",
+        });
+        router.replace("/orders");
+        return;
+      }
+
       if (isBuyNowFlow) {
         // BUY NOW + BANK TRANSFER via /order/buy-now
         if (!buyNowProduct || !buyNowProduct._id) {
           toast.error("Product not found", { description: "Please go back and try again." });
+          return;
+        }
+
+        if (!selectedAddressId) {
+          toast.error("Address required", { description: "Please select or add a delivery address." });
           return;
         }
 
@@ -374,7 +450,13 @@ function BankTransferInner() {
         return;
       }
 
-      // CART + BANK TRANSFER via /order/user
+      // CART + BANK TRANSFER via /order/user (legacy path — only reachable
+      // when the checkout confirmation could not pre-create the order)
+      if (!selectedAddressId) {
+        toast.error("Address required", { description: "Please select or add a delivery address." });
+        return;
+      }
+
       await checkoutCart();
 
       const payload: BankTransferOrderPayload = {

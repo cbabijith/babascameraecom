@@ -45,6 +45,7 @@ import {
 } from "@/features/address";
 import {
   cancelUserOrder,
+  attachBankTransferToOrder,
   createOrderFromCheckout,
   fetchOrderById,
   fetchUserOrders,
@@ -441,6 +442,12 @@ export async function POST(
     if (resource === "order" && (identifier === "user" || identifier === "buy-now")) {
       const body = await request.json().catch(() => ({}));
       const result = await createOrderFromCheckout(body, identifier === "buy-now");
+      return success({ result, order: result });
+    }
+
+    if (resource === "order" && identifier === "bank-proof") {
+      const body = await request.json().catch(() => ({}));
+      const result = await attachBankTransferToOrder(body);
       return success({ result, order: result });
     }
 

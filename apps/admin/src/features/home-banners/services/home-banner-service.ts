@@ -170,7 +170,7 @@ export async function processAndUploadImage(file: File, role: string): Promise<U
   return { path, url, contentType: "image/webp" };
 }
 
-export async function processAndUploadVideo(file: File, role: "desktop" | "mobile"): Promise<UploadedBannerMedia> {
+export async function processAndUploadVideo(file: File, _role: "desktop" | "mobile"): Promise<UploadedBannerMedia> {
   if (file.type !== "video/mp4" || file.size <= 0 || file.size > VIDEO_MAX_BYTES) {
     throw new HomeBannerError("Choose an MP4 video no larger than 40 MiB.", "INVALID_VIDEO", 422);
   }

@@ -219,7 +219,7 @@ function BannerProductSelector({
         setProductMap((prev) => {
           const next = new Map(prev);
           for (const row of res.data.rows) {
-            const primaryImage = row.images?.find((img: any) => img.isPrimary) || row.images?.[0];
+            const primaryImage = row.images?.find((img: { isPrimary?: boolean }) => img.isPrimary) || row.images?.[0];
             next.set(row.id, {
               id: row.id,
               name: row.name,
@@ -232,7 +232,7 @@ function BannerProductSelector({
           return next;
         });
       })
-      .catch(() => {});
+      .catch(() => undefined);
 
     return () => {
       isMounted = false;
@@ -254,8 +254,15 @@ function BannerProductSelector({
         .then((res) => {
           setIsSearching(false);
           if (res.success && res.data?.rows) {
-            const results: ProductSearchResult[] = res.data.rows.map((row: any) => {
-              const primaryImage = row.images?.find((img: any) => img.isPrimary) || row.images?.[0];
+            const results: ProductSearchResult[] = res.data.rows.map((row: {
+              id: string;
+              name: string;
+              sku: string;
+              salePrice: number | string;
+              mrp: number | string;
+              images?: { url: string; isPrimary?: boolean }[];
+            }) => {
+              const primaryImage = row.images?.find((img) => img.isPrimary) || row.images?.[0];
               return {
                 id: row.id,
                 name: row.name,

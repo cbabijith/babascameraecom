@@ -13,7 +13,6 @@ export default function VerificationCodeForm() {
 
   // Get email from query params (if passed from previous step)
   const email = searchParams?.get("email");
-  console.log(email)
 
   const handleChange = (index: number, value: string) => {
     if (value.length <= 1 && /^\d*$/.test(value)) {

@@ -754,6 +754,56 @@ export async function fetchOrderById(orderId: string) {
   }
 }
 
+export async function attachBankTransferToOrder(payload: {
+  orderId: string;
+  referenceNumber: string;
+  accountName?: string;
+  proofFile?: string | null;
+}) {
+  if (!payload.orderId || !payload.referenceNumber?.trim()) {
+    throw new OrderDataError("Order ID and reference number are required.", 400);
+  }
+  const user = await getOptionalUser();
+  if (!user) throw new OrderDataError("Please log in to complete your order.", 401);
+
+  const db = getDatabase();
+  const [orderRow] = await db
+    .select()
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, payload.orderId), eq(ordersTable.userId, user.id)))
+    .limit(1);
+  if (!orderRow) throw new OrderDataError("Order not found or access denied.", 404);
+  if (orderRow.paymentMethod !== "bank_transfer") {
+    throw new OrderDataError("This order is not a bank-transfer order.", 400);
+  }
+  if (["cancelled", "refunded"].includes(orderRow.status)) {
+    throw new OrderDataError(`Order cannot be updated as it is ${orderRow.status}.`, 400);
+  }
+
+  const notesText = [
+    `Bank Transfer Ref: ${payload.referenceNumber.trim()}`,
+    payload.accountName ? `Account: ${payload.accountName}` : null,
+    payload.proofFile ? `Proof: ${payload.proofFile}` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  await db
+    .update(ordersTable)
+    .set({ notes: notesText, updatedAt: new Date() })
+    .where(eq(ordersTable.id, payload.orderId));
+
+  await db.insert(orderStatusHistory).values({
+    orderId: payload.orderId,
+    fromStatus: orderRow.status,
+    toStatus: orderRow.status,
+    note: `Payment proof submitted (ref ${payload.referenceNumber.trim()})`,
+    actorId: user.id,
+  });
+
+  return fetchOrderById(payload.orderId);
+}
+
 export async function cancelUserOrder(orderId: string, reason = "Cancelled by customer") {
   if (!orderId) {
     throw new OrderDataError("Order ID is required", 400);

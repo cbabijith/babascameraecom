@@ -14,6 +14,7 @@ interface CheckoutSummaryProps {
   itemCount: number;
   couponCode?: string | null;
   couponDiscount?: number;
+  totalsPending?: boolean; // hide amounts until delivery settings load
   paymentMethod: PaymentMethod;
   onChangePaymentMethod: (m: PaymentMethod) => void;
   onPlaceOrder: () => void;
@@ -51,6 +52,7 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
   itemCount,
   couponCode = null,
   couponDiscount = 0,
+  totalsPending = false,
   paymentMethod,
   onChangePaymentMethod,
   onPlaceOrder,
@@ -127,7 +129,7 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
         <div className="flex justify-between items-center">
           <span className="text-[17px] font-[650] text-[#3A3A3C]">Total</span>
           <div className="flex items-center gap-2">
-            <span className="text-[17px] font-[650] text-[#3A3A3C]">{rupee(total)}</span>
+            <span className="text-[17px] font-[650] text-[#3A3A3C]">{totalsPending ? "…" : rupee(total)}</span>
             <button
               onClick={() => setShowDetails(!showDetails)}
               className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -220,7 +222,7 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
               <Loader2 className="size-4 animate-spin" /> Placing order…
             </span>
           ) : (
-            <>Confirm &amp; Place Order</>
+            <>{totalsPending ? "Preparing totals…" : "Confirm & Place Order"}</>
           )}
         </Button>
       </div>
