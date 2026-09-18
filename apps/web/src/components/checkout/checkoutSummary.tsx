@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 
 type PaymentMethod = "RAZORPAY" | "BANK_TRANSFER";
 
@@ -203,7 +203,13 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
           disabled={isOrderDisabled}
           className="w-full max-w-[280px] sm:w-[280px] h-[38px] sm:h-[40px] disabled:bg-gray-400 disabled:cursor-not-allowed rounded-[20px]"
         >
-          Confirm &amp; Place Order
+          {isOrderDisabled ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="size-4 animate-spin" /> Placing order…
+            </span>
+          ) : (
+            <>Confirm &amp; Place Order</>
+          )}
         </Button>
       </div>
     </div>

@@ -106,17 +106,35 @@ const DELIVERY_DEFAULTS: Required<DeliverySettings> = {
 
 
 /* -------------------- Razorpay -------------------- */
-const loadRazorpayScript = (): Promise<boolean> =>
-  new Promise((resolve) => {
-    if (typeof window === "undefined") return resolve(false);
-    if (document.getElementById("razorpay-checkout-js")) return resolve(true);
+let razorpayScriptPromise: Promise<boolean> | null = null;
+const loadRazorpayScript = (): Promise<boolean> => {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.Razorpay) return Promise.resolve(true);
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+  razorpayScriptPromise = new Promise<boolean>((resolve) => {
+    const existing = document.getElementById("razorpay-checkout-js") as HTMLScriptElement | null;
+    if (existing) {
+      // A preload already inserted the tag; wait for it instead of assuming
+      // it finished loading.
+      existing.addEventListener("load", () => resolve(true), { once: true });
+      existing.addEventListener("error", () => {
+        razorpayScriptPromise = null;
+        resolve(false);
+      }, { once: true });
+      return;
+    }
     const s = document.createElement("script");
     s.id = "razorpay-checkout-js";
     s.src = "https://checkout.razorpay.com/v1/checkout.js";
     s.onload = () => resolve(true);
-    s.onerror = () => resolve(false);
+    s.onerror = () => {
+      razorpayScriptPromise = null;
+      resolve(false);
+    };
     document.body.appendChild(s);
   });
+  return razorpayScriptPromise;
+};
 
 interface RazorpaySuccessResponse {
   razorpay_payment_id?: string;
@@ -216,6 +234,12 @@ const CheckoutPageContent: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
+  // Warm up the Razorpay checkout bundle while the customer fills the form so
+  // its download never sits between "Place order" and the payment window.
+  useEffect(() => {
+    if (paymentMethod === "RAZORPAY") void loadRazorpayScript();
+  }, [paymentMethod]);
+
   // Redux state
   const cartItems = useSelector(selectCartItems);
   const cartLoading = useSelector(selectCartLoading);
@@ -233,14 +257,7 @@ const CheckoutPageContent: React.FC = () => {
   const lastFetchedUserIdRef = useRef<string | null>(null);
   const noPaymentRef = useRef(false);
   const lastOrderCodeRef = useRef<string | null>(null);
-  const delayedClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userId: string | null = getUserId(user);
-
-  useEffect(() => {
-    return () => {
-      if (delayedClearRef.current) clearTimeout(delayedClearRef.current);
-    };
-  }, []);
 
   // Addresses state
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -605,6 +622,10 @@ const CheckoutPageContent: React.FC = () => {
     }
 
     setIsPlacingOrder(true);
+    // Start the checkout.js download now (if not preloaded) so it overlaps
+    // the order-creation round trips instead of following them.
+    void loadRazorpayScript();
+    let paymentWindowOpened = false;
     try {
       if (isBuyNow) {
         // BUY NOW flow (doesn't touch server cart)
@@ -631,9 +652,6 @@ const CheckoutPageContent: React.FC = () => {
         const resp = await createBuyNowOrder(payload);
         const { order, transaction } = extractOrderTxn(resp);
 
-        // Clear local Buy Now view immediately
-        setBuyNowItem(null);
-
         if (isNoPaymentSuccess(transaction)) {
           noPaymentRef.current = true;
           lastOrderCodeRef.current = order?.code ?? null;
@@ -657,21 +675,24 @@ const CheckoutPageContent: React.FC = () => {
             customerPhone: user?.phone,
             onComplete: onPaymentComplete,
           });
-          if (err) toast.error("Payment not started", { description: err });
+          if (err) {
+            toast.error("Payment not started", { description: err });
+            dispatch(fetchCart());
+            return;
+          }
+          // Keep the buy-now view intact behind the payment window; it is
+          // cleared by the redirect in onPaymentComplete.
+          paymentWindowOpened = true;
           return;
         }
 
         toast.error("Payment not started", { description: "Razorpay order id missing in response." });
+        dispatch(fetchCart());
         return;
       }
 
       // CART flow + RAZORPAY
       await checkoutCart();
-
-      delayedClearRef.current = setTimeout(() => {
-        dispatch(clearCart());
-        dispatch(fetchCart());
-      }, 2000);
 
       const payload = {
         totalOrderPrice: payableTotal, // final rounded amount including fee if Razorpay
@@ -685,11 +706,6 @@ const CheckoutPageContent: React.FC = () => {
 
       // NO_PAYMENT: skip Razorpay, show friendly order message
       if (isNoPaymentSuccess(transaction)) {
-        delayedClearRef.current = setTimeout(() => {
-          dispatch(clearCart());
-          dispatch(fetchCart());
-        }, 2000);
-
         noPaymentRef.current = true;
         lastOrderCodeRef.current = order?.code ?? null;
 
@@ -713,16 +729,27 @@ const CheckoutPageContent: React.FC = () => {
           customerPhone: user?.phone,
           onComplete: onPaymentComplete,
         });
-        if (err) toast.error("Payment not started", { description: err });
+        if (err) {
+          toast.error("Payment not started", { description: err });
+          dispatch(fetchCart());
+          return;
+        }
+        // The cart stays visible behind the payment window; onPaymentComplete
+        // clears and refetches it once the flow resolves.
+        paymentWindowOpened = true;
         return;
       }
 
       toast.error("Payment not started", { description: "Razorpay order id missing in response." });
+      dispatch(fetchCart());
     } catch (e: unknown) {
       toast.error("Order failed", { description: getErrorMessage(e) });
+      dispatch(fetchCart());
     } finally {
       setIsPlacingOrder(false);
-      dispatch(fetchCart());
+      // Refresh the cart only when no payment window is open — refreshing
+      // while Razorpay is up is what emptied the page behind the modal.
+      if (!paymentWindowOpened) dispatch(fetchCart());
     }
   };
 
