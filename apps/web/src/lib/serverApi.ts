@@ -258,19 +258,56 @@ export async function brandHasProductsServer(brandId: string): Promise<boolean> 
   }
 }
 
-// Get active brands with products
+// Camera brands customers recognise, surfaced first on the homepage in this
+// order. Entries the catalogue does not stock (no brand row / no products)
+// are skipped automatically.
+const FEATURED_BRAND_ORDER = [
+  "Canon",
+  "Nikon",
+  "Sony",
+  "Panasonic",
+  "Fujifilm",
+  "Sigma",
+  "Tamron",
+  "Leica",
+  "Olympus",
+  "Carl Zeiss",
+  "GoPro",
+  "DJI",
+];
+
+const HOME_BRAND_SECTION_LIMIT = 8;
+
+// Get active brands with products — famous camera brands first, then any
+// remaining brands visible in the default catalogue scan.
 export async function getActiveBrandsWithProductsServer(): Promise<Brand[]> {
   try {
     const [brands, products] = await Promise.all([
       getActiveBrandsServer(),
       listCatalogProducts({ limit: 20 }),
     ]);
+
+    const byName = new Map(
+      brands.map((brand) => [brand.name.toLowerCase(), brand]),
+    );
+    const featured: Brand[] = [];
+    for (const name of FEATURED_BRAND_ORDER) {
+      const brand = byName.get(name.toLowerCase());
+      if (!brand || featured.includes(brand)) continue;
+      if (await brandHasProductsServer(brand._id)) featured.push(brand);
+    }
+
+    const featuredSet = new Set(featured);
     const brandSlugs = new Set(
       products.map((product) => product.brandSlug).filter(Boolean),
     );
-    return brands.filter((brand) =>
-      brandSlugs.has(brand._id) || (brand.slug ? brandSlugs.has(brand.slug) : false)
+    const rest = brands.filter(
+      (brand) =>
+        !featuredSet.has(brand) &&
+        (brandSlugs.has(brand._id) || (brand.slug ? brandSlugs.has(brand.slug) : false)),
     );
+
+    return [...featured, ...rest].slice(0, HOME_BRAND_SECTION_LIMIT);
   } catch (error) {
     console.error('[getActiveBrandsWithProductsServer] Error:', error);
     return [];
