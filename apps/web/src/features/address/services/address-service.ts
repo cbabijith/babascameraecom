@@ -30,6 +30,7 @@ export async function listUserAddresses(userId: string) {
 export async function createUserAddress(input: {
   userId: string;
   label: string;
+  building: string | null;
   line1: string;
   line2: string | null;
   city: string;
@@ -86,23 +87,46 @@ export async function setDefaultUserAddress(
 
 /* ---------------- High-level API mapping helpers ---------------- */
 
+/**
+ * Legacy storefront contract: the profile/checkout UIs render name, phone,
+ * building, addressType, landmark and postalCode, so every read returns the
+ * full shape — name/phone come from the signed-in profile (the addresses
+ * table has no per-address identity columns) and landmark is stored in
+ * line2, which is what the address form saves it as.
+ */
+function toLegacyAddress(
+  user: { name: string; phone?: string | null },
+  addr: typeof addresses.$inferSelect,
+) {
+  return {
+    _id: addr.id,
+    id: addr.id,
+    user: addr.userId,
+    label: addr.label,
+    addressType: addr.label,
+    name: user.name,
+    phone: user.phone ?? "",
+    building: addr.building ?? "",
+    line1: addr.line1,
+    line2: "",
+    landmark: addr.line2 ?? "",
+    city: addr.city,
+    state: addr.state,
+    country: addr.country,
+    pincode: addr.pincode,
+    postalCode: addr.pincode,
+    isDefault: addr.isDefault,
+    status: "Active" as const,
+    createdAt: addr.createdAt.toISOString(),
+  };
+}
+
 export async function getUserAddresses() {
   try {
     const user = await getOptionalUser();
     if (!user) return [];
     const rows = await listUserAddresses(user.id);
-    return rows.map((addr) => ({
-      _id: addr.id,
-      id: addr.id,
-      label: addr.label,
-      line1: addr.line1,
-      line2: addr.line2 ?? "",
-      city: addr.city,
-      state: addr.state,
-      pincode: addr.pincode,
-      country: addr.country,
-      isDefault: addr.isDefault,
-    }));
+    return rows.map((addr) => toLegacyAddress(user, addr));
   } catch (error: unknown) {
     throw new AddressDataError(
       error instanceof Error ? error.message : "Failed to fetch addresses",
@@ -114,6 +138,7 @@ export async function getUserAddresses() {
 
 export async function updateUserAddress(addressId: string, input: Partial<{
   label: string;
+  building: string;
   line1: string;
   line2: string;
   city: string;
@@ -133,7 +158,7 @@ export async function updateUserAddress(addressId: string, input: Partial<{
       .where(and(eq(addresses.id, addressId), eq(addresses.userId, user.id)))
       .returning();
     if (!updated) throw new AddressDataError("Address not found", 404);
-    return { _id: updated.id, ...updated };
+    return toLegacyAddress(user, updated);
   } catch (error: unknown) {
     if (error instanceof AddressDataError) throw error;
     throw new AddressDataError(
@@ -150,7 +175,10 @@ export async function addUserAddress(rawInput: Record<string, unknown>) {
     if (!user) throw new AddressDataError("Authentication required to add an address.", 401);
 
     const label = (rawInput.label || rawInput.addressType || rawInput.name || "Home").toString().trim();
-    const line1 = (rawInput.line1 || rawInput.building || "").toString().trim();
+    // The form's required "House / Flat / Apartment" field is `building`;
+    // persist it in its own column instead of dropping it when line1 exists.
+    const building = (rawInput.building ?? "").toString().trim();
+    const line1 = (rawInput.line1 || building || "").toString().trim();
     const line2 = rawInput.line2 || rawInput.landmark || null;
     const city = (rawInput.city || "").toString().trim();
     const state = (rawInput.state || "").toString().trim();
@@ -158,7 +186,7 @@ export async function addUserAddress(rawInput: Record<string, unknown>) {
     const country = (rawInput.country || "India").toString().trim();
     const isDefault = Boolean(rawInput.isDefault);
 
-    if (!line1) throw new AddressDataError("Address Line 1 is required", 400);
+    if (!building && !line1) throw new AddressDataError("House / Flat / Apartment is required", 400);
     if (!city) throw new AddressDataError("City is required", 400);
     if (!state) throw new AddressDataError("State is required", 400);
     if (!pincode) throw new AddressDataError("PIN code is required", 400);
@@ -166,6 +194,7 @@ export async function addUserAddress(rawInput: Record<string, unknown>) {
     const created = await createUserAddress({
       userId: user.id,
       label,
+      building: building || null,
       line1,
       line2: line2 ? line2.toString().trim() : null,
       city,
@@ -175,18 +204,7 @@ export async function addUserAddress(rawInput: Record<string, unknown>) {
       isDefault,
     });
 
-    return {
-      _id: created.id,
-      id: created.id,
-      label: created.label,
-      line1: created.line1,
-      line2: created.line2 ?? "",
-      city: created.city,
-      state: created.state,
-      pincode: created.pincode,
-      country: created.country,
-      isDefault: created.isDefault,
-    };
+    return toLegacyAddress(user, created);
   } catch (error: unknown) {
     if (error instanceof AddressDataError) throw error;
     throw new AddressDataError(

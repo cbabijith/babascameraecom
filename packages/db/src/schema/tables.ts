@@ -125,6 +125,7 @@ export const addresses = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     label: text("label").notNull(),
+    building: text("building"),
     line1: text("line1").notNull(),
     line2: text("line2"),
     city: text("city").notNull(),

@@ -29,6 +29,13 @@
       "when": 1789444000000,
       "tag": "20260915100000_home_banners_same_media",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789492200000,
+      "tag": "20260918090000_addresses_building",
+      "breakpoints": true
     }
   ]
 }

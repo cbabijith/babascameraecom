@@ -17,7 +17,8 @@ export const dynamic = "force-dynamic";
 
 const addressSchema = z.object({
   label: z.string().trim().min(2).max(40),
-  line1: z.string().trim().min(5).max(180),
+  building: z.string().trim().max(180).optional(),
+  line1: z.string().trim().min(1).max(180),
   line2: z.string().trim().max(180).optional(),
   city: z.string().trim().min(2).max(80),
   state: z.string().trim().min(2).max(80),
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
     const address = await createUserAddress({
       userId: user.id,
       label: parsed.data.label,
+      building: parsed.data.building || null,
       line1: parsed.data.line1,
       line2: parsed.data.line2 || null,
       city: parsed.data.city,
