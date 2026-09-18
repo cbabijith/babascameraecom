@@ -3,8 +3,10 @@
 import {
   and,
   asc,
+  brands,
   cartItems,
   carts,
+  categories,
   desc,
   eq,
   getDatabase,
@@ -223,10 +225,18 @@ export async function getCartForOwner(owner: CartOwner) {
       quantity: cartItems.quantity,
       stock: products.stock,
       variantStock: productVariants.stock,
+      categoryId: categories.id,
+      categoryName: categories.name,
+      categorySlug: categories.slug,
+      brandId: brands.id,
+      brandName: brands.name,
+      brandSlug: brands.slug,
     })
     .from(cartItems)
     .innerJoin(products, eq(cartItems.productId, products.id))
     .leftJoin(productVariants, eq(cartItems.variantId, productVariants.id))
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(brands, eq(products.brandId, brands.id))
     .where(eq(cartItems.cartId, cartId))
     .orderBy(desc(cartItems.createdAt));
   const images = rows.length
@@ -387,8 +397,16 @@ function mapToCartItem(
       images: row.image
         ? [{ id: "img_1", url: row.image, key: row.image, isPrimary: true, altText: row.productName }]
         : [],
-      category: { id: "cat_1", name: "Camera Gear", slug: "camera-gear" },
-      brand: { id: "brand_1", name: "Baba's Camera", slug: "babas-camera" },
+      category: {
+        id: row.categoryId ?? "cat_1",
+        name: row.categoryName ?? "Camera Gear",
+        slug: row.categorySlug ?? "camera-gear",
+      },
+      brand: {
+        id: row.brandId ?? "brand_1",
+        name: row.brandName ?? "Baba's Camera",
+        slug: row.brandSlug ?? "babas-camera",
+      },
       isFeatured: false,
       averageRating: 5,
       reviewCount: 0,

@@ -12,6 +12,11 @@ import { toast } from "sonner";
 import DeliveryAddressCard from "@/components/checkout/deliveryAddressCard";
 import CheckoutItemCard from "@/components/checkout/checkoutItemCard";
 import CheckoutSummary from "@/components/checkout/checkoutSummary";
+import {
+  clearAppliedCouponCode,
+  getAppliedCouponCode,
+  previewCoupon,
+} from "@/lib/commerce/coupon-storage";
 import AddressModal from "@/components/checkout/addressModal";
 import AppBreadcrumb from "@/components/common/app-breadcrumb";
 
@@ -455,6 +460,34 @@ const CheckoutPageContent: React.FC = () => {
     return sum + price * qty;
   }, 0);
 
+  // Coupon — revalidated against the server preview so the displayed
+  // discount matches what order placement charges. Buy-now flow has no
+  // cart, so coupons do not apply there.
+  const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null);
+
+  useEffect(() => {
+    if (isBuyNow) return;
+    let mounted = true;
+    const stored = getAppliedCouponCode();
+    if (!stored) return;
+    (async () => {
+      try {
+        const preview = await previewCoupon(stored);
+        if (!mounted) return;
+        if (preview.ok && preview.code && Number(preview.discount) > 0) {
+          setCoupon({ code: preview.code, discount: Number(preview.discount) });
+        } else {
+          clearAppliedCouponCode();
+        }
+      } catch {
+        /* keep quiet — order placement revalidates anyway */
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [isBuyNow]);
+
   const deliveryCharge = useMemo(() => {
     if (itemsTotal <= 0) return 0;
     const { enableFreeDelivery, freeDeliveryThreshold, deliveryChargeFlat } = deliverySettings;
@@ -467,8 +500,9 @@ const CheckoutPageContent: React.FC = () => {
       : Math.max(0, toNumber(deliveryChargeFlat));
   }, [itemsTotal, deliverySettings]);
 
-  // Base (items + delivery)
-  const baseTotal = itemsTotal + deliveryCharge;
+  // Base (items − coupon + delivery)
+  const couponDiscount = isBuyNow ? 0 : coupon?.discount ?? 0;
+  const baseTotal = itemsTotal - couponDiscount + deliveryCharge;
 
   // Platform fee calculation (2.42%) - always calculate for display purposes
   const platformFeeCalc = Math.round(baseTotal * 242) / 10000;
@@ -536,6 +570,7 @@ const CheckoutPageContent: React.FC = () => {
             : "Your order is confirmed. No payment was required.",
         });
         dispatch(clearCart());
+        clearAppliedCouponCode();
         dispatch(fetchCart());
         router.push("/orders");
       } else if (
@@ -576,12 +611,14 @@ const CheckoutPageContent: React.FC = () => {
           });
         } finally {
           dispatch(clearCart());
+          clearAppliedCouponCode();
           dispatch(fetchCart());
           router.push("/orders");
         }
       } else {
         toast.success("Payment successful", { description: "Your order is confirmed." });
         dispatch(clearCart());
+        clearAppliedCouponCode();
         dispatch(fetchCart());
         router.push("/orders");
       }
@@ -699,6 +736,7 @@ const CheckoutPageContent: React.FC = () => {
         shippingAddress: selectedAddressId,
         deliveryCharge,
         method: "RAZORPAY",
+        ...(coupon && !isBuyNow ? { couponCode: coupon.code } : {}),
       };
 
       const resp = await createOrder(payload);
@@ -977,6 +1015,8 @@ const CheckoutPageContent: React.FC = () => {
                 avoidedFee={platformFeeCalc}
                 total={payableTotal}
                 itemCount={itemCount}
+                couponCode={isBuyNow ? null : coupon?.code ?? null}
+                couponDiscount={isBuyNow ? 0 : coupon?.discount ?? 0}
                 paymentMethod={paymentMethod}
                 onChangePaymentMethod={onChangePaymentMethod}
                 onPlaceOrder={handlePlaceOrder}

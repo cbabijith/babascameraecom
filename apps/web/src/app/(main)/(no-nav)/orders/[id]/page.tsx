@@ -571,6 +571,10 @@ export default function OrderDetailsPage() {
   const grandTotal = order.summary?.total ?? 0;
   const deliveryCharge = Number(order.summary?.deliveryCharge ?? 0);
   const platformCharges = Number(order.summary?.platformCharges ?? 0);
+  const discountAmount = Math.max(
+    0,
+    itemsTotal + deliveryCharge + platformCharges - grandTotal,
+  );
 
 
   const orderPaymentStatus = order.orderPaymentStatus;
@@ -725,6 +729,12 @@ export default function OrderDetailsPage() {
                   <span>Delivery</span>
                   <span>{formatINR(deliveryCharge)}</span>
                 </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Coupon discount</span>
+                    <span>−{formatINR(discountAmount)}</span>
+                  </div>
+                )}
                 {platformCharges > 0 && (
                   <div className="flex justify-between">
                     <span>Payment Gateway Fee (2% + GST)</span>

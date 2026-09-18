@@ -30,6 +30,11 @@ import { Input } from "@/components/ui/input";
 import { checkoutCart, createOrder, createBuyNowOrder } from "@/instances/cartInstance";
 
 import { getSpecificSettings } from "@/instances/settingsInstance";
+import {
+  clearAppliedCouponCode,
+  getAppliedCouponCode,
+  previewCoupon,
+} from "@/lib/commerce/coupon-storage";
 import type { DeliverySettings } from "@/types/settings";
 import { apiClient } from "@/lib/apiClient";
 
@@ -226,7 +231,33 @@ function BankTransferInner() {
       : Math.max(0, toNumber(deliveryChargeFlat));
   }, [itemsTotal, deliverySettings]);
 
-  const baseTotal = itemsTotal + deliveryCharge;
+  // Coupon applied on the cart — revalidated against the preview API; the
+  // amount the customer transfers must match what the order will store.
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  useEffect(() => {
+    if (isBuyNowFlow) return;
+    let mounted = true;
+    const stored = getAppliedCouponCode();
+    if (!stored) return;
+    (async () => {
+      try {
+        const preview = await previewCoupon(stored);
+        if (!mounted) return;
+        if (preview.ok && Number(preview.discount) > 0) {
+          setCouponDiscount(Number(preview.discount));
+        } else {
+          clearAppliedCouponCode();
+        }
+      } catch {
+        /* order submission revalidates */
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [isBuyNowFlow]);
+
+  const baseTotal = Math.max(0, itemsTotal - couponDiscount) + deliveryCharge;
 
   useEffect(() => {
     setAmountString(baseTotal.toFixed(2));
@@ -335,6 +366,7 @@ function BankTransferInner() {
 
         await createBuyNowOrder(payload);
         dispatch(clearCheckoutContext());
+        clearAppliedCouponCode();
         toast.success("Order created", {
           description: "We’ll verify your payment and update the order status.",
         });
@@ -349,6 +381,9 @@ function BankTransferInner() {
         totalOrderPrice: Number(amountString),
         shippingAddress: selectedAddressId,
         method: "BANK_TRANSFER",
+        ...(couponDiscount > 0 && getAppliedCouponCode()
+          ? { couponCode: getAppliedCouponCode() as string }
+          : {}),
         bankTransferDetails: {
           referenceNumber: referenceNumber.trim(),
           accountName: bankName,
@@ -362,6 +397,7 @@ function BankTransferInner() {
 
       dispatch(clearCart());
       dispatch(clearCheckoutContext());
+        clearAppliedCouponCode();
       toast.success("Order created", {
         description: "We’ll verify your payment and update the order status.",
       });
@@ -532,6 +568,15 @@ function BankTransferInner() {
                       ₹{itemsTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
+
+                    {couponDiscount > 0 ? (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-emerald-700">Coupon discount</span>
+                        <span className="text-sm font-[500] text-emerald-700">
+                          −₹{couponDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    ) : null}
                   <div className="flex justify-between">
                     <span className="text-sm text-[#3A3A3C]">Delivery</span>
                     <span className="text-sm font-medium">

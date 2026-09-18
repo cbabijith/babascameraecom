@@ -12,6 +12,8 @@ interface CheckoutSummaryProps {
   avoidedFee: number;           // the potential fee avoided by choosing Bank Transfer
   total: number;                // FINAL payable amount (already rounded to 2 decimals in the page)
   itemCount: number;
+  couponCode?: string | null;
+  couponDiscount?: number;
   paymentMethod: PaymentMethod;
   onChangePaymentMethod: (m: PaymentMethod) => void;
   onPlaceOrder: () => void;
@@ -47,6 +49,8 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
   avoidedFee,
   total,
   itemCount,
+  couponCode = null,
+  couponDiscount = 0,
   paymentMethod,
   onChangePaymentMethod,
   onPlaceOrder,
@@ -76,6 +80,14 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
             <span className="text-[15px] font-[400] text-[#3A3A3C]">Items ({itemCount})</span>
             <span className="text-[14px] font-[500] text-[#1E293B]">{rupee(itemsTotal)}</span>
           </div>
+
+          {/* Coupon discount */}
+          {couponCode && couponDiscount > 0 ? (
+            <div className="flex justify-between items-center">
+              <span className="text-[15px] font-[400] text-emerald-700">Coupon {couponCode}</span>
+              <span className="text-[14px] font-[500] text-emerald-700">−{rupee(couponDiscount)}</span>
+            </div>
+          ) : null}
 
           {/* Delivery */}
           <div className="flex justify-between items-center">

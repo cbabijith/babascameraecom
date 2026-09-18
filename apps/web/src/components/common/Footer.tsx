@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Instagram, Linkedin, Facebook, Twitter } from "lucide-react";
+import { Instagram, Linkedin, Facebook } from "lucide-react";
 import { getCategories } from "@/instances/categoryInstance";
 import { getProductsByCategory } from "@/instances/productInstance";
 import type { Category } from "@/types/product";
@@ -202,14 +202,6 @@ export default function Footer() {
     <Facebook className="w-5 h-5 text-black" />
   </Link>
   <Link
-    href="https://x.com"
-    aria-label="Twitter"
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    <Twitter className="w-5 h-5 text-black" />
-  </Link>
-  <Link
     href="https://www.instagram.com/babas_photostore/?hl=en"
     aria-label="Instagram"
     target="_blank"
@@ -240,14 +232,6 @@ export default function Footer() {
       rel="noopener noreferrer"
     >
       <Facebook className="w-5 h-5 text-black" />
-    </Link>
-    <Link
-      href="https://x.com"
-      aria-label="Twitter"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      <Twitter className="w-5 h-5 text-black" />
     </Link>
     <Link
       href="https://www.instagram.com/babas_photostore/?hl=en"

@@ -191,19 +191,17 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </Card>
           ) : null}
 
-          {order.status === "cancelled" ?
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center justify-between">
-                  <span>Payment status adjustment</span>
-                  {order.status === "cancelled" ? <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">Cancelled Order</span> : null}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PaymentStatusForm orderId={order.id} currentPaymentStatus={order.paymentStatus} isCancelled={order.status === "cancelled"} />
-              </CardContent>
-            </Card>
-            : null}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>Payment status</span>
+                {order.status === "cancelled" ? <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">Cancelled Order</span> : null}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PaymentStatusForm orderId={order.id} currentPaymentStatus={order.paymentStatus} isCancelled={order.status === "cancelled"} />
+            </CardContent>
+          </Card>
           <Card><CardHeader><CardTitle>Advance fulfilment</CardTitle></CardHeader><CardContent><OrderTransitionForm orderId={order.id} currentStatus={order.status} allowed={ORDER_TRANSITIONS[order.status]} /></CardContent></Card>
           {canRefund ? <Card className="border-rose-200"><CardHeader><CardTitle>Razorpay refund</CardTitle></CardHeader><CardContent><RefundForm orderId={order.id} /></CardContent></Card> : null}
         </aside>

@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import { Button } from "../ui/button";
 
 interface CartSummaryProps {
@@ -10,6 +12,12 @@ interface CartSummaryProps {
   itemsCount: number;
   hasInvalidItems?: boolean;
   className?: string;
+  couponCode?: string | null;
+  couponDiscount?: number;
+  couponError?: string | null;
+  couponChecking?: boolean;
+  onApplyCoupon?: (code: string) => void | Promise<void>;
+  onRemoveCoupon?: () => void;
 }
 
 const CartSummary: React.FC<CartSummaryProps> = ({
@@ -21,12 +29,20 @@ const CartSummary: React.FC<CartSummaryProps> = ({
   itemsCount,
   hasInvalidItems = false,
   className = "",
+  couponCode = null,
+  couponDiscount = 0,
+  couponError = null,
+  couponChecking = false,
+  onApplyCoupon,
+  onRemoveCoupon,
 }) => {
+  const [codeInput, setCodeInput] = useState("");
+
   return (
     <div className={`bg-white border border-[#E4E4E7] p-4 sm:p-5 sticky top-20 mb-4 rounded-2xl ${className}`}>
       <h2
         className="text-[20px] font-[650] text-[#3A3A3C] mb-4"
-       
+
       >
         Summary
       </h2>
@@ -42,6 +58,29 @@ const CartSummary: React.FC<CartSummaryProps> = ({
           </span>
         </div>
 
+        {/* Coupon discount */}
+        {couponCode && couponDiscount > 0 ? (
+          <div className="flex justify-between items-center">
+            <span className="text-[15px] font-[400] text-emerald-700 flex items-center gap-2">
+              Coupon {couponCode}
+              {onRemoveCoupon ? (
+                <button
+                  type="button"
+                  onClick={onRemoveCoupon}
+                  title="Remove coupon"
+                  aria-label={`Remove coupon ${couponCode}`}
+                  className="text-gray-400 hover:text-red-600"
+                >
+                  ✕
+                </button>
+              ) : null}
+            </span>
+            <span className="text-[14px] font-[500] text-emerald-700">
+              −₹{couponDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+        ) : null}
+
         {/* Delivery */}
         <div className="flex justify-between items-center">
           <span className="text-[15px] font-[400] text-[#3A3A3C]">
@@ -52,6 +91,38 @@ const CartSummary: React.FC<CartSummaryProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Coupon entry */}
+      {onApplyCoupon ? (
+        couponCode && couponDiscount > 0 ? null : (
+          <div className="mb-4">
+            <div className="flex gap-2">
+              <input
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+                placeholder="Coupon code"
+                aria-label="Coupon code"
+                autoComplete="off"
+                className="h-9 flex-1 rounded-lg border border-[#E4E4E7] px-3 text-[13px] uppercase focus:outline-none focus:ring-1 focus:ring-[#E72429]"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={couponChecking || codeInput.trim().length < 2}
+                onClick={() => onApplyCoupon(codeInput.trim())}
+                className="h-9 px-4 text-[13px] rounded-lg"
+              >
+                {couponChecking ? "Checking…" : "Apply"}
+              </Button>
+            </div>
+            {couponError ? (
+              <p role="status" className="mt-2 text-xs text-red-600">
+                {couponError}
+              </p>
+            ) : null}
+          </div>
+        )
+      ) : null}
 
       {/* Total */}
       <div className="border-t border-[#E4E4E7] pt-3 mb-4">

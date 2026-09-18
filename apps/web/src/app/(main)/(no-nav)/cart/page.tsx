@@ -26,6 +26,12 @@ import AppBreadcrumb from "@/components/common/app-breadcrumb";
 // NEW
 import { getSpecificSettings } from "@/instances/settingsInstance";
 import type { DeliverySettings } from "@/types/settings";
+import {
+  clearAppliedCouponCode,
+  getAppliedCouponCode,
+  previewCoupon,
+  setAppliedCouponCode,
+} from "@/lib/commerce/coupon-storage";
 
 // Safe number coercion (no `any`)
 const toNumber = (v: unknown): number => {
@@ -98,6 +104,62 @@ const CartPage: React.FC = () => {
 
   // NEW: Delivery settings state
   const [deliverySettings, setDeliverySettings] = useState<Required<DeliverySettings>>(DELIVERY_DEFAULTS);
+
+  // Coupon state — validated against the server preview API so the numbers
+  // here match what order placement will actually charge.
+  const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponChecking, setCouponChecking] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const stored = getAppliedCouponCode();
+    if (!stored) return;
+    (async () => {
+      try {
+        const preview = await previewCoupon(stored);
+        if (!mounted) return;
+        if (preview.ok && preview.code && Number(preview.discount) > 0) {
+          setCoupon({ code: preview.code, discount: Number(preview.discount) });
+        } else {
+          clearAppliedCouponCode();
+          setCouponError(preview.message || null);
+        }
+      } catch {
+        /* offline — keep silent */
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleApplyCoupon = async (code: string) => {
+    if (!code) return;
+    setCouponChecking(true);
+    setCouponError(null);
+    try {
+      const preview = await previewCoupon(code);
+      if (preview.ok && preview.code && Number(preview.discount) > 0) {
+        setAppliedCouponCode(preview.code);
+        setCoupon({ code: preview.code, discount: Number(preview.discount) });
+      } else {
+        clearAppliedCouponCode();
+        setCoupon(null);
+        setCouponError(preview.message || "Coupon could not be applied.");
+      }
+    } catch {
+      setCouponError("Could not check the coupon. Please try again.");
+    } finally {
+      setCouponChecking(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    clearAppliedCouponCode();
+    setCoupon(null);
+    setCouponError(null);
+  };
 
   // Fetch Delivery settings (once on mount)
   useEffect(() => {
@@ -182,7 +244,7 @@ const CartPage: React.FC = () => {
       : Math.max(0, toNumber(deliveryChargeFlat));
   }, [itemsTotal, deliverySettings]);
 
-  const total = itemsTotal + deliveryCharge;
+  const total = itemsTotal - (coupon?.discount ?? 0) + deliveryCharge;
 
   // Stock validity:
   // - inStock if product.quantity > 0 (and optional existing status check)
@@ -408,6 +470,12 @@ const CartPage: React.FC = () => {
                 isCheckoutDisabled={cartItems.length === 0 || hasInvalidItems}
                 hasInvalidItems={hasInvalidItems}
                 className="rounded-2xl"
+                couponCode={coupon?.code ?? null}
+                couponDiscount={coupon?.discount ?? 0}
+                couponError={couponError}
+                couponChecking={couponChecking}
+                onApplyCoupon={handleApplyCoupon}
+                onRemoveCoupon={handleRemoveCoupon}
               />
             </div>
           </div>

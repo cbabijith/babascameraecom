@@ -55,6 +55,7 @@ export interface BankTransferCheckoutPayload {
   totalOrderPrice?: number;
   shippingAddress: string;
   method?: "BANK_TRANSFER" | "RAZORPAY" | "bank_transfer" | "razorpay" | "bank";
+  couponCode?: string;
   bankTransferDetails?: {
     referenceNumber: string;
     accountName: string;
@@ -227,8 +228,46 @@ export async function createOrderFromCheckout(
       !enableFreeDelivery || subtotal < freeDeliveryThreshold
         ? Math.max(0, deliveryChargeFlat)
         : 0;
-    const baseTotal = subtotal + shippingCharge;
     const methodUpper = String(payload.method || "").toUpperCase();
+
+    // Coupon — validated against the same rules as the checkout preview API:
+    // active, not expired, under its usage limit, and the items subtotal
+    // meets the coupon's minimum order amount.
+    let couponDiscount = 0;
+    let appliedCouponId: string | null = null;
+    const trimmedCouponCode = (payload.couponCode || "").trim().toUpperCase();
+    if (trimmedCouponCode) {
+      const [coupon] = await db
+        .select()
+        .from(coupons)
+        .where(eq(coupons.code, trimmedCouponCode))
+        .limit(1);
+      if (
+        !coupon?.isActive ||
+        (coupon.expiresAt && coupon.expiresAt <= new Date()) ||
+        (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) ||
+        subtotal < Number(coupon.minOrderAmount)
+      ) {
+        throw new OrderDataError(
+          "Coupon is invalid, expired, or does not apply to this cart.",
+          400,
+        );
+      }
+      const rawDiscount =
+        coupon.type === "flat"
+          ? Math.min(Number(coupon.value), subtotal)
+          : (subtotal * Number(coupon.value)) / 100;
+      const cappedDiscount = coupon.maxDiscount
+        ? Math.min(rawDiscount, Number(coupon.maxDiscount))
+        : rawDiscount;
+      couponDiscount = Math.min(
+        subtotal,
+        Number(cappedDiscount.toFixed(2)),
+      );
+      appliedCouponId = coupon.id;
+    }
+
+    const baseTotal = subtotal - couponDiscount + shippingCharge;
     const platformFee =
       methodUpper === "RAZORPAY" ? Math.round(baseTotal * 242) / 10000 : 0;
     const grandTotal = Number((baseTotal + platformFee).toFixed(2));
@@ -277,7 +316,7 @@ export async function createOrderFromCheckout(
           customerName: user?.name ?? addressSnapshot.fullName ?? "Guest Customer",
           customerPhone: user?.phone ?? addressSnapshot.phone ?? "",
           subtotal: subtotal.toFixed(2),
-          discount: "0.00",
+          discount: couponDiscount.toFixed(2),
           shippingCharge: shippingCharge.toFixed(2),
           platformCharges: platformFee.toFixed(2),
           total: grandTotal.toFixed(2),
@@ -377,6 +416,23 @@ export async function createOrderFromCheckout(
             : "Order created",
         actorId: user?.id ?? null,
       });
+
+      if (appliedCouponId) {
+        await tx
+          .update(coupons)
+          .set({
+            usedCount: sql`${coupons.usedCount} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(coupons.id, appliedCouponId));
+        await tx.insert(couponRedemptions).values({
+          couponId: appliedCouponId,
+          orderId: createdOrder.id,
+          userId: user?.id ?? null,
+          status: resolvedPaymentMethod === "razorpay" ? "reserved" : "applied",
+          redeemedAt: resolvedPaymentMethod === "razorpay" ? null : new Date(),
+        });
+      }
 
       if (!isBuyNow) {
         const cartCondition = owner.userId
@@ -525,11 +581,19 @@ function mapDbOrderToApiOrder(
     createdAt: order.createdAt.toISOString(),
 
     totalSalePrice: order.subtotal,
+    discountAmount: Number(order.discount),
     deliveryCharges: order.shippingCharge,
     taxAmount: "0.00",
     platformCharges: "0.00",
     totalOrderPrice: order.total,
     totalCapturedAmount: order.paymentStatus === "paid" ? order.total : "0.00",
+    deliveryDetails: order.trackingNumber
+      ? {
+          trackingId: order.trackingNumber,
+          partnerName: order.carrier ?? undefined,
+          url: order.trackingUrl ?? undefined,
+        }
+      : undefined,
     shippingAddress: {
       name: snapshot.fullName || "Customer",
       phone: snapshot.phone || "",
