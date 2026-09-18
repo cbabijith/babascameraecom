@@ -126,6 +126,7 @@ export async function createOrderFromCheckout(
       fullName: user.name || addrRow.label || "Customer",
       phone: user.phone ?? "",
       label: addrRow.label,
+      ...(addrRow.building ? { building: addrRow.building } : {}),
       line1: addrRow.line1,
       line2: addrRow.line2 ?? undefined,
       city: addrRow.city,
