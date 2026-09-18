@@ -7,6 +7,7 @@ export interface ShippingAddressSnapshot {
   readonly fullName: string;
   readonly phone: string;
   readonly label?: string;
+  readonly building?: string;
   readonly line1: string;
   readonly line2?: string;
   readonly city: string;

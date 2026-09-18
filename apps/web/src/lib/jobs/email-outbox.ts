@@ -26,9 +26,33 @@ const EXTRA_PAYLOAD_LABELS: Record<string, string> = {
 };
 
 function renderMessage(row: {
+  template: string;
   subject: string;
   payload: Record<string, unknown>;
 }) {
+  if (row.template === "contact-enquiry") {
+    const contactLabels: Record<string, string> = {
+      name: "Name",
+      phone: "Phone",
+      email: "Email",
+      message: "Message",
+    };
+    const contactLines = Object.entries(contactLabels)
+      .filter(([key]) => String(row.payload[key] ?? "").length > 0)
+      .map(([key, label]) => `${label}: ${String(row.payload[key])}`)
+      .join("\n");
+    const contactHtml = Object.entries(contactLabels)
+      .filter(([key]) => String(row.payload[key] ?? "").length > 0)
+      .map(
+        ([key, label]) =>
+          `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(row.payload[key])}</p>`,
+      )
+      .join("");
+    return {
+      text: `${row.subject}\n\n${contactLines}`,
+      html: `<h1>${escapeHtml(row.subject)}</h1>${contactHtml}`,
+    };
+  }
   const orderNumber = escapeHtml(row.payload.orderNumber);
   const total = escapeHtml(row.payload.total);
   const extras = Object.entries(EXTRA_PAYLOAD_LABELS)
@@ -56,6 +80,7 @@ function renderMessage(row: {
 
 async function deliver(row: {
   toEmail: string;
+  template: string;
   subject: string;
   dedupeKey: string;
   payload: Record<string, unknown>;
@@ -135,6 +160,7 @@ export async function processEmailOutbox(limit = 20) {
     try {
       await deliver({
         toEmail: row.toEmail,
+        template: row.template,
         subject: row.subject,
         dedupeKey: row.dedupeKey,
         payload: row.payload,

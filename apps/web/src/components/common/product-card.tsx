@@ -276,13 +276,11 @@ const ProductCard = ({
 
 {/* PRICE */}
 <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mt-[-2]">
-  <span
-    className={`text-[12px] text-gray-500 line-through order-1 sm:order-none ${
-      originalPrice ? "visible" : "invisible sm:visible"
-    }`}
-  >
-    Rs. {formatPriceWithoutSymbol(originalPrice || 0)}
-  </span>
+  {originalPrice && originalPrice !== price ? (
+    <span className="text-[12px] text-gray-500 line-through order-1 sm:order-none">
+      Rs. {formatPriceWithoutSymbol(originalPrice)}
+    </span>
+  ) : null}
   <span className="text-[14px] font-[750] text-gray-900 order-2 sm:order-none">
     {formatPrice(price)}
   </span>

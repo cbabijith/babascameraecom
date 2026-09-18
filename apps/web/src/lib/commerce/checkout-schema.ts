@@ -8,6 +8,7 @@ export const checkoutInputSchema = z.object({
       fullName: z.string().trim().min(2).max(100),
       phone: z.string().trim().regex(/^[+0-9 ()-]{8,20}$/),
       label: z.string().trim().min(2).max(40).default("Delivery"),
+      building: z.string().trim().max(180).optional(),
       line1: z.string().trim().min(5).max(180),
       line2: z.string().trim().max(180).optional(),
       city: z.string().trim().min(2).max(80),

@@ -72,6 +72,7 @@ export function InvoiceDocument({
           <Text>{address.fullName}</Text>
           <Text>{address.phone}</Text>
           <Text>
+            {address.building ? `${address.building}, ` : ""}
             {address.line1}
             {address.line2 ? `, ${address.line2}` : ""}
           </Text>

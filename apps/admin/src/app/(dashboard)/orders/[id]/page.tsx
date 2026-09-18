@@ -117,7 +117,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <aside className="grid content-start gap-6">
           <Card><CardHeader><CardTitle>Customer and delivery</CardTitle></CardHeader><CardContent className="grid gap-4 text-sm">
             <div><b>{order.customerName ?? address.fullName}</b><p>{order.customerEmail}</p><p>{order.customerPhone ?? address.phone}</p></div>
-            <address className="not-italic text-slate-600">{address.line1}{address.line2 ? <><br />{address.line2}</> : null}<br />{address.city}, {address.state} {address.pincode}<br />{address.country}</address>
+            <address className="not-italic text-slate-600">{address.building ? <>{address.building}<br /></> : null}{address.line1}{address.line2 ? <><br />{address.line2}</> : null}<br />{address.city}, {address.state} {address.pincode}<br />{address.country}</address>
             {order.trackingNumber ? <div><b>{order.carrier}</b><p>{order.trackingNumber}</p>{order.trackingUrl ? <a className="text-sky-700 underline" href={order.trackingUrl} target="_blank" rel="noreferrer">Open tracking</a> : null}</div> : null}
           </CardContent></Card>
 

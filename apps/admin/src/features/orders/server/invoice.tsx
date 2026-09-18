@@ -32,7 +32,7 @@ export function InvoiceDocument({ order }: { order: Order }) {
         <Text style={styles.muted}>Customer: {order.customerName ?? order.customerEmail} · {order.customerEmail}</Text>
         <View style={styles.section}>
           <Text>{address.fullName}</Text><Text>{address.phone}</Text>
-          <Text>{address.line1}{address.line2 ? `, ${address.line2}` : ""}</Text>
+          <Text>{address.building ? `${address.building}, ` : ""}{address.line1}{address.line2 ? `, ${address.line2}` : ""}</Text>
           <Text>{address.city}, {address.state} {address.pincode}, {address.country}</Text>
         </View>
         <View style={styles.section}>

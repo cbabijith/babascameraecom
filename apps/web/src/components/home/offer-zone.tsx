@@ -158,7 +158,7 @@ function OfferStrip({ collection }: { collection: Collection }) {
               {capFirst(collection?.name) || "Offer Zone"}
             </h2>
 
-            {typeof collection?.value === "number" && (
+              {typeof collection?.value === "number" && collection.value > 0 && (
               <span
                 className="text-white text-xs sm:text-sm px-2.5 py-1 rounded-full"
                 style={{ backgroundColor: "#E72429" }}
