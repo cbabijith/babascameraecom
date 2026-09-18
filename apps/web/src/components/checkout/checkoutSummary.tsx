@@ -213,7 +213,7 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
           size="babas"
           onClick={onPlaceOrder}
           disabled={isOrderDisabled}
-          className="w-full max-w-[280px] sm:w-[280px] h-[38px] sm:h-[40px] disabled:bg-gray-400 disabled:cursor-not-allowed rounded-[20px]"
+          className="w-full max-w-[340px] sm:w-[340px] h-12 sm:h-[44px] text-[15px] disabled:bg-gray-400 disabled:cursor-not-allowed rounded-[20px]"
         >
           {isOrderDisabled ? (
             <span className="inline-flex items-center gap-2">

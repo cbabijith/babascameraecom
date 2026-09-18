@@ -148,7 +148,7 @@ const CartSummary: React.FC<CartSummaryProps> = ({
           size="babas"
           onClick={onCheckout}
           disabled={isCheckoutDisabled}
-          className="w-full max-w-[280px] sm:w-[280px] h-[38px] sm:h-[40px] disabled:bg-gray-400 disabled:cursor-not-allowed rounded-xl"
+          className="w-full max-w-[340px] sm:w-[340px] h-12 sm:h-[44px] text-[15px] disabled:bg-gray-400 disabled:cursor-not-allowed rounded-xl"
         >
           Checkout Now
         </Button>

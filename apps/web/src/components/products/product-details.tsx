@@ -456,7 +456,7 @@ export default function ProductDetails({ productId, initialProduct }: ProductDet
         />
       </div>
 
-      <div className="constrained-width py-8 pb-4 md:pb-0">
+      <div className="constrained-width py-8 pb-[140px] md:pb-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Left: Images */}
           <div className="space-y-4">
@@ -1080,8 +1080,11 @@ export default function ProductDetails({ productId, initialProduct }: ProductDet
       </div>
 
       {/* Sticky mobile bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
-        <div className="constrained-width py-3 px-4">
+      <div
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="constrained-width py-2.5 px-4">
           <div className="flex items-center justify-between">
             <span className="text-md font-semibold text-gray-600">Total</span>
             <div className="flex items-center gap-2">
@@ -1100,7 +1103,7 @@ export default function ProductDetails({ productId, initialProduct }: ProductDet
             {isInCart ? (
               <Button
                 variant="outline"
-                className="w-full rounded-full border-red-600 text-red-600 hover:bg-red-50"
+                className="w-full h-12 rounded-full border-red-600 text-red-600 hover:bg-red-50 text-[15px]"
                 onClick={goToCart}
               >
                 Go to Cart
@@ -1108,7 +1111,7 @@ export default function ProductDetails({ productId, initialProduct }: ProductDet
             ) : (
               <Button
                 variant="outline"
-                className="w-full rounded-full border-red-600 text-red-600 hover:bg-red-50"
+                className="w-full h-12 rounded-full border-red-600 text-red-600 hover:bg-red-50 text-[15px]"
                 disabled={!isInStock || isAddingToCart}
                 onClick={handleAddToCart}
               >
@@ -1118,14 +1121,14 @@ export default function ProductDetails({ productId, initialProduct }: ProductDet
 
             {isInStock ? (
               <Button
-                className="w-full rounded-full bg-red-600 text-white hover:bg-red-700"
+                className="w-full h-12 rounded-full bg-red-600 text-white hover:bg-red-700 text-[15px]"
                 onClick={handleBuyNow}
               >
                 {salePrice === 0 ? "Pre Order Now" : "Buy Now"}
               </Button>
             ) : (
               <Button
-                className="w-full rounded-full bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:hover:bg-red-600"
+                className="w-full h-12 rounded-full bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:hover:bg-red-600 text-[15px]"
                 onClick={handleNotifyMe}
                 disabled={isNotifying || isNotified}
                 aria-disabled={isNotified || isNotifying}

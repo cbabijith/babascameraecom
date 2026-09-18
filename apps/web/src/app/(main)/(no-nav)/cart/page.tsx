@@ -260,7 +260,7 @@ const CartPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen constrained-width">
+      <div className="min-h-screen constrained-width pb-24 lg:pb-0">
         <div className="py-3 sm:pt-6">
           <AppBreadcrumb
             items={[
@@ -480,6 +480,33 @@ const CartPage: React.FC = () => {
             </div>
           </div>
         )}
+      {/* Sticky mobile checkout bar */}
+      {user && cartItems.length > 0 && (
+        <div
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E4E4E7] shadow-[0_-2px_10px_rgba(0,0,0,0.06)]"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <div className="constrained-width flex items-center gap-3 px-4 py-2.5">
+            <div className="flex-1 min-w-0">
+              <div className="text-[12px] text-[#475569]">
+                {cartItems.length} item{cartItems.length === 1 ? "" : "s"}
+              </div>
+              <div className="text-[17px] font-[650] text-[#1E293B] truncate">
+                ₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <Button
+              variant="babas"
+              size="babas"
+              onClick={handleCheckout}
+              disabled={hasInvalidItems}
+              className="h-12 px-8 text-[15px] rounded-xl disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              Checkout Now
+            </Button>
+          </div>
+        </div>
+      )}
       </main>
     </div>
   );
