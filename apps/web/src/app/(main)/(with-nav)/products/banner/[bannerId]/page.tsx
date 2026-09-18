@@ -1,6 +1,7 @@
 // src/app/(main)/products/banner/[bannerId]/page.tsx
 
 import BannerProducts from "@/components/products/banner-products"
+import { getBannerDataServer } from "@/lib/serverApi"
 
 // Catalog pages sit behind a high-latency database; ISR keeps the per-page
 // query fan-out amortized to one render per minute instead of per request.
@@ -18,10 +19,12 @@ export default async function BannerProductsPage({ params }: BannerProductsPageP
 }
 
 // Optional: Generate metadata for SEO
-export async function generateMetadata() {
-  
+export async function generateMetadata({ params }: BannerProductsPageProps) {
+  const { bannerId } = await params;
+  const { banner } = await getBannerDataServer(bannerId);
+  const title = banner?.heading;
   return {
-    title: `Banner Products - Babas Photo Store`,
+    title: title ? `${title} | Babas Photo Store` : `Banner Products - Babas Photo Store`,
     description: 'Explore our curated collection of photography equipment and accessories.',
   }
 }

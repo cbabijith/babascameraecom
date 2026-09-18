@@ -1,6 +1,7 @@
 // src/app/(main)/products/brand/[brandId]/page.tsx
 
 import BrandProductList from "@/components/products/brand-product-list"
+import { getBrandPageDataServer } from "@/lib/serverApi"
 import type { Metadata } from "next"
 
 // Catalog pages sit behind a high-latency database; ISR keeps the per-page
@@ -22,9 +23,13 @@ export default async function BrandProductsPage({
 }
 
 export async function generateMetadata({ params }: BrandProductsPageProps): Promise<Metadata> {
-  await params
+  const { brandId } = await params
+  const data = await getBrandPageDataServer(brandId, { limit: 1 })
+  const name = data.brand?.name
   return {
-    title: `Brand Products - Babas Photo Store`,
-    description: `Photography equipment and accessories from various brands`,
+    title: name ? `${name} Products | Babas Photo Store` : "Brand Products - Babas Photo Store",
+    description: name
+      ? `Shop ${name} photography equipment and accessories at Baba's Camera.`
+      : "Photography equipment and accessories from various brands",
   }
 }

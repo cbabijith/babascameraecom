@@ -1,6 +1,7 @@
 // src/app/(main)/products/category/[id]/page.tsx
 
 import CategoryProductList from "@/components/products/category-product-list"
+import { getCategoryPageDataServer } from "@/lib/serverApi"
 import type { Metadata } from "next"
 
 // Catalog pages sit behind a high-latency database; ISR keeps the per-page
@@ -18,9 +19,13 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 }
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
-  await params
+  const { id } = await params
+  const data = await getCategoryPageDataServer(id, { limit: 1 })
+  const name = data.category?.name
   return {
-    title: `Category Products - Babas Photo Store`,
-    description: "Photography equipment and accessories",
+    title: name ? `${name} | Babas Photo Store` : "Category Products - Babas Photo Store",
+    description: name
+      ? `Buy ${name.toLowerCase()} and photography equipment at Baba's Camera.`
+      : "Photography equipment and accessories",
   }
 }

@@ -86,7 +86,7 @@ const handleVerify = () => {
                   <p className="text-gray-600 text-sm leading-relaxed">
                     Please enter the 6-digit OTP sent to
                     <br />
-                    your registered mobile number
+                    your registered email address
                   </p>
                 </div>
 
