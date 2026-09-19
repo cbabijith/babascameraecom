@@ -13,9 +13,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   // Send already-authenticated visitors to the home page. The quick
   // localStorage check is confirmed against the live session before
   // redirecting: after a session expires, stale localStorage must NOT
-  // bounce a returning customer off the login page (they'd be stranded on
-  // the home page with dead credentials). This runs once on mount, so it
-  // cannot hijack the post-login navigation.
+  // bounce a returning customer off the login page. NOTE: get-session
+  // answers 200 with a null body when signed out, so the body must be
+  // inspected — res.ok alone is not proof of a session. This runs once on
+  // mount, so it cannot hijack the post-login navigation.
   useEffect(() => {
     const { token, user } = initializeAuth();
     if (!token || !user) return;
@@ -26,7 +27,11 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           credentials: "include",
         });
         if (!alive) return;
-        if (res.ok) {
+        const data = await res.json().catch(() => null);
+        const signedIn = Boolean(
+          data && (data.user || (data.session && data.session.user)),
+        );
+        if (signedIn) {
           router.replace("/");
         } else {
           // Stale credentials — clear them so the customer can sign in.
