@@ -25,7 +25,7 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
   const normalized = status.toLowerCase();
   return (
     <Badge variant="outline" className={tones[normalized] ?? tones.inactive}>
-      {label ?? normalized.replaceAll("_", " ")}
+      {label ?? normalized.replace(/_/g, " ")}
     </Badge>
   );
 }

@@ -21,6 +21,6 @@ export function formatDate(value: Date | string): string {
 
 export function titleCase(value: string): string {
   return value
-    .replaceAll("_", " ")
+    .replace(/_/g, " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }

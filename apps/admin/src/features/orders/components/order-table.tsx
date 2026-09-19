@@ -35,7 +35,7 @@ const columns: ColumnDef<OrderRow>[] = [
   { accessorKey: "itemCount", header: "Items" },
   { accessorKey: "total", header: "Total", cell: ({ row }) => formatMoney(row.original.total) },
   { accessorKey: "status", header: "Order status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
-  { accessorKey: "paymentStatus", header: "Payment", cell: ({ row }) => <div className="grid gap-1"><StatusBadge status={row.original.paymentStatus} /><small className="uppercase text-slate-500">{row.original.paymentMethod}</small></div> },
+  { accessorKey: "paymentStatus", header: "Payment", cell: ({ row }) => <div className="grid gap-1"><StatusBadge status={row.original.paymentStatus} /><small className="text-slate-500">{humanizePaymentMethod(row.original.paymentMethod)}</small></div> },
   {
     accessorKey: "createdAt",
     header: ({ column }) => <SortableHeading label="Placed" direction={column.getIsSorted()} onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")} />,
@@ -56,6 +56,20 @@ const columns: ColumnDef<OrderRow>[] = [
     ),
   },
 ];
+
+const ORDER_STATUS_OPTIONS = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"] as const;
+
+function humanizePaymentMethod(value: string): string {
+  if (value === "bank_transfer") return "Bank transfer";
+  if (value === "razorpay") return "Razorpay";
+  if (value === "cod") return "Cash on delivery";
+  return value;
+}
+
+function humanizeStatus(value: string): string {
+  return value === "cod" ? "Cash on delivery" : value.replaceAll("_", " ").replace(/^\w/, (c) => c.toUpperCase());
+}
+
 
 export function OrderTable({ data }: { data: OrderRow[] }) {
   const [status, setStatus] = useState("all");
@@ -78,11 +92,12 @@ export function OrderTable({ data }: { data: OrderRow[] }) {
       <div className="flex flex-wrap justify-end gap-2">
         <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 rounded-md border bg-white px-3 text-sm" aria-label="Filter by status">
           <option value="all">All statuses</option>
-          {["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"].map((value) => <option key={value} value={value}>{value}</option>)}
+          {ORDER_STATUS_OPTIONS.map((value) => <option key={value} value={value}>{humanizeStatus(value)}</option>)}
         </select>
         <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className="h-10 rounded-md border bg-white px-3 text-sm" aria-label="Filter by payment method">
           <option value="all">All payment methods</option>
           <option value="razorpay">Razorpay</option>
+          <option value="bank_transfer">Bank transfer</option>
           <option value="cod">Cash on delivery</option>
         </select>
         <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
