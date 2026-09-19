@@ -22,6 +22,11 @@ import {
 
 class ToolError extends Error {}
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value.trim());
+}
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -74,7 +79,11 @@ async function resolveCategory(idOrName: string, autoCreate: boolean): Promise<s
   const [row] = await database
     .select({ id: categories.id, name: categories.name })
     .from(categories)
-    .where(or(eq(categories.id, idOrName), eq(categories.name, idOrName)))
+    .where(
+      isUuid(idOrName)
+        ? or(eq(categories.id, idOrName), eq(categories.name, idOrName))
+        : eq(categories.name, idOrName),
+    )
     .limit(1);
   if (row) return row.id;
   if (!autoCreate) {
@@ -96,7 +105,11 @@ async function resolveBrand(idOrName: string | null | undefined): Promise<string
   const [row] = await database
     .select({ id: brands.id })
     .from(brands)
-    .where(or(eq(brands.id, needle), eq(brands.name, needle)))
+    .where(
+      isUuid(needle)
+        ? or(eq(brands.id, needle), eq(brands.name, needle))
+        : eq(brands.name, needle),
+    )
     .limit(1);
   if (row) return row.id;
   const [created] = await database
@@ -111,8 +124,21 @@ async function findProduct(idOrSlug: string) {
   const [row] = await database
     .select()
     .from(products)
-    .where(or(eq(products.id, idOrSlug), eq(products.slug, idOrSlug)))
+    .where(
+      isUuid(idOrSlug)
+        ? or(eq(products.id, idOrSlug), eq(products.slug, idOrSlug))
+        : eq(products.slug, idOrSlug),
+    )
     .limit(1);
+  if (!row && !isUuid(idOrSlug)) {
+    // also allow lookup by name for friendlier AI usage
+    const [byName] = await database
+      .select()
+      .from(products)
+      .where(ilike(products.name, idOrSlug))
+      .limit(1);
+    if (byName) return byName;
+  }
   if (!row) throw new ToolError(`Product "${idOrSlug}" not found.`);
   return row;
 }
@@ -205,12 +231,16 @@ export async function searchProducts(input: {
   }
   if (input.category) {
     conditions.push(
-      sql`${products.categoryId} in (select id from categories where name ilike ${`%${input.category}%`} or id = ${input.category})`,
+      isUuid(input.category)
+        ? sql`${products.categoryId} in (select id from categories where name ilike ${`%${input.category}%`} or id = ${input.category})`
+        : sql`${products.categoryId} in (select id from categories where name ilike ${`%${input.category}%`})`,
     );
   }
   if (input.brand) {
     conditions.push(
-      sql`${products.brandId} in (select id from brands where name ilike ${`%${input.brand}%`} or id = ${input.brand})`,
+      isUuid(input.brand)
+        ? sql`${products.brandId} in (select id from brands where name ilike ${`%${input.brand}%`} or id = ${input.brand})`
+        : sql`${products.brandId} in (select id from brands where name ilike ${`%${input.brand}%`})`,
     );
   }
   const rows = await database
