@@ -1,4 +1,3 @@
-import nextDynamic from 'next/dynamic';
 import Hero from "@/components/home/hero"
 import Categories from "@/components/home/categories"
 import TopSellers from "@/components/home/top-sellers"
@@ -7,11 +6,13 @@ import BrandsWeLove from "@/components/home/brands-we-love"
 // Revalidate static homepage cache every 60 seconds (ISR)
 export const revalidate = 60;
 
-// Below-fold components - lazy loaded
-const BannerSection = nextDynamic(() => import("@/components/home/banner-section"));
-const OfferZone = nextDynamic(() => import("@/components/home/offer-zone"));
-const StaticContent = nextDynamic(() => import("@/components/home/static-content"));
-const PromotionalCards = nextDynamic(() => import("@/components/home/promotional-cards"));
+// Below-fold components — imported directly. Lazy-loading server components
+// bakes empty suspense shells into the ISR HTML while the client hydrates
+// real content, which React rejects as a hydration mismatch (#418).
+import BannerSection from "@/components/home/banner-section";
+import OfferZone from "@/components/home/offer-zone";
+import StaticContent from "@/components/home/static-content";
+import PromotionalCards from "@/components/home/promotional-cards";
 
 export default function HomePage() {
   return (

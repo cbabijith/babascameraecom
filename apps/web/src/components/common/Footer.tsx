@@ -120,8 +120,7 @@ export default function Footer() {
               <div className="flex flex-col gap-[16px] w-full lg:w-80">
                 <h3 className="font-[650] text-[14px] text-[#000000]">About</h3>
                 <p className="text-[#00000080] text-[14px] font-[400] leading-relaxed">
-                  Babas is a one-stop shop for everything camera and creative. From pre-grade gear to
-                  studio essentials, we&apos;ve got everything photographic, filmmaker and content creator
+                  Babas is a one-stop shop for everything camera and creative. From pro-grade gear to studio essentials, we&apos;ve got everything photographic, filmmaker and content creator
                   needs. From budget-friendly options to professional-grade equipment, find inspiration
                   for every project at Babas.
                 </p>
