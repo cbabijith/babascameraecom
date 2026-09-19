@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import ReduxProvider from "@/store/providers";
 import GlobalNetworkBanner from "@/components/network/GlobalNetworkBanner";
 import SeoSitewide from "./SeoSitewide";
+import VersionGuard from "@/components/version-guard";
 import { getSeoDefaults } from "@/lib/data/settings";
 
 const siteUrl = "https://www.babascamera.com";
@@ -96,6 +97,9 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         {/* Sitewide structured data (Org + SearchBox) */}
         <SeoSitewide />
+
+        {/* Reload stale tabs after deployments (old bundle vs new server) */}
+        <VersionGuard />
 
         <ReduxProvider>
           <GlobalNetworkBanner />

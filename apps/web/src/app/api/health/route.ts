@@ -11,6 +11,13 @@ export function GET() {
     {
       status: ready ? "ok" : "not_ready",
       app: "storefront",
+      // Lets open tabs detect that a new deployment replaced the one they
+      // were loaded from (see components/version-guard). The commit sha is
+      // public via the GitHub repo.
+      deployment:
+        process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ??
+        process.env.VERCEL_DEPLOYMENT_ID ??
+        null,
     },
     {
       status: ready ? 200 : 503,
