@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * call this again.
  */
 export async function GET(request: Request) {
-  const auth = await authorizeAdminApi(request, "settings:read");
+  const auth = await authorizeAdminApi(request, "settings");
   if ("response" in auth) return auth.response;
 
   try {
