@@ -296,7 +296,10 @@ return (
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black/50 z-10" />
             <input
               ref={inputRef}
-              type="text"
+              type="search"
+              name="q"
+              autoComplete="off"
+              aria-label="Search products"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -364,6 +367,10 @@ return (
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black/50" />
                     <input
                       autoFocus
+                      type="search"
+                      name="q"
+                      autoComplete="off"
+                      aria-label="Search products"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleSearch()}

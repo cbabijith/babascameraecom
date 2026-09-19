@@ -245,11 +245,11 @@ function OfferStrip({ collection }: { collection: Collection }) {
                     <div className="flex flex-col items-start">
                       {actual > sale && (
                         <span className="text-xs md:text-sm lg:text-base text-gray-500 line-through font-[500]">
-                          ₹{Number(actual).toLocaleString()}
+                          ₹{Number(actual).toLocaleString("en-IN")}
                         </span>
                       )}
                       <span className="text-sm md:text-lg lg:text-xl text-gray-900 font-[750]">
-                        ₹{Number(sale).toLocaleString()}
+                        ₹{Number(sale).toLocaleString("en-IN")}
                       </span>
                     </div>
 
