@@ -1,100 +1,70 @@
-# Deployment (Railway project `babascamera`)
+# Deployment (Railway `babascamera` + Vercel)
 
-> Rebuilt 2026-10-28 on a fresh Railway project after the previous project
-> (`pg-sg` / `@babascamera/admin` / `user`) was deleted. Both apps, the
-> database, and the public domain wiring below are the current source of truth.
+> Architecture since 2026-10-29: **storefront on Vercel, Hono backend +
+> admin panel + Postgres on Railway**, all auto-deploying from GitHub
+> `main` (`cbabijith/babascameraecom`).
 
-This monorepo deploys **two apps** that share workspace packages
-(`@babascamera/config`, `@babascamera/db`, `@babascamera/ui`):
-
-| App | Railway service | URL | How it deploys |
+| Piece | Platform | Service / Project | URL |
 | --- | --- | --- | --- |
-| `apps/web` | `web` | `https://web-production-8a1eb.up.railway.app` (+ `www.babascamera.com` via the Vercel bridge) | CLI `railway up --service web --ci` from repo root |
-| `apps/admin` | `admin` | `https://admin-production-7718.up.railway.app` | CLI `railway up --service admin --ci` from repo root |
-| Postgres | `Postgres` | `postgres.railway.internal:5432` (private-only) | managed by Railway |
+| `apps/web` (storefront, NO database access) | Vercel | `babascameraecom-web` (team supporttasolutions, git-linked) | https://www.babascamera.com |
+| `apps/backend` (Hono API, owns the DB) | Railway | `backend` | https://backend-production-6cbf.up.railway.app |
+| `apps/admin` (dashboard, direct DB) | Railway | `admin` | https://admin-production-7718.up.railway.app |
+| Postgres | Railway | `Postgres` (private-only) | `postgres.railway.internal:5432` |
 
-Environment variables live on the services (set 2026-10-28), including
-`DATABASE_URL=${{Postgres.DATABASE_URL}}`, better-auth, Razorpay live keys,
-and the Tigris S3 block. Build/start commands are set per service in Railway
-service settings (Railpack; root `railway.json` is no longer read by Railway
-for new projects — see the note at the bottom).
+## How the pieces connect
 
-## The one rule that matters
+- Web's `next.config.ts` proxies **every `/api/*` request** to
+  `BACKEND_ORIGIN` (`beforeFiles` rewrite), so browser calls stay same-origin
+  (auth cookies, CSRF origin checks) while the Hono backend serves them.
+- Server components fetch the backend directly via
+  `apps/web/src/lib/backend-fetch.ts` (public reads cached 60s; session/cart
+  reads forward cookies). Web builds and runs **without `DATABASE_URL`**.
+- The backend mounts the storefront's route handlers (imported verbatim from
+  `apps/web/src/app/api/**`) plus `/api/storefront/rsc/*` endpoints that
+  back the web app's server components. `next/cache`, `next/headers`,
+  `next/server`, and `server-only` are shimmed via `apps/backend/preload.ts`.
+- `BACKEND_TRUSTED_ORIGINS` (backend) lists the storefront origin so the
+  ported same-origin CSRF guard passes behind the proxy.
 
-**Every Railway build must run from the repo root.** The workspace
-`bun install` at the root of the build needs `bun.lock` plus the
-`apps/*` and `packages/*` directories to resolve `workspace:*` deps.
+## Env that matters
 
-A build whose root is `apps/admin` (or `apps/web`) fails at the install
-step with exactly this error:
+- Vercel web: `BACKEND_ORIGIN` (**must be present at build time**), plus the
+  public `NEXT_PUBLIC_*`, better-auth, Razorpay public key. No DB env.
+- Railway backend: `DATABASE_URL=${{Postgres.DATABASE_URL}}`,
+  `BETTER_AUTH_URL=https://www.babascamera.com`, `BACKEND_TRUSTED_ORIGINS`,
+  the full storefront secret set (Razorpay, S3/Tigris, Google, CRON_SECRET).
+- Railway admin: unchanged (direct DB via private network).
 
-```
-error: Workspace dependency "@babascamera/config" not found
-error: Workspace dependency "@babascamera/db" not found
-error: Workspace dependency "@babascamera/ui" not found
-```
+## Gotchas learned the hard way
 
-Always run `railway up` from the repo root, never from inside an app dir.
+- **Turbo strips undeclared env vars**: `turbo.json > globalEnv` must list
+  every env the build reads (BACKEND_ORIGIN is there now). Symptom of
+  forgetting: Vercel build succeeds but rewrites/data calls act unconfigured.
+- `vercel redeploy` reuses the old build artifact; push a commit (or bump the
+  `// deploy:` comment in `next.config.ts`) to force a fresh build.
+- Railway ignores `railway.json` on new projects (IaC transition); build and
+  start commands live in each service's settings in the Railway dashboard.
+- Railway builds must always run from the repo root (workspace `bun install`
+  needs `apps/*` + `packages/*`).
 
 ## Database operations
 
-Postgres is private-only. To run migrations/imports from a laptop, open the
-CLI tunnel and point the repo scripts at it:
+Postgres is private-only. From a laptop:
 
 ```bash
-railway ssh config --service Postgres        # one-time: adds ~/.ssh/config alias
-ssh -N -L 5433:postgres.railway.internal:5432 railway-postgres   # keep open
+railway ssh config --service Postgres        # one-time
+ssh -N -L 5433:postgres.railway.internal:5432 railway-postgres
 
 PGPASS=$(railway variables --service Postgres --kv | grep '^POSTGRES_PASSWORD=' | cut -d= -f2-)
 export DATABASE_URL="postgres://postgres:${PGPASS}@127.0.0.1:5433/railway"
-bun run --cwd packages/db db:compat   # fresh databases only, before db:migrate
 bun run --cwd packages/db db:migrate
-bun scripts/seed-admin.ts             # needs ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD
-python3 … <xlsx-to-json> | bun scripts/import-catalog.ts   # ERP stock import (stdin JSON)
+bun scripts/seed-admin.ts             # ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD
+python3 <xlsx to JSON> | bun scripts/import-catalog.ts   # ERP import (stdin)
 ```
-
-## Custom domain: babascamera.com
-
-DNS for `babascamera.com` lives at the registrar (Hostinger parking
-nameservers) and is **not** API-managed. Today the domain works through a
-bridge: the Vercel project `babascameraecom-web` (team
-`supporttasolutions-projects`) is a files-free deployment whose
-`apps/web/vercel.json` rewrites every request to the Railway web service.
-All application traffic actually runs on Railway.
-
-To host the domain directly on Railway (recommended once registrar access is
-available), the custom domain `www.babascamera.com` is already added to the
-Railway `web` service. Point the registrar DNS at:
-
-```
-CNAME  www                 3r1nwd25.up.railway.app
-TXT    _railway-verify.www railway-verify=290ec72d6511d6114b364ab5e709c59e18de361098e282d54df3c29593edc294
-```
-
-Railway issues the TLS certificate automatically once DNS propagates; the
-Vercel bridge can then be removed by reverting `apps/web/vercel.json` to a
-plain `crons` config and redeploying.
-
-## Cache-bust tokens
-
-Railpack caches build layers, and a changed `buildCommand` invalidates them.
-The service build commands carry `&& echo <app>-cache-bust-YYYYMMDD`. If a
-deploy completes but serves stale behavior, bump the token in the service's
-build command (Railway service settings) and redeploy.
-
-## Note on railway.json deprecation
-
-Railway now ignores `railway.json` on projects created after the
-Infrastructure-as-Code transition (build fails with "No start command
-detected"). The per-service build/start commands for this project are stored
-in Railway service settings; the committed `railway.json` files remain as
-reference copies of the intended commands.
 
 ## Verify after deploying
 
-Check the page title, not the deployment status:
-
-- storefront: "Babas Camera – Camera Equipment Store"
-- admin: "… | Baba's Camera Admin"
-- storefront health: `/api/health/live` → `{"status":"ok"}`
-- admin health: `/api/health` → `{"status":"ok","service":"admin"}`
+- storefront: `https://www.babascamera.com/api/backend/ping` → `{"service":"backend","status":"ok"}`
+- storefront data: `/api/storefront/home?sectionLimit=1` → `"success":true`
+- backend health: `https://backend-production-6cbf.up.railway.app/api/health`
+- admin health: `https://admin-production-7718.up.railway.app/api/health`
