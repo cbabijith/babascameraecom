@@ -45,3 +45,5 @@ db-backups/
 # every fetch call site; kept as local operational tooling instead)
 apps/admin/scripts/live-api-test.ts
 apps/admin/scripts/api-perf-test.ts
+.vercel
+.env*

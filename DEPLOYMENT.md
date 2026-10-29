@@ -1,14 +1,23 @@
-# Deployment (Railway)
+# Deployment (Railway project `babascamera`)
+
+> Rebuilt 2026-10-28 on a fresh Railway project after the previous project
+> (`pg-sg` / `@babascamera/admin` / `user`) was deleted. Both apps, the
+> database, and the public domain wiring below are the current source of truth.
 
 This monorepo deploys **two apps** that share workspace packages
 (`@babascamera/config`, `@babascamera/db`, `@babascamera/ui`):
 
-| App | Railway service | How it deploys |
-| --- | --- | --- |
-| `apps/admin` | `@babascamera/admin` | **GitHub push to `main`** (reads root `railway.json`) |
-| `apps/web` | `user` | CLI `railway up` only (until the Vercel migration), then removed |
+| App | Railway service | URL | How it deploys |
+| --- | --- | --- | --- |
+| `apps/web` | `web` | `https://web-production-8a1eb.up.railway.app` (+ `www.babascamera.com` via the Vercel bridge) | CLI `railway up --service web --ci` from repo root |
+| `apps/admin` | `admin` | `https://admin-production-7718.up.railway.app` | CLI `railway up --service admin --ci` from repo root |
+| Postgres | `Postgres` | `postgres.railway.internal:5432` (private-only) | managed by Railway |
 
-Postgres (`pg-sg`) is private-only and shared by both apps.
+Environment variables live on the services (set 2026-10-28), including
+`DATABASE_URL=${{Postgres.DATABASE_URL}}`, better-auth, Razorpay live keys,
+and the Tigris S3 block. Build/start commands are set per service in Railway
+service settings (Railpack; root `railway.json` is no longer read by Railway
+for new projects — see the note at the bottom).
 
 ## The one rule that matters
 
@@ -25,38 +34,61 @@ error: Workspace dependency "@babascamera/db" not found
 error: Workspace dependency "@babascamera/ui" not found
 ```
 
-That means, in Railway service settings:
+Always run `railway up` from the repo root, never from inside an app dir.
 
-- The admin service **Root Directory must be `/` (empty)** — never
-  `apps/admin`. A subdirectory root hides `packages/**` from the build.
-- Never run `railway up` from inside `apps/admin` or `apps/web`; the CLI
-  uploads the current directory as the build root and hits the same
-  failure. Always run it from the repo root.
+## Database operations
 
-## Why root `railway.json` contains the ADMIN config
-
-Railway reads `railway.json` from the build root, and there is only one
-root — so the committed root file belongs to the app that deploys from
-GitHub: **admin**. Pushes to `main` build admin with the full workspace
-context and need no manual steps.
-
-`apps/admin/railway.json` and `apps/web/railway.json` are the canonical
-per-app copies. The web service is CLI-deployed, and the CLI reads the
-local root `railway.json` at deploy time, so deploying web requires the
-temporary swap (single command chain so it can't race):
+Postgres is private-only. To run migrations/imports from a laptop, open the
+CLI tunnel and point the repo scripts at it:
 
 ```bash
-cp apps/web/railway.json railway.json \
-  && railway up --service user --detach \
-  && cp apps/admin/railway.json railway.json
+railway ssh config --service Postgres        # one-time: adds ~/.ssh/config alias
+ssh -N -L 5433:postgres.railway.internal:5432 railway-postgres   # keep open
+
+PGPASS=$(railway variables --service Postgres --kv | grep '^POSTGRES_PASSWORD=' | cut -d= -f2-)
+export DATABASE_URL="postgres://postgres:${PGPASS}@127.0.0.1:5433/railway"
+bun run --cwd packages/db db:compat   # fresh databases only, before db:migrate
+bun run --cwd packages/db db:migrate
+bun scripts/seed-admin.ts             # needs ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD
+python3 … <xlsx-to-json> | bun scripts/import-catalog.ts   # ERP stock import (stdin JSON)
 ```
+
+## Custom domain: babascamera.com
+
+DNS for `babascamera.com` lives at the registrar (Hostinger parking
+nameservers) and is **not** API-managed. Today the domain works through a
+bridge: the Vercel project `babascameraecom-web` (team
+`supporttasolutions-projects`) is a files-free deployment whose
+`apps/web/vercel.json` rewrites every request to the Railway web service.
+All application traffic actually runs on Railway.
+
+To host the domain directly on Railway (recommended once registrar access is
+available), the custom domain `www.babascamera.com` is already added to the
+Railway `web` service. Point the registrar DNS at:
+
+```
+CNAME  www                 3r1nwd25.up.railway.app
+TXT    _railway-verify.www railway-verify=290ec72d6511d6114b364ab5e709c59e18de361098e282d54df3c29593edc294
+```
+
+Railway issues the TLS certificate automatically once DNS propagates; the
+Vercel bridge can then be removed by reverting `apps/web/vercel.json` to a
+plain `crons` config and redeploying.
 
 ## Cache-bust tokens
 
-Railpack caches build layers, and a changed `buildCommand` invalidates
-them. Each config carries `&& echo <app>-cache-bust-YYYYMMDD`. If a
-deploy completes but serves stale behavior, bump the token in the config
-the deploy used and redeploy.
+Railpack caches build layers, and a changed `buildCommand` invalidates them.
+The service build commands carry `&& echo <app>-cache-bust-YYYYMMDD`. If a
+deploy completes but serves stale behavior, bump the token in the service's
+build command (Railway service settings) and redeploy.
+
+## Note on railway.json deprecation
+
+Railway now ignores `railway.json` on projects created after the
+Infrastructure-as-Code transition (build fails with "No start command
+detected"). The per-service build/start commands for this project are stored
+in Railway service settings; the committed `railway.json` files remain as
+reference copies of the intended commands.
 
 ## Verify after deploying
 
@@ -64,3 +96,5 @@ Check the page title, not the deployment status:
 
 - storefront: "Babas Camera – Camera Equipment Store"
 - admin: "… | Baba's Camera Admin"
+- storefront health: `/api/health/live` → `{"status":"ok"}`
+- admin health: `/api/health` → `{"status":"ok","service":"admin"}`

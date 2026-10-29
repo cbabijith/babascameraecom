@@ -1,9 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [
+  "installCommand": "exit 0",
+  "buildCommand": "exit 0",
+  "outputDirectory": "public",
+  "rewrites": [
     {
-      "path": "/api/internal/jobs",
-      "schedule": "*/5 * * * *"
+      "source": "/",
+      "destination": "https://web-production-8a1eb.up.railway.app/"
+    },
+    {
+      "source": "/:path*",
+      "destination": "https://web-production-8a1eb.up.railway.app/:path*"
     }
   ]
 }
