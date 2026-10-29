@@ -1,7 +1,7 @@
 // src/components/home/brands-we-love.tsx
 // Server Component - fetches brands data server-side
 import { Suspense } from "react";
-import { getActiveBrandsWithProductsServer } from "@/lib/serverApi";
+import { getActiveBrandsWithProductsServer } from "@/lib/serverApiClient";
 import BrandsWeLoveClient from "./brands-we-love-client";
 
 // Skeleton for loading state

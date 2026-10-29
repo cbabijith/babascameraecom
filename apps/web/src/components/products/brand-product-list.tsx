@@ -1,7 +1,7 @@
 // src/components/products/brand-product-list.tsx
 // Server Component - fetches brand and products server-side
 import { Suspense } from "react";
-import { getBrandPageDataServer } from "@/lib/serverApi";
+import { getBrandPageDataServer } from "@/lib/serverApiClient";
 import BrandProductListClient from "./brand-product-list-client";
 import ProductListingSkeleton from "../ui/product-listing-skeleton";
 

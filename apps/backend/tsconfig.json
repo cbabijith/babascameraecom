@@ -1,0 +1,18 @@
+{
+  "extends": "@babascamera/config/ts.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "noEmit": true,
+    "types": ["bun-types"],
+    "paths": {
+      "@/*": ["../web/src/*"],
+      "next/cache": ["./src/shims/next-cache.ts"],
+      "next/headers": ["./src/shims/next-headers.ts"],
+      "next/server": ["./src/shims/next-server.ts"],
+      "server-only": ["./src/shims/server-only.ts"],
+      "client-only": ["./src/shims/client-only.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules"]
+}

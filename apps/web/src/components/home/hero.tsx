@@ -2,8 +2,8 @@
 // Server Component - fetches banner data server-side for LCP optimization
 import { Suspense } from "react";
 import { HeroBannerSkeleton } from "@/components/ui/banner-skeleton";
-import { getHeroBannersServer } from "@/lib/serverApi";
-import { getHomepageHero } from "@/lib/data/settings";
+import { getHeroBannersServer } from "@/lib/serverApiClient";
+import { getHomepageHero } from "@/lib/data/settingsClient";
 import HeroClient from "./hero-client";
 
 // Fallback slide built from the admin "Home page hero" settings, shown only

@@ -85,6 +85,25 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // The storefront serves no API traffic itself: every /api request is
+  // proxied to the Hono backend on Railway (BACKEND_ORIGIN), which owns the
+  // database. beforeFiles ensures the proxy wins over the legacy route
+  // modules that still live under src/app/api (kept as the backend's source
+  // of truth, imported by apps/backend).
+  async rewrites() {
+    const backendOrigin = process.env.BACKEND_ORIGIN?.trim();
+    if (!backendOrigin) return { beforeFiles: [] };
+    return {
+      beforeFiles: [
+        {
+          source: "/api/:path*",
+          destination: `${backendOrigin.replace(/\/+$/, "")}/api/:path*`,
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   async headers() {
     return [
       {

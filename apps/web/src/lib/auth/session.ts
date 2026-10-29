@@ -3,8 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq, getDatabase, users } from "@babascamera/db";
-import { getWebRequest, getWebAuth } from "@/lib/auth/better-auth";
+import { BACKEND_ORIGIN, backendFetchScoped } from "@/lib/backend-fetch";
 import { safeInternalPath } from "./safe-redirect";
 
 export interface SessionUser {
@@ -21,37 +20,10 @@ export const SESSION_COOKIE_NAME = "better-auth.session_token";
 
 async function loadSessionUser(): Promise<SessionUser | null> {
   try {
-    const auth = getWebAuth();
-    const request = await getWebRequest();
-    const session = await auth.api.getSession({ headers: request.headers });
-    if (!session?.user) return null;
-
-    const [profile] = await getDatabase()
-      .select({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        fullName: users.fullName,
-        phone: users.phone,
-        emailVerified: users.emailVerified,
-        isActive: users.isActive,
-        role: users.role,
-      })
-      .from(users)
-      .where(eq(users.id, session.user.id))
-      .limit(1);
-
-    if (!profile) return null;
-
-    return {
-      id: profile.id,
-      email: profile.email,
-      name: profile.name ?? profile.fullName ?? profile.email.split("@")[0],
-      phone: profile.phone,
-      emailVerified: profile.emailVerified,
-      isActive: profile.isActive,
-      role: profile.role,
-    };
+    // The backend owns the database; cookies are forwarded by backendFetch so
+    // the better-auth session resolves against the same browser session.
+    const { user } = await backendFetchScoped<{ user: SessionUser | null }>("/api/storefront/rsc/session");
+    return user;
   } catch (error) {
     console.error("[session] Failed to load session user", error);
     return null;
@@ -88,9 +60,15 @@ export async function requireActiveUser(
 
 export async function signOutSession(): Promise<void> {
   try {
-    const auth = getWebAuth();
-    const request = await getWebRequest();
-    await auth.api.signOut({ headers: request.headers });
+    const cookieHeader = (await cookies()).toString();
+    await fetch(`${BACKEND_ORIGIN}/api/auth/sign-out`, {
+      method: "POST",
+      headers: {
+        ...(cookieHeader ? { cookie: cookieHeader } : {}),
+        "content-type": "application/json",
+      },
+      body: "{}",
+    });
   } catch (error) {
     console.error("[session] Sign out failed", error);
   } finally {

@@ -1,7 +1,7 @@
 // src/components/home/categories.tsx
 // Server Component - fetches category data server-side for LCP optimization
 import { Suspense } from "react";
-import { getCategoriesServer } from "@/lib/serverApi";
+import { getCategoriesServer } from "@/lib/serverApiClient";
 import CategoriesClient from "./categories-client";
 
 // Skeleton component for loading state

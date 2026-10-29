@@ -1,7 +1,7 @@
 // src/components/home/top-sellers.tsx
 // Server Component - fetches popular products server-side
 import { Suspense } from "react";
-import { getPopularProductsServer } from "@/lib/serverApi";
+import { getPopularProductsServer } from "@/lib/serverApiClient";
 import TopSellersClient from "./top-sellers-client";
 
 // Skeleton for loading state

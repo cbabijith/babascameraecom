@@ -1,7 +1,7 @@
 // src/app/(main)/products/brand/[brandId]/page.tsx
 
 import BrandProductList from "@/components/products/brand-product-list"
-import { getBrandPageDataServer } from "@/lib/serverApi"
+import { getBrandPageDataServer } from "@/lib/serverApiClient"
 import type { Metadata } from "next"
 
 // Catalog pages sit behind a high-latency database; ISR keeps the per-page

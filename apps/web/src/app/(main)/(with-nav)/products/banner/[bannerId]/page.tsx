@@ -1,7 +1,7 @@
 // src/app/(main)/products/banner/[bannerId]/page.tsx
 
 import BannerProducts from "@/components/products/banner-products"
-import { getBannerDataServer } from "@/lib/serverApi"
+import { getBannerDataServer } from "@/lib/serverApiClient"
 
 // Catalog pages sit behind a high-latency database; ISR keeps the per-page
 // query fan-out amortized to one render per minute instead of per request.

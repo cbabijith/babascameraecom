@@ -2,7 +2,7 @@ import React from "react";
 import GalleryBanner from "@/components/contactUs/GalleryBanner";
 import MapWithContact from "@/components/contactUs/MapContactSection";
 import AppBreadcrumb from "@/components/common/app-breadcrumb";
-import { getStoreProfile } from "@/lib/data/settings";
+import { getStoreProfile } from "@/lib/data/settingsClient";
 import type { ContactInfo } from "@/components/contactUs/ContactShell";
 
 // Contact details come from the admin "Store profile" settings; the shell

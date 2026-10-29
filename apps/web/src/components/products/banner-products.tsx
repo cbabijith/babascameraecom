@@ -1,7 +1,7 @@
 // src/components/products/banner-products.tsx
 // Server Component - fetches banner data server-side
 import { Suspense } from "react";
-import { getBannerDataServer } from "@/lib/serverApi";
+import { getBannerDataServer } from "@/lib/serverApiClient";
 import BannerProductsClient from "./banner-products-client";
 import { ProductBannerSkeleton } from "@/components/ui/banner-skeleton";
 import ProductCardSkeleton from "@/components/ui/product-card-skeleton";

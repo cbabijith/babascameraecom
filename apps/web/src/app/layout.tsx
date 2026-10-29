@@ -7,7 +7,7 @@ import ReduxProvider from "@/store/providers";
 import GlobalNetworkBanner from "@/components/network/GlobalNetworkBanner";
 import SeoSitewide from "./SeoSitewide";
 import VersionGuard from "@/components/version-guard";
-import { getSeoDefaults } from "@/lib/data/settings";
+import { getSeoDefaults } from "@/lib/data/settingsClient";
 
 const siteUrl = "https://www.babascamera.com";
 const brand = "Babas Camera";

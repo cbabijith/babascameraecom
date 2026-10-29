@@ -1,7 +1,7 @@
 // src/components/products/category-product-list.tsx
 // Server Component - fetches category and products server-side
 import { Suspense } from "react";
-import { getCategoryPageDataServer } from "@/lib/serverApi";
+import { getCategoryPageDataServer } from "@/lib/serverApiClient";
 import CategoryProductListClient from "./category-product-list-client";
 import ProductCardSkeleton from "../ui/product-card-skeleton";
 import AppBreadcrumb from "../common/app-breadcrumb";
